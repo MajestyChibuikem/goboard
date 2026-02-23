@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:3000", "https://gotechboard-7af85.web.app", "https://gotechboard-7af85.firebaseapp.com"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]
+  }
+]

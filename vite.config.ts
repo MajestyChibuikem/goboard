@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      optimizeDeps: {
+        include: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
       }
     };
 });

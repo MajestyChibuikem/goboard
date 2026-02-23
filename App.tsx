@@ -1,12 +1,27 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Project, Category } from './types';
 import { INITIAL_PROJECTS, CATEGORIES } from './constants';
 import { ProjectCard } from './components/ProjectCard';
 import { ProjectDetailView } from './components/ProjectDetailView';
 import { SubmitProjectModal } from './components/SubmitProjectModal';
+import { AuthModal } from './components/AuthModal';
+import { UserProfile } from './components/UserProfile';
+import { AdminQueue } from './components/AdminQueue';
 import { Button } from './components/Button';
-import { Search, Plus, GraduationCap, Menu, X, Tag, Home, TrendingUp, Clock, MessageCircle, Trophy, Zap, Layers } from 'lucide-react';
+import { useAuth } from './contexts/AuthContext';
+import { useToast } from './components/Toast';
+import {
+  subscribeToProjects,
+  createProject,
+  toggleVote,
+  getUserVotes,
+  seedProjects,
+  awardXP,
+  XP_VALUES,
+} from './services/firestoreService';
+import { Search, Plus, GraduationCap, Menu, X, Tag, Home, TrendingUp, Clock, MessageCircle, Trophy, Zap, Layers, LogOut, User, Shield } from 'lucide-react';
 
+type PageView = 'home' | 'profile' | 'admin';
 type SortOption = 'newest' | 'votes' | 'comments';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -19,13 +34,77 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const App: React.FC = () => {
+  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [firestoreReady, setFirestoreReady] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [currentPage, setCurrentPage] = useState<PageView>('home');
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userVotes, setUserVotes] = useState<Set<string>>(new Set());
+
+  const navigateTo = useCallback((page: PageView) => {
+    setCurrentPage(page);
+    setSelectedProject(null);
+  }, []);
+
+  const navigateToProject = useCallback((project: Project) => {
+    setSelectedProject(project);
+    setCurrentPage('home');
+  }, []);
+
+  // Subscribe to Firestore projects (falls back to seed data if Firebase not configured)
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = subscribeToProjects((firestoreProjects) => {
+        if (firestoreProjects.length > 0) {
+          setProjects(firestoreProjects);
+          setFirestoreReady(true);
+        } else if (!firestoreReady) {
+          // Firestore empty — seed it with initial data
+          seedProjects(INITIAL_PROJECTS).catch(console.error);
+        }
+      });
+    } catch (err) {
+      console.warn('Firestore not available, using local data:', err);
+    }
+    return () => unsub?.();
+  }, []);
+
+  // Load user's votes when they sign in
+  useEffect(() => {
+    if (user) {
+      getUserVotes(user.uid).then(setUserVotes).catch(console.error);
+    } else {
+      setUserVotes(new Set());
+    }
+  }, [user]);
+
+  // Keep selectedProject in sync with project list updates
+  useEffect(() => {
+    if (selectedProject) {
+      const updated = projects.find(p => p.id === selectedProject.id);
+      if (updated && updated !== selectedProject) {
+        setSelectedProject(updated);
+      }
+    }
+  }, [projects]);
+
+  // Helper: require auth before an action
+  const requireAuth = useCallback((action: () => void) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    action();
+  }, [user]);
 
   const filteredProjects = useMemo(() => {
     let filtered = projects.filter(project => {
@@ -63,34 +142,73 @@ const App: React.FC = () => {
         .map(([name, data]) => ({ name, ...data }));
   }, [projects]);
 
-  const handleAddProject = (newProjectData: Omit<Project, 'id' | 'likes' | 'datePosted' | 'comments' | 'screenshots'>) => {
-    const newProject: Project = {
-      ...newProjectData,
-      id: Date.now().toString(),
-      likes: 0,
-      datePosted: new Date().toISOString(),
-      comments: [],
-      screenshots: [],
-      status: 'idea',
-      updates: [],
-    };
-    setProjects([newProject, ...projects]);
+  const handleAddProject = async (newProjectData: Omit<Project, 'id' | 'likes' | 'datePosted' | 'comments' | 'screenshots'>) => {
+    if (!user) return;
+    try {
+      await createProject(newProjectData, user.uid);
+      await awardXP(user.uid, XP_VALUES.SUBMIT_PROJECT);
+      toast('Project submitted for review!', 'success');
+    } catch (err) {
+      console.error('Failed to create project:', err);
+      toast('Failed to submit project. Try again.', 'error');
+      // Fallback: add locally
+      const newProject: Project = {
+        ...newProjectData,
+        id: Date.now().toString(),
+        likes: 0,
+        datePosted: new Date().toISOString(),
+        comments: [],
+        screenshots: [],
+        status: newProjectData.status || 'idea',
+        updates: [],
+      };
+      setProjects(prev => [newProject, ...prev]);
+    }
   };
 
-  const handleUpdateProject = (updatedProject: Project) => {
+  const handleUpdateProject = useCallback((updatedProject: Project) => {
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
     if (selectedProject && selectedProject.id === updatedProject.id) {
       setSelectedProject(updatedProject);
     }
-  };
+  }, [selectedProject]);
 
-  const handleVote = (e: React.MouseEvent, projectId: string) => {
+  const handleVote = useCallback((e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      handleUpdateProject({ ...project, likes: project.likes + 1 });
-    }
-  };
+    requireAuth(async () => {
+      if (!user) return;
+
+      // Optimistic UI
+      const wasVoted = userVotes.has(projectId);
+      const newVotes = new Set(userVotes);
+      if (wasVoted) {
+        newVotes.delete(projectId);
+      } else {
+        newVotes.add(projectId);
+      }
+      setUserVotes(newVotes);
+
+      setProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? { ...p, likes: p.likes + (wasVoted ? -1 : 1) }
+          : p
+      ));
+
+      try {
+        await toggleVote(projectId, user.uid);
+      } catch (err) {
+        console.error('Vote failed:', err);
+        toast('Vote failed. Try again.', 'error');
+        // Rollback
+        setUserVotes(userVotes);
+        setProjects(prev => prev.map(p =>
+          p.id === projectId
+            ? { ...p, likes: p.likes + (wasVoted ? 1 : -1) }
+            : p
+        ));
+      }
+    });
+  }, [user, userVotes, requireAuth]);
 
   return (
     <div className="min-h-screen bg-[#fafafa] font-sans text-neutral-900">
@@ -106,7 +224,7 @@ const App: React.FC = () => {
 
             <div
               className="flex items-center gap-2.5 cursor-pointer"
-              onClick={() => setSelectedProject(null)}
+              onClick={() => navigateTo('home')}
             >
               <div className="w-8 h-8 bg-gouni-dark rounded-lg flex items-center justify-center">
                 <GraduationCap className="w-4.5 h-4.5 text-white" />
@@ -130,10 +248,83 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-             <Button variant="primary" className="text-sm h-9 rounded-xl px-5" onClick={() => setIsSubmitModalOpen(true)}>
+             <Button
+               variant="primary"
+               className="text-sm h-9 rounded-xl px-5"
+               onClick={() => requireAuth(() => setIsSubmitModalOpen(true))}
+             >
                <Plus className="w-4 h-4 mr-1.5" />
                Submit
              </Button>
+
+             {/* Auth area */}
+             {authLoading ? (
+               <div className="w-8 h-8 rounded-full bg-neutral-100 animate-pulse" />
+             ) : user ? (
+               <div className="relative">
+                 <button
+                   onClick={() => setShowUserMenu(!showUserMenu)}
+                   className="flex items-center gap-2 p-1 rounded-xl hover:bg-neutral-100 transition-colors"
+                 >
+                   {user.photoURL ? (
+                     <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                   ) : (
+                     <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[12px] font-bold text-gouni-dark">
+                       {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                     </div>
+                   )}
+                 </button>
+
+                 {/* User dropdown */}
+                 {showUserMenu && (
+                   <>
+                     <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                     <div className="absolute right-0 top-12 z-50 w-56 bg-white rounded-xl border border-neutral-200 shadow-float overflow-hidden animate-fade-up">
+                       <div className="p-4 border-b border-neutral-100">
+                         <div className="text-[13px] font-semibold text-neutral-900 truncate">{user.displayName || 'Student'}</div>
+                         <div className="text-[11px] text-neutral-400 truncate">{user.email}</div>
+                         {profile && (
+                           <div className="mt-2 flex items-center gap-2">
+                             <span className="text-[11px] font-medium text-gouni-primary bg-blue-50 px-2 py-0.5 rounded-md">{profile.xp} XP</span>
+                             <span className="text-[11px] text-neutral-400">{profile.rank}</span>
+                           </div>
+                         )}
+                       </div>
+                       <div className="p-1">
+                         <button
+                           onClick={() => { setShowUserMenu(false); navigateTo('profile'); }}
+                           className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-neutral-600 hover:bg-neutral-50 rounded-lg transition-colors"
+                         >
+                           <User className="w-4 h-4" /> My Profile
+                         </button>
+                         {profile?.isAdmin && (
+                           <button
+                             onClick={() => { setShowUserMenu(false); navigateTo('admin'); }}
+                             className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                           >
+                             <Shield className="w-4 h-4" /> Admin Queue
+                           </button>
+                         )}
+                         <button
+                           onClick={() => { setShowUserMenu(false); signOut(); }}
+                           className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                         >
+                           <LogOut className="w-4 h-4" /> Sign Out
+                         </button>
+                       </div>
+                     </div>
+                   </>
+                 )}
+               </div>
+             ) : (
+               <Button
+                 variant="outline"
+                 className="text-sm h-9 rounded-xl px-4"
+                 onClick={() => setIsAuthModalOpen(true)}
+               >
+                 Sign In
+               </Button>
+             )}
           </div>
         </div>
       </header>
@@ -145,9 +336,9 @@ const App: React.FC = () => {
         <nav className="hidden lg:block w-52 shrink-0 sticky top-24 h-fit">
           <div className="space-y-1">
             <button
-              onClick={() => { setSelectedProject(null); setSelectedCategory('All'); }}
+              onClick={() => { navigateTo('home'); setSelectedCategory('All'); }}
               className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
-                !selectedProject && selectedCategory === 'All'
+                currentPage === 'home' && !selectedProject && selectedCategory === 'All'
                   ? 'bg-neutral-900 text-white shadow-sm'
                   : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
               }`}
@@ -160,9 +351,9 @@ const App: React.FC = () => {
             {CATEGORIES.map(cat => (
                <button
                 key={cat}
-                onClick={() => { setSelectedProject(null); setSelectedCategory(cat); }}
+                onClick={() => { navigateTo('home'); setSelectedCategory(cat); }}
                 className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] rounded-xl transition-all ${
-                  selectedCategory === cat
+                  currentPage === 'home' && selectedCategory === cat
                     ? 'bg-neutral-900 text-white shadow-sm'
                     : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
                 }`}
@@ -171,6 +362,37 @@ const App: React.FC = () => {
                 <span className="truncate">{cat}</span>
               </button>
             ))}
+
+            {/* User pages */}
+            {user && (
+              <>
+                <div className="pt-5 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Account</div>
+                <button
+                  onClick={() => navigateTo('profile')}
+                  className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] rounded-xl transition-all ${
+                    currentPage === 'profile'
+                      ? 'bg-neutral-900 text-white shadow-sm'
+                      : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  My Profile
+                </button>
+                {profile?.isAdmin && (
+                  <button
+                    onClick={() => navigateTo('admin')}
+                    className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] rounded-xl transition-all ${
+                      currentPage === 'admin'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-amber-700 hover:bg-amber-50 hover:text-amber-800'
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin Queue
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </nav>
 
@@ -196,8 +418,10 @@ const App: React.FC = () => {
                 </div>
                 <nav className="space-y-1">
                   <button
-                    onClick={() => { setSelectedProject(null); setSelectedCategory('All'); setIsMobileMenuOpen(false); }}
-                    className="flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 font-medium text-neutral-900 bg-neutral-100 rounded-xl text-sm"
+                    onClick={() => { navigateTo('home'); setSelectedCategory('All'); setIsMobileMenuOpen(false); }}
+                    className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 font-medium rounded-xl text-sm ${
+                      currentPage === 'home' && selectedCategory === 'All' ? 'text-neutral-900 bg-neutral-100' : 'text-neutral-500 hover:bg-neutral-50'
+                    }`}
                   >
                     <Home className="w-4 h-4" /> All Projects
                   </button>
@@ -205,13 +429,36 @@ const App: React.FC = () => {
                   {CATEGORIES.map(cat => (
                     <button
                       key={cat}
-                      onClick={() => { setSelectedProject(null); setSelectedCategory(cat); setIsMobileMenuOpen(false); }}
+                      onClick={() => { navigateTo('home'); setSelectedCategory(cat); setIsMobileMenuOpen(false); }}
                       className="flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 rounded-xl"
                     >
                       {CATEGORY_ICONS[cat] || <Tag className="w-4 h-4" />}
                       {cat}
                     </button>
                   ))}
+                  {user && (
+                    <>
+                      <div className="pt-4 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Account</div>
+                      <button
+                        onClick={() => { navigateTo('profile'); setIsMobileMenuOpen(false); }}
+                        className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm rounded-xl ${
+                          currentPage === 'profile' ? 'text-neutral-900 bg-neutral-100 font-medium' : 'text-neutral-500 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <User className="w-4 h-4" /> My Profile
+                      </button>
+                      {profile?.isAdmin && (
+                        <button
+                          onClick={() => { navigateTo('admin'); setIsMobileMenuOpen(false); }}
+                          className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm rounded-xl ${
+                            currentPage === 'admin' ? 'text-amber-800 bg-amber-50 font-medium' : 'text-amber-700 hover:bg-amber-50'
+                          }`}
+                        >
+                          <Shield className="w-4 h-4" /> Admin Queue
+                        </button>
+                      )}
+                    </>
+                  )}
                 </nav>
              </div>
            </div>
@@ -220,7 +467,17 @@ const App: React.FC = () => {
         {/* ── Main Content Area ── */}
         <main className="flex-grow min-w-0">
 
-          {selectedProject ? (
+          {currentPage === 'profile' ? (
+            <UserProfile
+              onBack={() => navigateTo('home')}
+              onProjectClick={navigateToProject}
+            />
+          ) : currentPage === 'admin' ? (
+            <AdminQueue
+              onBack={() => navigateTo('home')}
+              onProjectClick={navigateToProject}
+            />
+          ) : selectedProject ? (
             <ProjectDetailView
               project={selectedProject}
               onBack={() => setSelectedProject(null)}
@@ -228,6 +485,7 @@ const App: React.FC = () => {
               allProjects={projects}
               onProjectClick={setSelectedProject}
               onVote={handleVote}
+              onRequireAuth={() => setIsAuthModalOpen(true)}
             />
           ) : (
             <div>
@@ -280,6 +538,7 @@ const App: React.FC = () => {
                         project={project}
                         onClick={setSelectedProject}
                         onVote={handleVote}
+                        voted={userVotes.has(project.id)}
                       />
                     </div>
                   ))}
@@ -291,7 +550,7 @@ const App: React.FC = () => {
                   </div>
                   <h3 className="text-lg font-semibold text-neutral-900 mb-1">No projects found</h3>
                   <p className="text-sm text-neutral-400 mb-6">Be the first to submit a project in this category</p>
-                  <Button variant="primary" className="rounded-xl" onClick={() => setIsSubmitModalOpen(true)}>
+                  <Button variant="primary" className="rounded-xl" onClick={() => requireAuth(() => setIsSubmitModalOpen(true))}>
                     <Plus className="w-4 h-4 mr-1.5" /> Submit Project
                   </Button>
                 </div>
@@ -354,11 +613,16 @@ const App: React.FC = () => {
 
       </div>
 
+      {/* Modals */}
       {isSubmitModalOpen && (
         <SubmitProjectModal
           onClose={() => setIsSubmitModalOpen(false)}
           onSubmit={handleAddProject}
         />
+      )}
+
+      {isAuthModalOpen && (
+        <AuthModal onClose={() => setIsAuthModalOpen(false)} />
       )}
     </div>
   );

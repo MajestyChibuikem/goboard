@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Upload } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from './Button';
 import { Category, Project } from '../types';
+import { uploadProjectImage } from '../services/firestoreService';
 
 interface SubmitProjectModalProps {
   onClose: () => void;
@@ -19,15 +20,56 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
     demoUrl: '',
     repoUrl: ''
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be under 5MB');
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      ...formData,
-      techStack: formData.techStack.split(',').map(s => s.trim()),
-      imageUrl: `https://picsum.photos/seed/${Math.random()}/800/600`
-    });
-    onClose();
+    setSubmitting(true);
+
+    try {
+      let imageUrl = `https://picsum.photos/seed/${Math.random()}/800/600`;
+
+      // Upload image if provided
+      if (imageFile) {
+        try {
+          const tempId = `temp_${Date.now()}`;
+          imageUrl = await uploadProjectImage(imageFile, tempId, `cover_${imageFile.name}`);
+        } catch (uploadErr) {
+          console.warn('Image upload failed, using placeholder:', uploadErr);
+          // Continue with placeholder image instead of blocking submission
+        }
+      }
+
+      onSubmit({
+        ...formData,
+        techStack: formData.techStack.split(',').map(s => s.trim()),
+        imageUrl,
+        comments: [],
+        screenshots: [],
+        status: 'idea',
+        updates: [],
+      });
+      onClose();
+    } catch (err) {
+      console.error('Submit failed:', err);
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -152,17 +194,44 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
             </div>
           </div>
 
-          {/* Image upload placeholder */}
-          <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer">
-            <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center mb-3">
-              <Upload className="w-5 h-5 text-neutral-400" />
+          {/* Image upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+          {imagePreview ? (
+            <div className="relative rounded-2xl overflow-hidden border border-neutral-200">
+              <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover" />
+              <button
+                type="button"
+                onClick={() => { setImageFile(null); setImagePreview(null); }}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+              <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1 bg-black/50 rounded-lg">
+                <ImageIcon className="w-3 h-3 text-white" />
+                <span className="text-[11px] text-white font-medium">{imageFile?.name}</span>
+              </div>
             </div>
-            <span className="text-[13px] font-medium text-neutral-600">Upload Screenshot</span>
-            <span className="text-[11px] text-neutral-400 mt-1">PNG, JPG up to 5MB</span>
-          </div>
+          ) : (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-neutral-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer"
+            >
+              <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center mb-3">
+                <Upload className="w-5 h-5 text-neutral-400" />
+              </div>
+              <span className="text-[13px] font-medium text-neutral-600">Upload Screenshot</span>
+              <span className="text-[11px] text-neutral-400 mt-1">PNG, JPG up to 5MB</span>
+            </div>
+          )}
 
           <div className="pt-2">
-            <Button type="submit" className="w-full rounded-xl" variant="primary">
+            <Button type="submit" className="w-full rounded-xl" variant="primary" isLoading={submitting}>
               Submit for Review
             </Button>
           </div>

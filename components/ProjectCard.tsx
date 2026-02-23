@@ -8,9 +8,10 @@ interface ProjectCardProps {
   project: Project;
   onClick: (project: Project) => void;
   onVote: (e: React.MouseEvent, projectId: string) => void;
+  voted?: boolean;
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote, voted }) => {
   const badges = getProjectBadges(project);
 
   return (
@@ -68,11 +69,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           </h3>
           <button
             onClick={(e) => { e.stopPropagation(); onVote(e, project.id); }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-surface-border hover:border-orange-300 hover:bg-orange-50 transition-all shrink-0 group/vote"
-            title="Upvote"
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all shrink-0 group/vote ${
+              voted
+                ? 'border-orange-300 bg-orange-50 text-orange-600'
+                : 'border-surface-border hover:border-orange-300 hover:bg-orange-50'
+            }`}
+            title={voted ? 'Remove vote' : 'Upvote'}
           >
-            <ChevronUp className="w-3.5 h-3.5 text-neutral-400 group-hover/vote:text-orange-500" />
-            <span className="text-xs font-semibold text-neutral-600 group-hover/vote:text-orange-600">{project.likes}</span>
+            <ChevronUp className={`w-3.5 h-3.5 ${voted ? 'text-orange-500' : 'text-neutral-400 group-hover/vote:text-orange-500'}`} />
+            <span className={`text-xs font-semibold ${voted ? 'text-orange-600' : 'text-neutral-600 group-hover/vote:text-orange-600'}`}>{project.likes}</span>
           </button>
         </div>
 

@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { Project, Comment, ProjectUpdate, ProjectStatus } from '../types';
 import { generateProjectInsight } from '../services/geminiService';
 import { getProjectBadges } from '../services/utils';
-import { ArrowLeft, ExternalLink, Github, Sparkles, User, Monitor, ThumbsUp, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Github, Sparkles, User, Monitor, ChevronUp } from 'lucide-react';
 import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
 import { AddUpdateForm } from './AddUpdateForm';
 import { formatDate } from '../services/utils';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from './Toast';
+import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardXP, XP_VALUES } from '../services/firestoreService';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -18,6 +21,7 @@ interface ProjectDetailViewProps {
   allProjects: Project[];
   onProjectClick: (project: Project) => void;
   onVote: (e: React.MouseEvent, projectId: string) => void;
+  onRequireAuth: () => void;
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
@@ -26,8 +30,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onUpdateProject,
   allProjects,
   onProjectClick,
-  onVote
+  onVote,
+  onRequireAuth,
 }) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [insight, setInsight] = useState<GeminiInsight | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [activeImage, setActiveImage] = useState(project.imageUrl);
@@ -45,28 +52,58 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setLoadingInsight(false);
   };
 
-  const handleAddComment = (newComment: Comment) => {
-    const updatedProject = {
+  const handleAddComment = async (newComment: Comment) => {
+    // Optimistic update
+    onUpdateProject({
       ...project,
-      comments: [...project.comments, newComment]
-    };
-    onUpdateProject(updatedProject);
+      comments: [...project.comments, newComment],
+    });
+
+    // Persist to Firestore
+    try {
+      await addCommentToFirestore(project.id, newComment);
+      if (user) await awardXP(user.uid, XP_VALUES.LEAVE_COMMENT);
+      toast('Comment posted!', 'success');
+    } catch (err) {
+      console.error('Failed to save comment:', err);
+      toast('Failed to post comment.', 'error');
+    }
   };
 
-  const handleAddUpdate = (updateData: Omit<ProjectUpdate, 'id' | 'date'>) => {
+  const handleAddUpdate = async (updateData: Omit<ProjectUpdate, 'id' | 'date'>) => {
+    if (!user) { onRequireAuth(); return; }
+
     const newUpdate: ProjectUpdate = {
       ...updateData,
       id: Date.now().toString(),
       date: new Date().toISOString(),
     };
+
+    // Optimistic update
     onUpdateProject({
       ...project,
       updates: [...project.updates, newUpdate],
     });
+
+    // Persist
+    try {
+      await addUpdateToFirestore(project.id, newUpdate);
+      toast('Update posted!', 'success');
+    } catch (err) {
+      console.error('Failed to save update:', err);
+      toast('Failed to post update.', 'error');
+    }
   };
 
-  const handleStatusChange = (newStatus: ProjectStatus) => {
+  const handleStatusChange = async (newStatus: ProjectStatus) => {
     onUpdateProject({ ...project, status: newStatus });
+    try {
+      await updateStatusInFirestore(project.id, newStatus);
+      toast(`Status updated to ${STATUS_CONFIG[newStatus].label}`, 'success');
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      toast('Failed to update status.', 'error');
+    }
   };
 
   return (
@@ -205,7 +242,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
 
           {/* Comments */}
-          <CommentSection comments={project.comments} onAddComment={handleAddComment} />
+          <CommentSection comments={project.comments} onAddComment={handleAddComment} onRequireAuth={onRequireAuth} />
 
           {/* Similar Projects */}
           {similarProjects.length > 0 && (
