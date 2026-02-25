@@ -15,6 +15,7 @@ import {
   Timestamp,
   writeBatch,
   arrayUnion,
+  runTransaction,
 } from 'firebase/firestore';
 import {
   ref,
@@ -100,7 +101,13 @@ export async function createProject(
     updates: [],
     authorUid,
     approvalStatus: 'pending',
+    xpMilestonesAwarded: [],
   });
+
+  // Award submission XP + check first project bonus
+  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT);
+  await checkFirstProjectBonus(authorUid);
+
   return docRef.id;
 }
 
@@ -111,8 +118,11 @@ export async function updateProjectField(projectId: string, fields: Partial<Reco
 
 // ─── Voting ───
 
-export async function toggleVote(projectId: string, userId: string): Promise<boolean> {
-  // Vote doc ID = `${userId}_${projectId}` for uniqueness
+export async function toggleVote(
+  projectId: string,
+  userId: string,
+  authorUid?: string
+): Promise<boolean> {
   const voteId = `${userId}_${projectId}`;
   const voteRef = doc(db, 'votes', voteId);
   const projectRef = doc(db, 'projects', projectId);
@@ -126,7 +136,7 @@ export async function toggleVote(projectId: string, userId: string): Promise<boo
     batch.delete(voteRef);
     batch.update(projectRef, { likes: increment(-1) });
     await batch.commit();
-    return false; // unvoted
+    return false;
   } else {
     // New vote
     batch.set(voteRef, {
@@ -136,7 +146,13 @@ export async function toggleVote(projectId: string, userId: string): Promise<boo
     });
     batch.update(projectRef, { likes: increment(1) });
     await batch.commit();
-    return true; // voted
+
+    // Award XP to project author (async, non-blocking)
+    if (authorUid && authorUid !== userId) {
+      awardVoteXP(projectId, userId, authorUid).catch(console.error);
+    }
+
+    return true;
   }
 }
 
@@ -146,6 +162,18 @@ export async function getUserVotes(userId: string): Promise<Set<string>> {
   const votedProjectIds = new Set<string>();
   snap.forEach(doc => votedProjectIds.add(doc.data().projectId));
   return votedProjectIds;
+}
+
+export function subscribeToUserVotes(userId: string, callback: (votes: Set<string>) => void) {
+  const q = query(votesCol, where('userId', '==', userId));
+  return onSnapshot(q, (snapshot) => {
+    const voted = new Set<string>();
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      if (d?.projectId) voted.add(d.projectId);
+    });
+    callback(voted);
+  });
 }
 
 // ─── Comments ───
@@ -197,19 +225,160 @@ export function subscribeToPendingProjects(callback: (projects: Project[]) => vo
 
 // ─── XP ───
 
-export async function awardXP(userId: string, amount: number) {
-  const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, { xp: increment(amount) });
-}
-
-// XP amounts
 export const XP_VALUES = {
   SUBMIT_PROJECT: 50,
-  PROJECT_APPROVED: 25,
-  RECEIVE_VOTE: 2,
-  LEAVE_COMMENT: 5,
-  RECEIVE_COMMENT: 3,
+  PROJECT_APPROVED: 50,
+  RECEIVE_VOTE: 3,
+  LEAVE_COMMENT: 3,
+  RECEIVE_COMMENT: 5,
+  FIRST_PROJECT: 100,
+  VOTE_MILESTONE_10: 25,
+  VOTE_MILESTONE_50: 75,
+  LOGIN_STREAK: 10,
+  COMMENT_XP_DAILY_CAP: 25,
+  MIN_VOTES_FOR_XP: 3,
+  MIN_ACCOUNT_AGE_DAYS: 7,
 } as const;
+
+export async function awardXP(userId: string, amount: number) {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    xp: increment(amount),
+    seasonXp: increment(amount),
+  });
+}
+
+// ─── XP Guardrails ───
+
+function getDateString(date = new Date()): string {
+  return date.toISOString().split('T')[0];
+}
+
+async function isAccountOldEnough(userId: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'users', userId));
+  if (!snap.exists()) return false;
+  const data = snap.data();
+  const joinedAt = data.joinedAt?.toDate?.() || new Date(data.joinedAt);
+  const ageMs = Date.now() - joinedAt.getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  return ageDays >= XP_VALUES.MIN_ACCOUNT_AGE_DAYS;
+}
+
+async function projectHasMinVotes(projectId: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'projects', projectId));
+  if (!snap.exists()) return false;
+  return (snap.data().likes || 0) >= XP_VALUES.MIN_VOTES_FOR_XP;
+}
+
+// ─── Vote XP ───
+
+async function awardVoteXP(
+  projectId: string,
+  voterId: string,
+  authorUid: string
+) {
+  // Votes from new accounts don't award XP
+  const eligible = await isAccountOldEnough(voterId);
+  if (!eligible) return;
+
+  // XP only flows on projects with 3+ votes
+  const hasMinVotes = await projectHasMinVotes(projectId);
+  if (!hasMinVotes) return;
+
+  await awardXP(authorUid, XP_VALUES.RECEIVE_VOTE);
+
+  // Check milestones after the vote
+  await checkVoteMilestones(projectId, authorUid);
+}
+
+async function checkVoteMilestones(projectId: string, authorUid: string) {
+  const projectRef = doc(db, 'projects', projectId);
+
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(projectRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const likes: number = data.likes || 0;
+    const awarded: number[] = data.xpMilestonesAwarded || [];
+
+    const milestones: { threshold: number; xp: number }[] = [
+      { threshold: 10, xp: XP_VALUES.VOTE_MILESTONE_10 },
+      { threshold: 50, xp: XP_VALUES.VOTE_MILESTONE_50 },
+    ];
+
+    let totalBonus = 0;
+    const newAwarded = [...awarded];
+
+    for (const m of milestones) {
+      if (likes >= m.threshold && !awarded.includes(m.threshold)) {
+        totalBonus += m.xp;
+        newAwarded.push(m.threshold);
+      }
+    }
+
+    if (totalBonus > 0) {
+      transaction.update(projectRef, { xpMilestonesAwarded: newAwarded });
+    }
+
+    // XP award happens outside the project transaction to keep it simple
+    // We store the bonus to apply after
+    return totalBonus;
+  }).then(async (bonus) => {
+    if (bonus && bonus > 0) {
+      await awardXP(authorUid, bonus);
+    }
+  });
+}
+
+// ─── Comment XP ───
+
+export async function awardCommentXP(
+  commenterId: string,
+  projectId: string,
+  authorUid?: string
+) {
+  const hasMinVotes = await projectHasMinVotes(projectId);
+  if (!hasMinVotes) return;
+
+  // Award commenter XP (with daily cap)
+  const commenterRef = doc(db, 'users', commenterId);
+  const commenterSnap = await getDoc(commenterRef);
+  if (commenterSnap.exists()) {
+    const data = commenterSnap.data();
+    const today = getDateString();
+    const commentXpToday = data.lastCommentXpDate === today ? (data.commentXpToday || 0) : 0;
+
+    if (commentXpToday < XP_VALUES.COMMENT_XP_DAILY_CAP) {
+      const awardable = Math.min(
+        XP_VALUES.LEAVE_COMMENT,
+        XP_VALUES.COMMENT_XP_DAILY_CAP - commentXpToday
+      );
+      await updateDoc(commenterRef, {
+        xp: increment(awardable),
+        seasonXp: increment(awardable),
+        commentXpToday: commentXpToday + awardable,
+        lastCommentXpDate: today,
+      });
+    }
+  }
+
+  // Award project author XP for receiving a comment
+  if (authorUid && authorUid !== commenterId) {
+    await awardXP(authorUid, XP_VALUES.RECEIVE_COMMENT);
+  }
+}
+
+// ─── First Project Bonus ───
+
+async function checkFirstProjectBonus(authorUid: string) {
+  const q = query(projectsCol, where('authorUid', '==', authorUid));
+  const snap = await getDocs(q);
+  // Count is 1 because the project was just created
+  if (snap.size === 1) {
+    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT);
+  }
+}
 
 // ─── Image Upload ───
 
@@ -225,6 +394,16 @@ export async function uploadProjectImage(
 }
 
 // ─── User Profile ───
+
+export async function uploadUserAvatar(
+  userId: string,
+  file: File
+): Promise<string> {
+  const name = `${Date.now()}_${file.name}`;
+  const storageRef = ref(storage, `users/${userId}/avatar/${name}`);
+  await uploadBytes(storageRef, file);
+  return getDownloadURL(storageRef);
+}
 
 export async function getUserProfile(userId: string) {
   const snap = await getDoc(doc(db, 'users', userId));

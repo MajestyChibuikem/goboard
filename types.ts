@@ -31,6 +31,9 @@ export interface Project {
   comments: Comment[];
   status: ProjectStatus;
   updates: ProjectUpdate[];
+  // Optional fields persisted in Firestore for auth/approval flows
+  authorUid?: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 export type ProjectStatus = 'idea' | 'in-progress' | 'beta' | 'launched';

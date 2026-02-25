@@ -10,7 +10,7 @@ import { AddUpdateForm } from './AddUpdateForm';
 import { formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
-import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardXP, XP_VALUES } from '../services/firestoreService';
+import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP } from '../services/firestoreService';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -22,6 +22,8 @@ interface ProjectDetailViewProps {
   onProjectClick: (project: Project) => void;
   onVote: (e: React.MouseEvent, projectId: string) => void;
   onRequireAuth: () => void;
+  voted?: boolean;
+  disabled?: boolean;
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
@@ -32,6 +34,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onProjectClick,
   onVote,
   onRequireAuth,
+  voted,
+  disabled,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -52,6 +56,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setLoadingInsight(false);
   };
 
+  const authorUid = (project as any).authorUid as string | undefined;
+
   const handleAddComment = async (newComment: Comment) => {
     // Optimistic update
     onUpdateProject({
@@ -62,7 +68,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     // Persist to Firestore
     try {
       await addCommentToFirestore(project.id, newComment);
-      if (user) await awardXP(user.uid, XP_VALUES.LEAVE_COMMENT);
+      if (user) {
+        await awardCommentXP(user.uid, project.id, authorUid);
+      }
       toast('Comment posted!', 'success');
     } catch (err) {
       console.error('Failed to save comment:', err);
@@ -277,10 +285,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <Button
               onClick={(e) => onVote(e, project.id)}
               variant="outline"
-              className="w-full justify-center rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300"
+              disabled={disabled || !user}
+              aria-pressed={!!voted}
+              className={`w-full justify-center rounded-xl border-orange-200 hover:bg-orange-50 hover:border-orange-300 ${
+                voted ? 'bg-orange-50 text-orange-600 border-orange-300' : 'text-neutral-700'
+              }`}
             >
-              <ChevronUp className="w-4 h-4" />
-              Upvote ({project.likes})
+              <ChevronUp className={`w-4 h-4 ${voted ? 'text-orange-500' : ''}`} />
+              {voted ? `Upvoted (${project.likes})` : `Upvote (${project.likes})`}
             </Button>
 
             {project.demoUrl ? (

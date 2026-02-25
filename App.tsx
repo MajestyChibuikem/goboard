@@ -16,8 +16,7 @@ import {
   toggleVote,
   getUserVotes,
   seedProjects,
-  awardXP,
-  XP_VALUES,
+  subscribeToUserVotes,
 } from './services/firestoreService';
 import { Search, Plus, GraduationCap, Menu, X, Tag, Home, TrendingUp, Clock, MessageCircle, Trophy, Zap, Layers, LogOut, User, Shield } from 'lucide-react';
 
@@ -48,6 +47,7 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [userVotes, setUserVotes] = useState<Set<string>>(new Set());
+  const [votingPending, setVotingPending] = useState<Set<string>>(new Set());
 
   const navigateTo = useCallback((page: PageView) => {
     setCurrentPage(page);
@@ -80,11 +80,18 @@ const App: React.FC = () => {
 
   // Load user's votes when they sign in
   useEffect(() => {
-    if (user) {
-      getUserVotes(user.uid).then(setUserVotes).catch(console.error);
-    } else {
+    if (!user) {
       setUserVotes(new Set());
+      return;
     }
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = subscribeToUserVotes(user.uid, setUserVotes);
+    } catch (err) {
+      console.warn('Failed to subscribe to user votes; falling back to one-time fetch', err);
+      getUserVotes(user.uid).then(setUserVotes).catch(console.error);
+    }
+    return () => unsub?.();
   }, [user]);
 
   // Keep selectedProject in sync with project list updates
@@ -145,8 +152,8 @@ const App: React.FC = () => {
   const handleAddProject = async (newProjectData: Omit<Project, 'id' | 'likes' | 'datePosted' | 'comments' | 'screenshots'>) => {
     if (!user) return;
     try {
+      // createProject handles XP internally (submit + first project bonus)
       await createProject(newProjectData, user.uid);
-      await awardXP(user.uid, XP_VALUES.SUBMIT_PROJECT);
       toast('Project submitted for review!', 'success');
     } catch (err) {
       console.error('Failed to create project:', err);
@@ -178,6 +185,18 @@ const App: React.FC = () => {
     requireAuth(async () => {
       if (!user) return;
 
+      // Resolve author for XP award and self-vote guard
+      const project = projects.find(p => p.id === projectId);
+      const authorUid = project?.authorUid;
+      if (authorUid && authorUid === user.uid) {
+        toast("You can't upvote your own project.", 'info');
+        return;
+      }
+
+      // Guard: avoid duplicate in-flight toggles
+      if (votingPending.has(projectId)) return;
+      setVotingPending(prev => new Set(prev).add(projectId));
+
       // Optimistic UI
       const wasVoted = userVotes.has(projectId);
       const newVotes = new Set(userVotes);
@@ -195,20 +214,27 @@ const App: React.FC = () => {
       ));
 
       try {
-        await toggleVote(projectId, user.uid);
-      } catch (err) {
-        console.error('Vote failed:', err);
-        toast('Vote failed. Try again.', 'error');
-        // Rollback
-        setUserVotes(userVotes);
-        setProjects(prev => prev.map(p =>
-          p.id === projectId
-            ? { ...p, likes: p.likes + (wasVoted ? 1 : -1) }
-            : p
-        ));
-      }
+        const added = await toggleVote(projectId, user.uid, authorUid);
+        toast(added ? 'Upvoted!' : 'Removed vote.', 'success');
+       } catch (err) {
+         console.error('Vote failed:', err);
+         toast('Vote failed. Try again.', 'error');
+         // Rollback
+         setUserVotes(userVotes);
+         setProjects(prev => prev.map(p =>
+           p.id === projectId
+             ? { ...p, likes: p.likes + (wasVoted ? 1 : -1) }
+             : p
+         ));
+       } finally {
+         setVotingPending(prev => {
+           const next = new Set(prev);
+           next.delete(projectId);
+           return next;
+         });
+       }
     });
-  }, [user, userVotes, requireAuth]);
+  }, [user, userVotes, projects, requireAuth, votingPending]);
 
   return (
     <div className="min-h-screen bg-[#fafafa] font-sans text-neutral-900">
@@ -486,6 +512,8 @@ const App: React.FC = () => {
               onProjectClick={setSelectedProject}
               onVote={handleVote}
               onRequireAuth={() => setIsAuthModalOpen(true)}
+              voted={userVotes.has(selectedProject.id)}
+              disabled={votingPending.has(selectedProject.id) || (!!user && user.uid === (selectedProject as any).authorUid)}
             />
           ) : (
             <div>
@@ -539,6 +567,7 @@ const App: React.FC = () => {
                         onClick={setSelectedProject}
                         onVote={handleVote}
                         voted={userVotes.has(project.id)}
+                        disabled={votingPending.has(project.id) || (!!user && user.uid === (project as any).authorUid)}
                       />
                     </div>
                   ))}

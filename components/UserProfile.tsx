@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth, getRank } from '../contexts/AuthContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth, getRank, RANK_EMOJIS } from '../contexts/AuthContext';
 import { getUserProjects } from '../services/firestoreService';
 import { Project } from '../types';
-import { ArrowLeft, Mail, Calendar, Zap, Trophy, Layers } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, Zap, Trophy, Layers, Flame } from 'lucide-react';
 import { formatDate } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
 
@@ -16,13 +16,17 @@ const RANK_PROGRESS = [
   { rank: 'Rising Dev', min: 100, max: 299 },
   { rank: 'Code Ninja', min: 300, max: 599 },
   { rank: 'Campus Builder', min: 600, max: 999 },
-  { rank: 'Campus Legend', min: 1000, max: Infinity },
+  { rank: 'Campus Legend', min: 1000, max: 1999 },
+  { rank: 'Hall of Fame', min: 2000, max: Infinity },
 ];
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfilePhoto } = useAuth();
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -34,6 +38,34 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
       setLoading(false);
     }
   }, [user]);
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+
+    // Optional: simple size guard (5MB)
+    const maxSizeBytes = 5 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      setUploadError('Please choose an image smaller than 5MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await updateProfilePhoto(file);
+    } catch (err) {
+      setUploadError('Failed to upload profile photo. Please try again.');
+      console.error(err);
+    } finally {
+      setUploading(false);
+      // Reset the input so the same file can be selected again if needed
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
 
   if (!user || !profile) return null;
 
@@ -56,14 +88,31 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
       {/* Profile header */}
       <div className="bg-white rounded-2xl border border-neutral-200 p-8 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-          {/* Avatar */}
-          {user.photoURL ? (
-            <img src={user.photoURL} alt="" className="w-20 h-20 rounded-2xl object-cover" />
-          ) : (
-            <div className="w-20 h-20 rounded-2xl bg-gouni-secondary flex items-center justify-center text-3xl font-bold text-gouni-dark">
-              {(user.displayName || 'S').charAt(0).toUpperCase()}
-            </div>
-          )}
+          {/* Avatar + upload */}
+          <div className="flex flex-col items-center gap-3">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="" className="w-20 h-20 rounded-2xl object-cover" />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-gouni-secondary flex items-center justify-center text-3xl font-bold text-gouni-dark">
+                {(user.displayName || 'S').charAt(0).toUpperCase()}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="text-[11px] font-medium text-gouni-primary hover:text-gouni-dark transition-colors disabled:opacity-60"
+            >
+              {uploading ? 'Uploading...' : user.photoURL ? 'Change photo' : 'Upload photo'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
 
           <div className="flex-grow">
             <h1 className="text-2xl font-bold text-neutral-900">{user.displayName || 'Student'}</h1>
@@ -84,11 +133,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
         </div>
 
+        {uploadError && (
+          <p className="mt-3 text-[11px] text-red-500">
+            {uploadError}
+          </p>
+        )}
+
         {/* Rank progress */}
         <div className="mt-6 pt-6 border-t border-neutral-100">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-amber-500" />
+              <span className="text-base">{RANK_EMOJIS[profile.rank] || '🎓'}</span>
               <span className="text-[13px] font-bold text-neutral-900">{profile.rank}</span>
             </div>
             {currentTier.max !== Infinity && (
@@ -115,7 +170,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
           <div className="text-2xl font-bold text-neutral-900">{myProjects.length}</div>
           <div className="text-[12px] text-neutral-400 mt-1">Projects</div>
@@ -127,6 +182,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
         <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
           <div className="text-2xl font-bold text-neutral-900">{myProjects.reduce((acc, p) => acc + p.comments.length, 0)}</div>
           <div className="text-[12px] text-neutral-400 mt-1">Comments</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
+          <div className="text-2xl font-bold text-neutral-900">{profile.seasonXp}</div>
+          <div className="text-[12px] text-neutral-400 mt-1">Season XP</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
+          <div className="flex items-center justify-center gap-1">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <span className="text-2xl font-bold text-neutral-900">{profile.streakDays}</span>
+          </div>
+          <div className="text-[12px] text-neutral-400 mt-1">Day Streak</div>
         </div>
       </div>
 

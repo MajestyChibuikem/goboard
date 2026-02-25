@@ -9,9 +9,10 @@ interface ProjectCardProps {
   onClick: (project: Project) => void;
   onVote: (e: React.MouseEvent, projectId: string) => void;
   voted?: boolean;
+  disabled?: boolean;
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote, voted }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote, voted, disabled }) => {
   const badges = getProjectBadges(project);
 
   return (
@@ -69,6 +70,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           </h3>
           <button
             onClick={(e) => { e.stopPropagation(); onVote(e, project.id); }}
+            disabled={disabled}
+            aria-pressed={!!voted}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all shrink-0 group/vote ${
               voted
                 ? 'border-orange-300 bg-orange-50 text-orange-600'
