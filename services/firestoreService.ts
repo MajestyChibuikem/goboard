@@ -196,9 +196,14 @@ export async function addProjectUpdate(projectId: string, update: ProjectUpdate)
   const snap = await getDoc(projectRef);
   if (!snap.exists()) return;
 
+  // Filter out undefined values before storing
+  const cleanUpdate = Object.fromEntries(
+    Object.entries(update).filter(([, v]) => v !== undefined)
+  );
+
   const current = snap.data().updates || [];
   await updateDoc(projectRef, {
-    updates: [...current, update],
+    updates: [...current, cleanUpdate],
   });
 }
 

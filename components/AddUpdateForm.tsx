@@ -20,10 +20,15 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({ currentStatus, onA
     e.preventDefault();
     if (!content.trim()) return;
 
-    onAddUpdate({
+    const updateData: Omit<ProjectUpdate, 'id' | 'date'> = {
       content: content.trim(),
-      milestone: milestone.trim() || undefined,
-    });
+    };
+
+    if (milestone.trim()) {
+      updateData.milestone = milestone.trim();
+    }
+
+    onAddUpdate(updateData);
 
     if (newStatus !== currentStatus) {
       onStatusChange(newStatus);
