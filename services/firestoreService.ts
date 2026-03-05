@@ -16,14 +16,17 @@ import {
   writeBatch,
   arrayUnion,
   runTransaction,
+  setDoc,
+  limit,
 } from 'firebase/firestore';
 import {
   ref,
   uploadBytes,
   getDownloadURL,
 } from 'firebase/storage';
-import { db, storage } from './firebase';
-import { Project, Comment, ProjectUpdate, ProjectStatus } from '../types';
+import { updateProfile } from 'firebase/auth';
+import { db, storage, auth } from './firebase';
+import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice } from '../types';
 
 // ─── Collection refs ───
 
@@ -46,6 +49,7 @@ function projectFromDoc(docSnap: any): Project {
     title: d.title || '',
     description: d.description || '',
     studentName: d.studentName || '',
+    displayName: d.displayName || d.studentName || '',
     level: d.level || '',
     category: d.category || 'Web Development',
     techStack: d.techStack || [],
@@ -54,6 +58,7 @@ function projectFromDoc(docSnap: any): Project {
     likes: d.likes || 0,
     demoUrl: d.demoUrl || undefined,
     repoUrl: d.repoUrl || undefined,
+    websiteUrl: d.websiteUrl || undefined,
     datePosted: tsToISO(d.datePosted),
     comments: d.comments || [],
     status: d.status || 'idea',
@@ -114,6 +119,95 @@ export async function createProject(
 export async function updateProjectField(projectId: string, fields: Partial<Record<string, any>>) {
   const ref = doc(db, 'projects', projectId);
   await updateDoc(ref, fields);
+}
+
+// ─── User Profile Management ───
+
+export async function updateDisplayName(userId: string, newName: string) {
+  const userRef = doc(db, 'users', userId);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) throw new Error('User not found');
+
+  const data = snap.data();
+  if (data.hasEditedDisplayName === true) {
+    throw new Error('You can only edit your display name once');
+  }
+
+  // Update Firestore user doc
+  await updateDoc(userRef, {
+    displayName: newName.trim(),
+    hasEditedDisplayName: true,
+    displayNameEditedAt: new Date().toISOString(),
+  });
+
+  // Update Firebase Auth user profile
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    await updateProfile(currentUser, { displayName: newName.trim() });
+  }
+}
+
+export async function canPostUpdate(projectId: string, userId: string): Promise<boolean> {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+  if (!projectSnap.exists()) return false;
+
+  const projectData = projectSnap.data();
+  if (projectData.authorUid === userId) return true;
+
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return false;
+
+  return userSnap.data().isAdmin === true;
+}
+
+export async function deleteProject(projectId: string, userId: string) {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists() || !userSnap.data().isAdmin) {
+    throw new Error('Only admins can delete projects');
+  }
+
+  // Delete project document
+  await deleteDoc(doc(db, 'projects', projectId));
+
+  // Delete all votes for this project
+  const votesQuery = query(votesCol, where('projectId', '==', projectId));
+  const votesSnap = await getDocs(votesQuery);
+  const batch = writeBatch(db);
+  votesSnap.docs.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
+}
+
+export async function resetDatabase() {
+  console.warn('⚠️  RESETTING DATABASE: Deleting all projects, votes, and comments...');
+
+  // Delete all projects
+  const projectsSnap = await getDocs(projectsCol);
+  let batch = writeBatch(db);
+  projectsSnap.docs.forEach((doc, idx) => {
+    if (idx > 0 && idx % 500 === 0) {
+      batch.commit();
+      batch = writeBatch(db);
+    }
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  // Delete all votes
+  const votesSnap = await getDocs(votesCol);
+  batch = writeBatch(db);
+  votesSnap.docs.forEach((doc, idx) => {
+    if (idx > 0 && idx % 500 === 0) {
+      batch.commit();
+      batch = writeBatch(db);
+    }
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  console.log('✓ Database reset complete. Users collection preserved.');
 }
 
 // ─── Voting ───
@@ -183,18 +277,104 @@ export async function addComment(projectId: string, comment: Comment) {
   const snap = await getDoc(projectRef);
   if (!snap.exists()) return;
 
+  // Ensure parentUpdateId is either null or explicitly set
+  if (!comment.parentUpdateId) {
+    comment.parentUpdateId = null;
+  }
+
+  // Ensure parentCommentId is either null or explicitly set
+  if (!comment.parentCommentId) {
+    comment.parentCommentId = null;
+  }
+
+  const project = snap.data();
   const current = snap.data().comments || [];
   await updateDoc(projectRef, {
     comments: [...current, comment],
   });
+
+  // Create notification for project author if this is a root comment (not a reply)
+  if (!comment.parentCommentId && comment.authorUid && project.authorUid && comment.authorUid !== project.authorUid) {
+    await createNotification({
+      type: 'comment',
+      userId: project.authorUid,
+      triggerUid: comment.authorUid,
+      triggerDisplayName: comment.author,
+      projectId,
+      projectTitle: project.title,
+      commentId: comment.id,
+      ...(comment.parentUpdateId && { parentUpdateId: comment.parentUpdateId }),
+      message: `${comment.author} commented on your project`,
+      previewText: comment.content.substring(0, 100),
+      viewedAt: null,
+      link: {
+        type: 'project',
+        id: projectId,
+      },
+    });
+  }
+
+  // Create notification for parent comment author if this is a reply
+  if (comment.parentCommentId && comment.authorUid) {
+    const parentComment = current.find(c => c.id === comment.parentCommentId);
+    if (parentComment && parentComment.authorUid && parentComment.authorUid !== comment.authorUid) {
+      await createNotification({
+        type: 'reply',
+        userId: parentComment.authorUid,
+        triggerUid: comment.authorUid,
+        triggerDisplayName: comment.author,
+        projectId,
+        projectTitle: project.title,
+        commentId: comment.id,
+        parentCommentId: comment.parentCommentId,
+        message: `${comment.author} replied to your comment`,
+        previewText: comment.content.substring(0, 100),
+        viewedAt: null,
+        link: {
+          type: 'project',
+          id: projectId,
+        },
+      });
+    }
+  }
+
+  // Parse mentions and create notifications for tagged users
+  const mentions = parseMentions(comment.content);
+  for (const mention of mentions) {
+    const mentionedUser = await findUserByDisplayName(mention);
+    if (mentionedUser && mentionedUser.uid && mentionedUser.uid !== comment.authorUid) {
+      await createNotification({
+        type: 'mention',
+        userId: mentionedUser.uid,
+        triggerUid: comment.authorUid || 'unknown',
+        triggerDisplayName: comment.author,
+        projectId,
+        projectTitle: project.title,
+        commentId: comment.id,
+        message: `${comment.author} mentioned you in a comment`,
+        previewText: comment.content.substring(0, 100),
+        viewedAt: null,
+        link: {
+          type: 'project',
+          id: projectId,
+        },
+      });
+    }
+  }
 }
 
 // ─── Project Updates (Build Journey) ───
 
-export async function addProjectUpdate(projectId: string, update: ProjectUpdate) {
+export async function addProjectUpdate(projectId: string, update: ProjectUpdate, userId: string) {
+  // Check if user has permission to post update
+  const hasPermission = await canPostUpdate(projectId, userId);
+  if (!hasPermission) {
+    throw new Error('Only the project creator and admins can post updates');
+  }
+
   const projectRef = doc(db, 'projects', projectId);
   const snap = await getDoc(projectRef);
-  if (!snap.exists()) return;
+  if (!snap.exists()) throw new Error('Project not found');
 
   // Filter out undefined values before storing
   const cleanUpdate = Object.fromEntries(
@@ -214,14 +394,67 @@ export async function updateProjectStatus(projectId: string, status: ProjectStat
 // ─── Admin ───
 
 export async function approveProject(projectId: string) {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+
   await updateProjectField(projectId, { approvalStatus: 'approved' });
+
+  // Create notification for project author
+  if (projectSnap.exists()) {
+    const project = projectSnap.data();
+    if (project.authorUid) {
+      await createNotification({
+        type: 'approval',
+        userId: project.authorUid,
+        triggerUid: 'ADMIN',
+        triggerDisplayName: 'Admin',
+        projectId,
+        projectTitle: project.title,
+        message: `Your project "${project.title}" has been approved!`,
+        previewText: project.description.substring(0, 100),
+        viewedAt: null,
+        link: {
+          type: 'project',
+          id: projectId,
+        },
+      });
+
+      // Award XP to project author
+      await awardXP(project.authorUid, XP_VALUES.PROJECT_APPROVED);
+    }
+  }
 }
 
 export async function rejectProject(projectId: string, reason?: string) {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+
   await updateProjectField(projectId, {
     approvalStatus: 'rejected',
     rejectionReason: reason || '',
   });
+
+  // Create notification for project author
+  if (projectSnap.exists()) {
+    const project = projectSnap.data();
+    if (project.authorUid) {
+      await createNotification({
+        type: 'rejection',
+        userId: project.authorUid,
+        triggerUid: 'ADMIN',
+        triggerDisplayName: 'Admin',
+        projectId,
+        projectTitle: project.title,
+        message: `Your project "${project.title}" was not approved`,
+        previewText: reason || 'No reason provided',
+        viewedAt: null,
+        link: {
+          type: 'project',
+          id: projectId,
+        },
+      });
+    }
+  }
 }
 
 export function subscribeToPendingProjects(callback: (projects: Project[]) => void) {
@@ -420,6 +653,141 @@ export async function getUserProjects(authorUid: string): Promise<Project[]> {
   const q = query(projectsCol, where('authorUid', '==', authorUid));
   const snap = await getDocs(q);
   return snap.docs.map(projectFromDoc);
+}
+
+// ─── Notification System ───
+
+export async function createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'expiresAt'>) {
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(); // 2 days from now
+
+  const userNotifRef = collection(db, 'users', notification.userId, 'notifications');
+  await addDoc(userNotifRef, {
+    ...notification,
+    createdAt: now,
+    expiresAt,
+  });
+}
+
+export async function markNotificationAsViewed(userId: string, notificationId: string) {
+  const notifRef = doc(db, 'users', userId, 'notifications', notificationId);
+  await updateDoc(notifRef, {
+    viewedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteViewedNotifications(userId: string) {
+  const userNotifRef = collection(db, 'users', userId, 'notifications');
+  const q = query(userNotifRef, where('expiresAt', '<', new Date().toISOString()));
+  const snap = await getDocs(q);
+
+  const batch = writeBatch(db);
+  snap.docs.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+}
+
+export function subscribeToUserNotifications(
+  userId: string,
+  callback: (notifications: Notification[]) => void
+) {
+  const userNotifRef = collection(db, 'users', userId, 'notifications');
+  const q = query(userNotifRef, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const notifications = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Notification[];
+    callback(notifications);
+  });
+}
+
+export function parseMentions(text: string): string[] {
+  const mentionRegex = /@([a-zA-Z0-9\s\-\.]+)(?:\s|$|[,!?])/g;
+  const mentions: string[] = [];
+  let match;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    const mention = match[1].trim();
+    if (mention && !mentions.includes(mention)) {
+      mentions.push(mention);
+    }
+  }
+
+  return mentions;
+}
+
+export async function findUserByDisplayName(displayName: string) {
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('displayName', '==', displayName));
+  const snap = await getDocs(q);
+
+  if (snap.empty) return null;
+  return snap.docs[0].data();
+}
+
+// ─── Board Notice ───
+
+export async function getBoardNotice(): Promise<BoardNotice | null> {
+  const docRef = doc(db, 'settings', 'boardNotice');
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    // First time: create default
+    const defaultNotice: BoardNotice = {
+      id: 'boardNotice',
+      title: 'Board Notice',
+      content: 'Post more projects to gain more XP!!',
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(docRef, defaultNotice);
+    return defaultNotice;
+  }
+  return snap.data() as BoardNotice;
+}
+
+export async function updateBoardNotice(content: string, adminUid: string): Promise<void> {
+  const docRef = doc(db, 'settings', 'boardNotice');
+  await setDoc(docRef, {
+    title: 'Board Notice',
+    content,
+    updatedAt: new Date().toISOString(),
+    updatedBy: adminUid,
+  }, { merge: true });
+}
+
+// ─── Trending Technologies ───
+
+export async function getTrendingTechnologies(limit: number = 6): Promise<{ tech: string; count: number }[]> {
+  const snap = await getDocs(projectsCol);
+  const techCounts: Record<string, number> = {};
+
+  snap.docs.forEach(doc => {
+    const project = doc.data();
+    if (project.techStack && Array.isArray(project.techStack)) {
+      project.techStack.forEach((tech: string) => {
+        techCounts[tech] = (techCounts[tech] || 0) + 1;
+      });
+    }
+  });
+
+  return Object.entries(techCounts)
+    .map(([tech, count]) => ({ tech, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+// ─── Top Users by XP ───
+
+export async function getTopUsersByXP(limit: number = 5): Promise<any[]> {
+  const q = query(
+    usersCol,
+    orderBy('xp', 'desc'),
+    limit(limit)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
 }
 
 // ─── Seed Data ───

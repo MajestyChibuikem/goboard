@@ -3,6 +3,7 @@ import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from './Button';
 import { Category, Project } from '../types';
 import { uploadProjectImage } from '../services/firestoreService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SubmitProjectModalProps {
   onClose: () => void;
@@ -10,15 +11,16 @@ interface SubmitProjectModalProps {
 }
 
 export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose, onSubmit }) => {
+  const { profile } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    studentName: '',
     level: '',
     category: Category.WEB,
     techStack: '',
     demoUrl: '',
-    repoUrl: ''
+    repoUrl: '',
+    websiteUrl: '' // NEW: Website URL
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -58,6 +60,8 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
       onSubmit({
         ...formData,
+        displayName: profile?.displayName || 'Student', // NEW: Use user's displayName
+        studentName: profile?.displayName || 'Student', // Keep for backward compatibility
         techStack: formData.techStack.split(',').map(s => s.trim()),
         imageUrl,
         comments: [],
@@ -110,16 +114,6 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
           <div className="grid grid-cols-2 gap-4">
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Student Name</label>
-              <input
-                required
-                name="studentName"
-                value={formData.studentName}
-                onChange={handleChange}
-                className={inputStyles}
-              />
-            </div>
-             <div>
               <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Level</label>
               <input
                 required
@@ -130,20 +124,19 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
                 className={inputStyles}
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Category</label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className={inputStyles}
-            >
-              {Object.values(Category).map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+             <div>
+              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Category</label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className={inputStyles}
+              >
+                {Object.values(Category).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -192,6 +185,18 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
                 className={inputStyles}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Website URL <span className="text-neutral-400 font-normal">(optional)</span></label>
+            <input
+              name="websiteUrl"
+              type="url"
+              value={formData.websiteUrl}
+              onChange={handleChange}
+              placeholder="https://example.com"
+              className={inputStyles}
+            />
           </div>
 
           {/* Image upload */}

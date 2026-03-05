@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../types';
-import { subscribeToPendingProjects, approveProject, rejectProject, awardXP, XP_VALUES } from '../services/firestoreService';
+import { subscribeToPendingProjects, approveProject, rejectProject, deleteProject, awardXP, XP_VALUES, resetDatabase } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 import { Button } from './Button';
-import { ArrowLeft, Check, X, Shield, Clock } from 'lucide-react';
+import { ArrowLeft, Check, X, Shield, Clock, Trash, RotateCcw } from 'lucide-react';
 import { formatDate } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
 
@@ -20,6 +20,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToPendingProjects(setPendingProjects);
@@ -68,6 +69,35 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
     }
   };
 
+  const handleDelete = async (projectId: string) => {
+    if (!confirm('Permanently delete this project? This cannot be undone.')) return;
+    setProcessing(projectId);
+    try {
+      await deleteProject(projectId, profile!.uid);
+      toast('Project deleted.', 'success');
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      toast('Failed to delete project.', 'error');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleResetDatabase = async () => {
+    setProcessing('reset');
+    try {
+      await resetDatabase();
+      toast('Database reset complete. All projects, votes, and comments cleared.', 'success');
+      setShowResetConfirm(false);
+      setPendingProjects([]);
+    } catch (err) {
+      console.error('Reset failed:', err);
+      toast('Failed to reset database.', 'error');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   return (
     <div className="animate-fade-up">
       <button
@@ -86,6 +116,17 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
           <h1 className="text-2xl font-bold text-neutral-900">Approval Queue</h1>
           <p className="text-[13px] text-neutral-400">{pendingProjects.length} project{pendingProjects.length !== 1 ? 's' : ''} awaiting review</p>
         </div>
+      </div>
+
+      <div className="mb-6 flex justify-end">
+        <Button
+          onClick={() => setShowResetConfirm(true)}
+          size="sm"
+          variant="outline"
+          className="rounded-xl text-red-700 border-red-300 hover:bg-red-50"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> Reset Database
+        </Button>
       </div>
 
       {pendingProjects.length === 0 ? (
@@ -122,7 +163,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
                   </div>
                   <p className="text-[13px] text-neutral-500 line-clamp-2 mb-2">{project.description}</p>
                   <div className="flex items-center gap-3 text-[12px] text-neutral-400">
-                    <span className="font-medium text-neutral-600">{project.studentName}</span>
+                    <span className="font-medium text-neutral-600">{project.displayName || project.studentName}</span>
                     <span>{project.level}</span>
                     <span>{project.category}</span>
                     <span>{formatDate(project.datePosted)}</span>
@@ -183,11 +224,60 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
                     >
                       <X className="w-3.5 h-3.5" /> Reject
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl text-red-700 border-red-300 hover:bg-red-50"
+                      onClick={() => handleDelete(project.id)}
+                      isLoading={processing === project.id}
+                    >
+                      <Trash className="w-3.5 h-3.5" /> Delete
+                    </Button>
                   </>
                 )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Reset Database Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowResetConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-float w-full max-w-sm animate-fade-up">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+              <h2 className="text-lg font-bold text-neutral-900">Reset Database?</h2>
+              <button onClick={() => setShowResetConfirm(false)} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-neutral-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-[13px] text-red-800">
+                  ⚠️ <strong>This action cannot be undone.</strong> This will permanently delete all projects, votes, and comments. User accounts will be preserved.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <Button
+                  onClick={handleResetDatabase}
+                  disabled={processing === 'reset'}
+                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-700"
+                  isLoading={processing === 'reset'}
+                >
+                  Reset Now
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

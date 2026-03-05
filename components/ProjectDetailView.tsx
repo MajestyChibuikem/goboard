@@ -95,7 +95,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
     // Persist
     try {
-      await addUpdateToFirestore(project.id, newUpdate);
+      await addUpdateToFirestore(project.id, newUpdate, user.uid);
       toast('Update posted!', 'success');
     } catch (err) {
       console.error('Failed to save update:', err);
@@ -153,9 +153,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <span className="text-neutral-200">|</span>
           <span className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[9px] font-bold text-gouni-dark">
-              {project.studentName.charAt(0)}
+              {(project.displayName || project.studentName).charAt(0)}
             </div>
-            <span className="font-medium text-neutral-700">{project.studentName}</span>
+            <span className="font-medium text-neutral-700">{project.displayName || project.studentName}</span>
             <span className="text-neutral-300">·</span>
             <span>{project.level}</span>
           </span>
@@ -208,6 +208,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               currentStatus={project.status}
               onAddUpdate={handleAddUpdate}
               onStatusChange={handleStatusChange}
+              projectAuthorUid={authorUid}
+              currentUserUid={user?.uid}
             />
           </div>
 
@@ -250,7 +252,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
 
           {/* Comments */}
-          <CommentSection comments={project.comments} onAddComment={handleAddComment} onRequireAuth={onRequireAuth} />
+          <CommentSection
+            comments={project.comments}
+            onAddComment={handleAddComment}
+            onRequireAuth={onRequireAuth}
+            updates={project.updates}
+            projectId={project.id}
+          />
 
           {/* Similar Projects */}
           {similarProjects.length > 0 && (
@@ -322,6 +330,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 Repo Private
               </Button>
             )}
+
+            {project.websiteUrl ? (
+              <a href={project.websiteUrl} target="_blank" rel="noreferrer" className="block">
+                <Button variant="outline" className="w-full justify-center rounded-xl">
+                  Website
+                </Button>
+              </a>
+            ) : null}
           </div>
 
           {/* Tech Stack */}
@@ -341,10 +357,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-4">Author</h4>
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 bg-gouni-secondary/80 rounded-xl flex items-center justify-center text-lg font-bold text-gouni-dark">
-                {project.studentName.charAt(0)}
+                {(project.displayName || project.studentName).charAt(0)}
               </div>
               <div>
-                <div className="text-[14px] font-semibold text-neutral-900">{project.studentName}</div>
+                <div className="text-[14px] font-semibold text-neutral-900">{project.displayName || project.studentName}</div>
                 <div className="text-[12px] text-neutral-400">{project.level}</div>
               </div>
             </div>

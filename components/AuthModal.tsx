@@ -23,6 +23,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
+      console.error('Google sign-in error:', err.code, err.message);
       if (err.code === 'auth/popup-blocked') {
         setError('Popup was blocked. Please allow popups for this site.');
       } else if (err.code === 'auth/popup-closed-by-user') {

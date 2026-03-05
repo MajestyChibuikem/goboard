@@ -2,19 +2,41 @@ import React, { useState } from 'react';
 import { ProjectUpdate, ProjectStatus } from '../types';
 import { STATUS_CONFIG } from '../constants';
 import { Button } from './Button';
-import { Plus, Send } from 'lucide-react';
+import { Plus, Send, Lock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AddUpdateFormProps {
   currentStatus: ProjectStatus;
   onAddUpdate: (update: Omit<ProjectUpdate, 'id' | 'date'>) => void;
   onStatusChange: (status: ProjectStatus) => void;
+  projectAuthorUid?: string; // NEW: Required to check permissions
+  currentUserUid?: string | null; // NEW: Current user's UID
 }
 
-export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({ currentStatus, onAddUpdate, onStatusChange }) => {
+export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
+  currentStatus,
+  onAddUpdate,
+  onStatusChange,
+  projectAuthorUid,
+  currentUserUid
+}) => {
+  const { user, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState('');
   const [milestone, setMilestone] = useState('');
   const [newStatus, setNewStatus] = useState<ProjectStatus>(currentStatus);
+
+  // Check if current user can edit
+  const canEdit = currentUserUid && (currentUserUid === projectAuthorUid || profile?.isAdmin);
+
+  if (!canEdit) {
+    return (
+      <div className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 text-[13px] font-medium text-neutral-400 bg-neutral-50/50">
+        <Lock className="w-4 h-4" />
+        Only project creator and admins can post updates
+      </div>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +44,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({ currentStatus, onA
 
     const updateData: Omit<ProjectUpdate, 'id' | 'date'> = {
       content: content.trim(),
+      authorUid: currentUserUid, // NEW: Include authorUid
     };
 
     if (milestone.trim()) {

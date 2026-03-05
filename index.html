@@ -70,6 +70,85 @@
       .animate-fade-up-delay-1 { animation-delay: 0.05s; opacity: 0; }
       .animate-fade-up-delay-2 { animation-delay: 0.1s; opacity: 0; }
       .animate-fade-up-delay-3 { animation-delay: 0.15s; opacity: 0; }
+
+      /* Custom Loading Screen */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #ffffff;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+
+      #loading-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .logo-container {
+        position: relative;
+        width: 400px;
+        height: 400px;
+        overflow: hidden;
+      }
+
+      .logo-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+
+      .logo-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+
+      .logo-masked {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        clip-path: circle(0% at 50% 50%);
+        animation: maskReveal 4s ease-in-out infinite;
+      }
+
+      @keyframes maskReveal {
+        0% {
+          clip-path: circle(0% at 50% 50%);
+        }
+        40% {
+          clip-path: circle(70% at 50% 50%);
+        }
+        85% {
+          clip-path: circle(70% at 50% 50%);
+        }
+        100% {
+          clip-path: circle(0% at 50% 50%);
+        }
+      }
+
+      .title {
+        position: absolute;
+        top: -50px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 14px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        z-index: 10;
+      }
     </style>
   <script type="importmap">
 {
@@ -85,6 +164,14 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body>
+    <div id="loading-screen">
+      <div class="logo-container">
+        <div class="title">GoBoard</div>
+        <div class="logo-wrapper">
+          <img class="logo-image logo-masked" src="./customloading/logo-white-black.png" alt="GoBoard Logo">
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

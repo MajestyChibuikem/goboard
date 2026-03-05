@@ -8,9 +8,9 @@ import {
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../services/firebase';
-import { uploadUserAvatar } from '../services/firestoreService';
+import { uploadUserAvatar, deleteViewedNotifications } from '../services/firestoreService';
 import { XP_VALUES } from '../services/firestoreService';
 
 export interface UserProfile {
@@ -25,6 +25,8 @@ export interface UserProfile {
   lastLoginDate: string;
   isAdmin: boolean;
   joinedAt: string;
+  hasEditedDisplayName: boolean; // NEW: Track if one-time edit was used
+  displayNameEditedAt?: string; // NEW: When they edited it
 }
 
 interface AuthContextType {
@@ -74,6 +76,12 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
 
   if (snap.exists()) {
     const data = snap.data();
+
+    // Ensure xp field exists (fix for users created before XP system)
+    if (!('xp' in data)) {
+      await setDoc(ref, { xp: 0, seasonXp: 0 }, { merge: true });
+    }
+
     return {
       uid: user.uid,
       displayName: data.displayName || user.displayName || 'Student',
@@ -86,6 +94,8 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       lastLoginDate: data.lastLoginDate || '',
       isAdmin: data.isAdmin || false,
       joinedAt: data.joinedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      hasEditedDisplayName: data.hasEditedDisplayName || false,
+      displayNameEditedAt: data.displayNameEditedAt,
     };
   }
 
@@ -101,6 +111,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     commentXpToday: 0,
     lastCommentXpDate: '',
     isAdmin: false,
+    hasEditedDisplayName: false, // NEW: Initialize to false for new users
     joinedAt: serverTimestamp(),
   };
   await setDoc(ref, newProfile);
@@ -116,6 +127,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     streakDays: 0,
     lastLoginDate: '',
     isAdmin: false,
+    hasEditedDisplayName: false, // NEW
     joinedAt: new Date().toISOString(),
   };
 }
@@ -169,6 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle auth state changes
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -179,6 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Login streak tracking
           await trackLoginStreak(firebaseUser.uid);
+
+          // Clean up expired notifications
+          await deleteViewedNotifications(firebaseUser.uid).catch(err =>
+            console.error('Failed to cleanup notifications:', err)
+          );
         } catch (err) {
           console.error('Failed to load user profile:', err);
           setProfile(null);
@@ -190,6 +208,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     return unsub;
   }, []);
+
+  // Set up real-time listener for profile changes (separate effect)
+  useEffect(() => {
+    if (!user) return;
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubProfile = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfile(prevProfile => prevProfile ? {
+          ...prevProfile,
+          displayName: data.displayName || prevProfile.displayName,
+          hasEditedDisplayName: data.hasEditedDisplayName || prevProfile.hasEditedDisplayName,
+          displayNameEditedAt: data.displayNameEditedAt || prevProfile.displayNameEditedAt,
+          xp: data.xp || prevProfile.xp,
+          seasonXp: data.seasonXp || prevProfile.seasonXp,
+          rank: getRank(data.xp || 0),
+          streakDays: data.streakDays || prevProfile.streakDays,
+        } : prevProfile);
+      }
+    });
+
+    return unsubProfile;
+  }, [user]);
 
   const signInWithGoogle = async () => {
     await signInWithPopup(auth, googleProvider);

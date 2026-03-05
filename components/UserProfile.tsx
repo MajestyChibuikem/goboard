@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, getRank, RANK_EMOJIS } from '../contexts/AuthContext';
-import { getUserProjects } from '../services/firestoreService';
+import { getUserProjects, updateDisplayName } from '../services/firestoreService';
 import { Project } from '../types';
-import { ArrowLeft, Mail, Calendar, Zap, Trophy, Layers, Flame } from 'lucide-react';
+import { ArrowLeft, Mail, Calendar, Zap, Trophy, Layers, Flame, Edit2, Check, X } from 'lucide-react';
 import { formatDate } from '../services/utils';
+import { useToast } from './Toast';
 import { STATUS_CONFIG } from '../constants';
 
 interface UserProfileProps {
@@ -22,10 +23,14 @@ const RANK_PROGRESS = [
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick }) => {
   const { user, profile, updateProfilePhoto } = useAuth();
+  const { toast } = useToast();
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showEditName, setShowEditName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [editingName, setEditingName] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -64,6 +69,29 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
       if (event.target) {
         event.target.value = '';
       }
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!newName.trim()) {
+      toast('Display name cannot be empty', 'error');
+      return;
+    }
+
+    if (!user) return;
+
+    setEditingName(true);
+    try {
+      await updateDisplayName(user.uid, newName.trim());
+      toast('Display name updated!', 'success');
+      setShowEditName(false);
+      setNewName('');
+      // Note: Profile will update automatically via AuthContext
+    } catch (err: any) {
+      console.error('Failed to update display name:', err);
+      toast(err.message || 'Failed to update display name', 'error');
+    } finally {
+      setEditingName(false);
     }
   };
 
@@ -115,7 +143,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
 
           <div className="flex-grow">
-            <h1 className="text-2xl font-bold text-neutral-900">{user.displayName || 'Student'}</h1>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-2xl font-bold text-neutral-900">{profile.displayName || 'Student'}</h1>
+              {!profile.hasEditedDisplayName && (
+                <button
+                  onClick={() => {
+                    setNewName(profile.displayName || '');
+                    setShowEditName(true);
+                  }}
+                  className="text-[11px] font-medium px-2.5 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3" /> Edit Name
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-4 mt-2 text-[13px] text-neutral-400">
               <span className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5" /> {user.email}
@@ -246,6 +287,58 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
         )}
       </div>
+
+      {/* Edit display name modal */}
+      {showEditName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditName(false)} />
+          <div className="relative bg-white rounded-2xl shadow-float w-full max-w-sm animate-fade-up">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+              <h2 className="text-lg font-bold text-neutral-900">Edit Display Name</h2>
+              <button onClick={() => setShowEditName(false)} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-neutral-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-neutral-700 mb-2">New Display Name</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Enter your new display name"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                  autoFocus
+                />
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                <p className="text-[12px] text-yellow-800">
+                  ⚠️ <strong>This is your only chance to change your display name.</strong> Choose wisely!
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowEditName(false)}
+                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveDisplayName}
+                  disabled={editingName}
+                  className="flex-1 px-4 py-2.5 bg-gouni-primary text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  {editingName ? 'Updating...' : 'Save Name'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
