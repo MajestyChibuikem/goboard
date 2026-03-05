@@ -759,7 +759,7 @@ export async function updateBoardNotice(content: string, adminUid: string): Prom
 
 // ─── Trending Technologies ───
 
-export async function getTrendingTechnologies(limit: number = 6): Promise<{ tech: string; count: number }[]> {
+export async function getTrendingTechnologies(maxLimit: number = 6): Promise<{ tech: string; count: number }[]> {
   const snap = await getDocs(projectsCol);
   const techCounts: Record<string, number> = {};
 
@@ -775,16 +775,16 @@ export async function getTrendingTechnologies(limit: number = 6): Promise<{ tech
   return Object.entries(techCounts)
     .map(([tech, count]) => ({ tech, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+    .slice(0, maxLimit);
 }
 
 // ─── Top Users by XP ───
 
-export async function getTopUsersByXP(limit: number = 5): Promise<any[]> {
+export async function getTopUsersByXP(maxLimit: number = 5): Promise<any[]> {
   const q = query(
     usersCol,
     orderBy('xp', 'desc'),
-    limit(limit)
+    limit(maxLimit)
   );
   const snap = await getDocs(q);
   return snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
