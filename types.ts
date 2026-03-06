@@ -19,7 +19,7 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention';
+  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension';
   userId: string;
   triggerUid: string;
   triggerDisplayName: string;
@@ -61,6 +61,11 @@ export interface Project {
   // Optional fields persisted in Firestore for auth/approval flows
   authorUid?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
+  // Suspension fields
+  isSuspended?: boolean;
+  suspendedBy?: string;
+  suspendedAt?: string;
+  suspensionReason?: string;
 }
 
 export type ProjectStatus = 'idea' | 'in-progress' | 'beta' | 'launched';

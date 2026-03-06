@@ -73,7 +73,8 @@ function projectFromDoc(docSnap: any): Project {
 
 export function subscribeToProjects(
   callback: (projects: Project[]) => void,
-  approvalFilter: 'approved' | 'pending' | 'all' = 'approved'
+  approvalFilter: 'approved' | 'pending' | 'all' = 'approved',
+  isAdmin: boolean = false
 ) {
   let q;
   if (approvalFilter === 'all') {
@@ -87,7 +88,13 @@ export function subscribeToProjects(
   }
 
   return onSnapshot(q, (snapshot) => {
-    const projects = snapshot.docs.map(projectFromDoc);
+    let projects = snapshot.docs.map(projectFromDoc);
+
+    // Filter out suspended projects unless user is admin
+    if (!isAdmin) {
+      projects = projects.filter(p => !p.isSuspended);
+    }
+
     callback(projects);
   });
 }
@@ -454,6 +461,45 @@ export async function rejectProject(projectId: string, reason?: string) {
         },
       });
     }
+  }
+}
+
+export async function suspendProject(
+  projectId: string,
+  adminUid: string,
+  reason: string
+): Promise<void> {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+
+  if (!projectSnap.exists()) throw new Error('Project not found');
+  const project = projectSnap.data();
+
+  // Update project with suspension
+  await updateDoc(projectRef, {
+    isSuspended: true,
+    suspendedBy: adminUid,
+    suspendedAt: new Date().toISOString(),
+    suspensionReason: reason,
+  });
+
+  // Create notification for project author
+  if (project.authorUid && project.authorUid !== adminUid) {
+    await createNotification({
+      type: 'suspension',
+      userId: project.authorUid,
+      triggerUid: adminUid,
+      triggerDisplayName: 'Admin',
+      projectId,
+      projectTitle: project.title,
+      message: `Your project "${project.title}" has been suspended`,
+      previewText: reason,
+      viewedAt: null,
+      link: {
+        type: 'project',
+        id: projectId,
+      },
+    });
   }
 }
 

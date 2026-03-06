@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Project, Comment, ProjectUpdate, ProjectStatus } from '../types';
 import { generateProjectInsight } from '../services/geminiService';
 import { getProjectBadges } from '../services/utils';
-import { ArrowLeft, Github, Sparkles, User, Monitor, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Github, Sparkles, User, Monitor, ChevronUp, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
@@ -10,7 +10,7 @@ import { AddUpdateForm } from './AddUpdateForm';
 import { formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
-import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP } from '../services/firestoreService';
+import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject } from '../services/firestoreService';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -37,11 +37,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   voted,
   disabled,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [insight, setInsight] = useState<GeminiInsight | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [activeImage, setActiveImage] = useState(project.imageUrl);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const badges = getProjectBadges(project);
 
@@ -114,6 +118,42 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
+  const handleDelete = async () => {
+    if (!user || !profile?.isAdmin) return;
+    setIsProcessing(true);
+    try {
+      await deleteProject(project.id, user.uid);
+      toast('Project deleted permanently', 'success');
+      onBack(); // Return to list
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      toast('Failed to delete project', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSuspend = async () => {
+    if (!user || !profile?.isAdmin) return;
+    if (!suspensionReason.trim()) {
+      toast('Please provide a reason for suspension', 'error');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await suspendProject(project.id, user.uid, suspensionReason);
+      // Update local project state
+      onUpdateProject({ ...project, isSuspended: true, suspensionReason });
+      toast('Project suspended', 'success');
+      setShowSuspendModal(false);
+    } catch (err) {
+      console.error('Failed to suspend:', err);
+      toast('Failed to suspend project', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="animate-fade-up">
 
@@ -144,6 +184,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               <span className="mr-1.5">{badge.icon}</span> {badge.label}
             </span>
           ))}
+          {project.isSuspended && (
+            <span className="inline-block px-3 py-1 bg-amber-100 border border-amber-300 rounded-full text-[11px] font-semibold text-amber-700">
+              ⚠️ Suspended
+            </span>
+          )}
         </div>
 
         {/* Meta row */}
@@ -338,6 +383,27 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </Button>
               </a>
             ) : null}
+
+            {profile?.isAdmin && (
+              <div className="flex gap-2 pt-3 border-t border-neutral-200">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-amber-700 border-amber-300 hover:bg-amber-50 rounded-xl"
+                  onClick={() => setShowSuspendModal(true)}
+                >
+                  <AlertCircle className="w-4 h-4" /> Suspend
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-red-700 border-red-300 hover:bg-red-50 rounded-xl"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Tech Stack */}
@@ -368,6 +434,74 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && profile?.isAdmin && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up">
+            <h3 className="text-lg font-bold text-red-600 mb-2">Delete Project?</h3>
+            <p className="text-sm text-neutral-600 mb-4">
+              This will permanently delete the project and all associated votes, comments, and updates. This action cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDelete}
+                isLoading={isProcessing}
+              >
+                Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Confirmation Modal */}
+      {showSuspendModal && profile?.isAdmin && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up">
+            <h3 className="text-lg font-bold text-amber-600 mb-2">Suspend Project?</h3>
+            <p className="text-sm text-neutral-600 mb-3">
+              The project will be hidden from public view. The author will be notified.
+            </p>
+            <textarea
+              value={suspensionReason}
+              onChange={(e) => setSuspensionReason(e.target.value)}
+              placeholder="Reason for suspension (will be sent to author)..."
+              className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none"
+              rows={3}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSuspendModal(false);
+                  setSuspensionReason('');
+                }}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-amber-600 hover:bg-amber-700"
+                onClick={handleSuspend}
+                isLoading={isProcessing}
+              >
+                Suspend Project
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

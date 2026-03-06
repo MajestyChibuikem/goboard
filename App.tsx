@@ -41,7 +41,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 const App: React.FC = () => {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [firestoreReady, setFirestoreReady] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [currentPage, setCurrentPage] = useState<PageView>('home');
@@ -72,17 +72,18 @@ const App: React.FC = () => {
       unsub = subscribeToProjects((firestoreProjects) => {
         if (firestoreProjects.length > 0) {
           setProjects(firestoreProjects);
-          setFirestoreReady(true);
         } else if (!firestoreReady) {
           // Firestore empty — seed it with initial data
-          seedProjects(INITIAL_PROJECTS).catch(console.error);
+          seedProjects(INITIAL_PROJECTS).then(() => setFirestoreReady(true)).catch(console.error);
+          return;
         }
-      });
+        setFirestoreReady(true);
+      }, 'approved', profile?.isAdmin || false);
     } catch (err) {
       console.warn('Firestore not available, using local data:', err);
     }
     return () => unsub?.();
-  }, []);
+  }, [profile?.isAdmin]);
 
   // Load user's votes when they sign in
   useEffect(() => {
