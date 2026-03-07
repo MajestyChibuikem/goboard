@@ -59,7 +59,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onProjectCli
             className="fixed inset-0 z-40"
             onClick={() => setShowDropdown(false)}
           />
-          <div className="absolute right-0 top-12 z-50 w-96 bg-white rounded-xl border border-neutral-200 shadow-float max-h-96 overflow-y-auto animate-fade-up">
+          <div className="absolute top-12 z-50 w-80 max-w-[calc(100vw-1rem)] md:w-96 right-0 bg-white rounded-xl border border-neutral-200 shadow-float max-h-96 overflow-y-auto animate-fade-up">
             {loading ? (
               <div className="p-4 text-center text-neutral-400">
                 <div className="inline-block animate-spin">
