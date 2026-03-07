@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Project, Category, BoardNotice } from './types';
 import { INITIAL_PROJECTS, CATEGORIES } from './constants';
 import { ProjectCard } from './components/ProjectCard';
@@ -8,6 +9,7 @@ import { AuthModal } from './components/AuthModal';
 import { UserProfile } from './components/UserProfile';
 import { AdminQueue } from './components/AdminQueue';
 import { NotificationBell } from './components/NotificationBell';
+import { PublicProfileModal } from './components/PublicProfileModal';
 import { ProjectGridSkeleton } from './components/Skeleton';
 import { Button } from './components/Button';
 import { useAuth } from './contexts/AuthContext';
@@ -41,10 +43,11 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 const App: React.FC = () => {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [firestoreReady, setFirestoreReady] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [currentPage, setCurrentPage] = useState<PageView>('home');
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,15 +57,26 @@ const App: React.FC = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [userVotes, setUserVotes] = useState<Set<string>>(new Set());
   const [votingPending, setVotingPending] = useState<Set<string>>(new Set());
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
+
+  // Determine current page from URL
+  const currentPage: PageView = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : 'home';
 
   const navigateTo = useCallback((page: PageView) => {
-    setCurrentPage(page);
     setSelectedProject(null);
-  }, []);
+    if (page === 'home') {
+      navigate('/');
+    } else {
+      navigate(`/${page}`);
+    }
+  }, [navigate]);
 
   const navigateToProject = useCallback((project: Project) => {
     setSelectedProject(project);
-    setCurrentPage('home');
+  }, []);
+
+  const handleShowProfile = useCallback((userId: string) => {
+    setSelectedProfileUserId(userId);
   }, []);
 
   // Subscribe to Firestore projects (falls back to seed data if Firebase not configured)
@@ -70,20 +84,31 @@ const App: React.FC = () => {
     let unsub: (() => void) | undefined;
     try {
       unsub = subscribeToProjects((firestoreProjects) => {
-        if (firestoreProjects.length > 0) {
-          setProjects(firestoreProjects);
+        // Filter projects based on user permissions
+        const isAdmin = profile?.isAdmin || false;
+        const filtered = firestoreProjects.filter(project => {
+          // Admins see all projects
+          if (isAdmin) return true;
+          // Authors see their own projects (approved or pending)
+          if (user?.uid && project.authorUid === user.uid) return true;
+          // Regular users see only approved projects
+          return project.approvalStatus === 'approved';
+        });
+
+        if (filtered.length > 0) {
+          setProjects(filtered);
         } else if (!firestoreReady) {
           // Firestore empty — seed it with initial data
           seedProjects(INITIAL_PROJECTS).then(() => setFirestoreReady(true)).catch(console.error);
           return;
         }
         setFirestoreReady(true);
-      }, 'approved', profile?.isAdmin || false);
+      }, 'all', profile?.isAdmin || false, user?.uid);
     } catch (err) {
       console.warn('Firestore not available, using local data:', err);
     }
     return () => unsub?.();
-  }, [profile?.isAdmin]);
+  }, [profile?.isAdmin, user]);
 
   // Load user's votes when they sign in
   useEffect(() => {
@@ -560,6 +585,7 @@ const App: React.FC = () => {
               onProjectClick={setSelectedProject}
               onVote={handleVote}
               onRequireAuth={() => setIsAuthModalOpen(true)}
+              onProfileClick={handleShowProfile}
               voted={userVotes.has(selectedProject.id)}
               disabled={votingPending.has(selectedProject.id) || (!!user && user.uid === (selectedProject as any).authorUid)}
             />
@@ -650,7 +676,11 @@ const App: React.FC = () => {
              </div>
              <div className="px-2 pb-2">
                 {topUsersByXP.map((user, idx) => (
-                  <div key={user.uid} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 transition-colors">
+                  <div
+                    key={user.uid}
+                    onClick={() => handleShowProfile(user.uid)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 transition-colors cursor-pointer"
+                  >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                       idx === 0 ? 'bg-amber-100 text-amber-700'
                       : idx === 1 ? 'bg-neutral-100 text-neutral-600'
@@ -760,6 +790,15 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Public Profile Modal */}
+      {selectedProfileUserId && (
+        <PublicProfileModal
+          userId={selectedProfileUserId}
+          onClose={() => setSelectedProfileUserId(null)}
+          onProjectClick={navigateToProject}
+        />
       )}
     </div>
   );

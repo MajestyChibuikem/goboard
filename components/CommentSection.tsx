@@ -9,6 +9,7 @@ interface CommentSectionProps {
   comments: Comment[];
   onAddComment: (comment: Comment) => void;
   onRequireAuth: () => void;
+  onProfileClick?: (userId: string) => void;
   updates?: ProjectUpdate[]; // NEW: For grouping comments by update
   projectId?: string; // NEW: For update-specific comments
 }
@@ -17,6 +18,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   comments,
   onAddComment,
   onRequireAuth,
+  onProfileClick,
   updates = [],
   projectId
 }) => {
@@ -80,7 +82,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           </div>
           <div className="flex-grow min-w-0">
             <div className="flex items-center gap-3 mb-1.5">
-              <span className="text-[13px] font-semibold text-neutral-900">{comment.author}</span>
+              <button
+                onClick={() => comment.authorUid && onProfileClick?.(comment.authorUid)}
+                className="text-[13px] font-semibold text-neutral-900 hover:underline hover:text-neutral-700 transition-colors cursor-pointer"
+              >
+                {comment.author}
+              </button>
               <span className="text-[11px] text-neutral-400">{formatDate(comment.date)}</span>
               {depth === 0 && (
                 <button

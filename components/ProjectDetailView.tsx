@@ -10,7 +10,7 @@ import { AddUpdateForm } from './AddUpdateForm';
 import { formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
-import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject } from '../services/firestoreService';
+import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject, restoreProject, updateProjectDescription } from '../services/firestoreService';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -22,6 +22,7 @@ interface ProjectDetailViewProps {
   onProjectClick: (project: Project) => void;
   onVote: (e: React.MouseEvent, projectId: string) => void;
   onRequireAuth: () => void;
+  onProfileClick?: (userId: string) => void;
   voted?: boolean;
   disabled?: boolean;
 }
@@ -34,6 +35,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onProjectClick,
   onVote,
   onRequireAuth,
+  onProfileClick,
   voted,
   disabled,
 }) => {
@@ -46,6 +48,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [suspensionReason, setSuspensionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showEditDescriptionModal, setShowEditDescriptionModal] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(project.description);
 
   const badges = getProjectBadges(project);
 
@@ -154,6 +158,43 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
+  const handleRestore = async () => {
+    if (!user || !profile?.isAdmin) return;
+    setIsProcessing(true);
+    try {
+      await restoreProject(project.id, user.uid);
+      // Update local project state
+      onUpdateProject({ ...project, isSuspended: false, suspendedBy: undefined, suspendedAt: undefined, suspensionReason: undefined });
+      toast('Project restored', 'success');
+      setShowSuspendModal(false);
+    } catch (err) {
+      console.error('Failed to restore:', err);
+      toast('Failed to restore project', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleEditDescription = async () => {
+    if (!user || user.uid !== authorUid) return;
+    if (!editedDescription.trim()) {
+      toast('Description cannot be empty', 'error');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await updateProjectDescription(project.id, user.uid, editedDescription.trim());
+      onUpdateProject({ ...project, description: editedDescription.trim() });
+      toast('Description updated!', 'success');
+      setShowEditDescriptionModal(false);
+    } catch (err) {
+      console.error('Failed to update description:', err);
+      toast('Failed to update description', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="animate-fade-up">
 
@@ -189,6 +230,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               ⚠️ Suspended
             </span>
           )}
+          {project.approvalStatus === 'pending' && (
+            <span className="inline-block px-3 py-1 bg-blue-100 border border-blue-300 rounded-full text-[11px] font-semibold text-blue-700">
+              ⏳ Pending Review
+            </span>
+          )}
         </div>
 
         {/* Meta row */}
@@ -200,7 +246,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <div className="w-5 h-5 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[9px] font-bold text-gouni-dark">
               {(project.displayName || project.studentName).charAt(0)}
             </div>
-            <span className="font-medium text-neutral-700">{project.displayName || project.studentName}</span>
+            <button
+              onClick={() => onProfileClick?.(project.authorUid)}
+              className="font-medium text-neutral-700 hover:text-neutral-900 hover:underline transition-colors cursor-pointer"
+            >
+              {project.displayName || project.studentName}
+            </button>
             <span className="text-neutral-300">·</span>
             <span>{project.level}</span>
           </span>
@@ -240,7 +291,20 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
           {/* Description */}
           <div className="mb-10">
-            <h3 className="text-[13px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Overview</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[13px] font-bold text-neutral-400 uppercase tracking-wider">Overview</h3>
+              {user && user.uid === authorUid && (
+                <button
+                  onClick={() => {
+                    setEditedDescription(project.description);
+                    setShowEditDescriptionModal(true);
+                  }}
+                  className="text-[12px] font-semibold text-gouni-primary hover:text-gouni-primary/80 transition-colors"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             <p className="text-[15px] text-neutral-700 whitespace-pre-line leading-relaxed">{project.description}</p>
           </div>
 
@@ -301,6 +365,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             comments={project.comments}
             onAddComment={handleAddComment}
             onRequireAuth={onRequireAuth}
+            onProfileClick={onProfileClick}
             updates={project.updates}
             projectId={project.id}
           />
@@ -389,10 +454,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1 text-amber-700 border-amber-300 hover:bg-amber-50 rounded-xl"
+                  className={`flex-1 rounded-xl ${
+                    project.isSuspended
+                      ? 'text-green-700 border-green-300 hover:bg-green-50'
+                      : 'text-amber-700 border-amber-300 hover:bg-amber-50'
+                  }`}
                   onClick={() => setShowSuspendModal(true)}
                 >
-                  <AlertCircle className="w-4 h-4" /> Suspend
+                  <AlertCircle className="w-4 h-4" /> {project.isSuspended ? 'Restore' : 'Suspend'}
                 </Button>
                 <Button
                   size="sm"
@@ -464,39 +533,100 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       )}
 
-      {/* Suspend Confirmation Modal */}
+      {/* Suspend/Restore Confirmation Modal */}
       {showSuspendModal && profile?.isAdmin && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up">
-            <h3 className="text-lg font-bold text-amber-600 mb-2">Suspend Project?</h3>
-            <p className="text-sm text-neutral-600 mb-3">
-              The project will be hidden from public view. The author will be notified.
-            </p>
+            {project.isSuspended ? (
+              <>
+                <h3 className="text-lg font-bold text-green-600 mb-2">Restore Project?</h3>
+                <p className="text-sm text-neutral-600 mb-4">
+                  This will restore the project to public view. The author will be notified.
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSuspendModal(false)}
+                    disabled={isProcessing}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={handleRestore}
+                    isLoading={isProcessing}
+                  >
+                    Restore Project
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-amber-600 mb-2">Suspend Project?</h3>
+                <p className="text-sm text-neutral-600 mb-3">
+                  The project will be hidden from public view. The author will be notified.
+                </p>
+                <textarea
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                  placeholder="Reason for suspension (will be sent to author)..."
+                  className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none"
+                  rows={3}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowSuspendModal(false);
+                      setSuspensionReason('');
+                    }}
+                    disabled={isProcessing}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="bg-amber-600 hover:bg-amber-700"
+                    onClick={handleSuspend}
+                    isLoading={isProcessing}
+                  >
+                    Suspend Project
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Description Modal */}
+      {showEditDescriptionModal && user && user.uid === authorUid && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-neutral-900 mb-4">Edit Project Description</h3>
             <textarea
-              value={suspensionReason}
-              onChange={(e) => setSuspensionReason(e.target.value)}
-              placeholder="Reason for suspension (will be sent to author)..."
-              className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none"
-              rows={3}
+              value={editedDescription}
+              onChange={(e) => setEditedDescription(e.target.value)}
+              placeholder="Enter project description..."
+              className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40"
+              rows={6}
             />
+            <div className="text-xs text-neutral-400 mb-4">{editedDescription.length} characters</div>
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setShowSuspendModal(false);
-                  setSuspensionReason('');
-                }}
+                onClick={() => setShowEditDescriptionModal(false)}
                 disabled={isProcessing}
               >
                 Cancel
               </Button>
               <Button
                 variant="primary"
-                className="bg-amber-600 hover:bg-amber-700"
-                onClick={handleSuspend}
+                onClick={handleEditDescription}
                 isLoading={isProcessing}
               >
-                Suspend Project
+                Save Changes
               </Button>
             </div>
           </div>

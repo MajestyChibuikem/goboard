@@ -66,6 +66,10 @@ function projectFromDoc(docSnap: any): Project {
     // Firestore-specific fields passed through
     ...(d.authorUid && { authorUid: d.authorUid }),
     ...(d.approvalStatus && { approvalStatus: d.approvalStatus }),
+    ...(d.isSuspended && { isSuspended: d.isSuspended }),
+    ...(d.suspendedBy && { suspendedBy: d.suspendedBy }),
+    ...(d.suspendedAt && { suspendedAt: d.suspendedAt }),
+    ...(d.suspensionReason && { suspensionReason: d.suspensionReason }),
   } as Project & { authorUid?: string; approvalStatus?: string };
 }
 
@@ -74,7 +78,8 @@ function projectFromDoc(docSnap: any): Project {
 export function subscribeToProjects(
   callback: (projects: Project[]) => void,
   approvalFilter: 'approved' | 'pending' | 'all' = 'approved',
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
+  userId?: string
 ) {
   let q;
   if (approvalFilter === 'all') {
@@ -90,9 +95,9 @@ export function subscribeToProjects(
   return onSnapshot(q, (snapshot) => {
     let projects = snapshot.docs.map(projectFromDoc);
 
-    // Filter out suspended projects unless user is admin
+    // Filter out suspended projects unless user is admin or author
     if (!isAdmin) {
-      projects = projects.filter(p => !p.isSuspended);
+      projects = projects.filter(p => !p.isSuspended || (userId && p.authorUid === userId));
     }
 
     callback(projects);
@@ -501,6 +506,66 @@ export async function suspendProject(
       },
     });
   }
+}
+
+export async function restoreProject(
+  projectId: string,
+  adminUid: string
+): Promise<void> {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+
+  if (!projectSnap.exists()) throw new Error('Project not found');
+  const project = projectSnap.data();
+
+  // Remove suspension
+  await updateDoc(projectRef, {
+    isSuspended: false,
+    suspendedBy: null,
+    suspendedAt: null,
+    suspensionReason: null,
+  });
+
+  // Create notification for project author
+  if (project.authorUid && project.authorUid !== adminUid) {
+    await createNotification({
+      type: 'approval',
+      userId: project.authorUid,
+      triggerUid: adminUid,
+      triggerDisplayName: 'Admin',
+      projectId,
+      projectTitle: project.title,
+      message: `Your project "${project.title}" has been restored`,
+      previewText: 'Your project is now visible to all users',
+      viewedAt: null,
+      link: {
+        type: 'project',
+        id: projectId,
+      },
+    });
+  }
+}
+
+export async function updateProjectDescription(
+  projectId: string,
+  userId: string,
+  newDescription: string
+): Promise<void> {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+
+  if (!projectSnap.exists()) throw new Error('Project not found');
+  const project = projectSnap.data();
+
+  // Only allow author to edit
+  if (project.authorUid !== userId) {
+    throw new Error('Only the project author can edit the description');
+  }
+
+  // Update project description
+  await updateDoc(projectRef, {
+    description: newDescription,
+  });
 }
 
 export function subscribeToPendingProjects(callback: (projects: Project[]) => void) {
