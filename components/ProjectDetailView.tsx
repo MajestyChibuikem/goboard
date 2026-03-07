@@ -247,8 +247,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               {(project.displayName || project.studentName).charAt(0)}
             </div>
             <button
-              onClick={() => onProfileClick?.(project.authorUid)}
-              className="font-medium text-neutral-700 hover:text-neutral-900 hover:underline transition-colors cursor-pointer"
+              type="button"
+              onClick={() => {
+                if (authorUid) {
+                  onProfileClick?.(authorUid);
+                }
+              }}
+              className="font-medium text-neutral-700 hover:text-neutral-900 hover:underline active:text-gouni-primary transition-colors cursor-pointer"
             >
               {project.displayName || project.studentName}
             </button>

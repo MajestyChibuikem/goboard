@@ -83,8 +83,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           <div className="flex-grow min-w-0">
             <div className="flex items-center gap-3 mb-1.5">
               <button
+                type="button"
                 onClick={() => comment.authorUid && onProfileClick?.(comment.authorUid)}
-                className="text-[13px] font-semibold text-neutral-900 hover:underline hover:text-neutral-700 transition-colors cursor-pointer"
+                className="text-[13px] font-semibold text-neutral-900 hover:underline hover:text-neutral-700 active:text-gouni-primary transition-colors cursor-pointer"
               >
                 {comment.author}
               </button>

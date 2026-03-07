@@ -676,10 +676,11 @@ const App: React.FC = () => {
              </div>
              <div className="px-2 pb-2">
                 {topUsersByXP.map((user, idx) => (
-                  <div
+                  <button
+                    type="button"
                     key={user.uid}
                     onClick={() => handleShowProfile(user.uid)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 transition-colors cursor-pointer"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                       idx === 0 ? 'bg-amber-100 text-amber-700'
@@ -693,7 +694,7 @@ const App: React.FC = () => {
                       <div className="text-[13px] font-medium text-neutral-900 truncate">{user.displayName || 'Anonymous'}</div>
                       <div className="text-[11px] text-neutral-400">{user.xp || 0} XP · {user.rank || 'Freshman Coder'}</div>
                     </div>
-                  </div>
+                  </button>
                 ))}
              </div>
            </div>
