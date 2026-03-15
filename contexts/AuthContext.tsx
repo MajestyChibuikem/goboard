@@ -243,11 +243,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const signInWithGoogle = async () => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      // Mobile browsers have storage partitioning issues with popups — use redirect
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
     try {
-      // Try popup first (works on most desktop browsers)
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      // If popup fails due to blocked cookies/popups, fall back to redirect
       if (
         err.code === 'auth/popup-blocked' ||
         err.code === 'auth/popup-closed-by-user' ||
