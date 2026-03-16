@@ -4,7 +4,13 @@ export enum Category {
   AI = 'Artificial Intelligence',
   IOT = 'IoT & Hardware',
   GAME = 'Game Development',
-  DATA = 'Data Science'
+  DATA = 'Data Science',
+  BLOCKCHAIN = 'Blockchain & Crypto',
+  CYBERSECURITY = 'Cybersecurity',
+  DEVOPS = 'DevOps & Cloud',
+  AR_VR = 'AR / VR',
+  FINTECH = 'FinTech',
+  EDTECH = 'EdTech',
 }
 
 export interface Comment {
@@ -13,6 +19,7 @@ export interface Comment {
   content: string;
   date: string;
   authorUid?: string; // User ID for permission checks
+  authorPhotoURL?: string | null;
   parentUpdateId?: string | null; // null = global comment, else = update ID
   parentCommentId?: string | null; // null = root comment, else = parent comment ID
 }
@@ -60,6 +67,7 @@ export interface Project {
   updates: ProjectUpdate[];
   // Optional fields persisted in Firestore for auth/approval flows
   authorUid?: string;
+  authorPhotoURL?: string | null;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   // Suspension fields
   isSuspended?: boolean;

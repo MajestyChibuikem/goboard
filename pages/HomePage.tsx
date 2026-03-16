@@ -24,6 +24,12 @@ import {
   Trophy,
   Zap,
   Layers,
+  Bitcoin,
+  ShieldCheck,
+  Cloud,
+  Glasses,
+  DollarSign,
+  BookOpen,
 } from 'lucide-react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 
@@ -36,6 +42,12 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   [Category.IOT]: <Zap className="w-4 h-4" />,
   [Category.GAME]: <Zap className="w-4 h-4" />,
   [Category.DATA]: <Zap className="w-4 h-4" />,
+  [Category.BLOCKCHAIN]: <Bitcoin className="w-4 h-4" />,
+  [Category.CYBERSECURITY]: <ShieldCheck className="w-4 h-4" />,
+  [Category.DEVOPS]: <Cloud className="w-4 h-4" />,
+  [Category.AR_VR]: <Glasses className="w-4 h-4" />,
+  [Category.FINTECH]: <DollarSign className="w-4 h-4" />,
+  [Category.EDTECH]: <BookOpen className="w-4 h-4" />,
 };
 
 export interface HomeContext {
@@ -80,7 +92,7 @@ const HomePage: React.FC = () => {
   const [noticeEditText, setNoticeEditText] = useState(boardNotice.content);
 
   useEffect(() => {
-    getTopUsersByXP(5)
+    getTopUsersByXP(3)
       .then(setTopUsersByXP)
       .catch(err => console.warn('Failed to fetch top users:', err));
   }, []);
@@ -273,13 +285,21 @@ const HomePage: React.FC = () => {
                 onClick={() => handleShowProfile(u.uid)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
               >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                  idx === 0 ? 'bg-amber-100 text-amber-700'
-                  : idx === 1 ? 'bg-neutral-100 text-neutral-600'
-                  : idx === 2 ? 'bg-orange-100 text-orange-700'
-                  : 'bg-neutral-50 text-neutral-400'
-                }`}>
-                  {idx + 1}
+                <div className="relative">
+                  {u.photoURL ? (
+                    <img src={u.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
+                      {(u.displayName || 'A').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                    idx === 0 ? 'bg-amber-400 text-amber-900'
+                    : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                    : 'bg-orange-300 text-orange-800'
+                  }`}>
+                    {idx + 1}
+                  </span>
                 </div>
                 <div className="flex-grow min-w-0">
                   <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>

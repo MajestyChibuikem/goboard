@@ -3,7 +3,7 @@ import { Comment, ProjectUpdate } from '../types';
 import { generateAnonymousName, formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './Button';
-import { MessageSquare, User, Send, Lock, Reply } from 'lucide-react';
+import { MessageSquare, Send, Lock, Reply } from 'lucide-react';
 
 interface CommentSectionProps {
   comments: Comment[];
@@ -60,6 +60,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       content: newComment,
       date: new Date().toISOString(),
       authorUid: user.uid,
+      authorPhotoURL: isAnonymous ? null : (profile?.photoURL || null),
       parentUpdateId: commentMode === 'update' ? selectedUpdateId || null : null,
       parentCommentId: replyingTo || null,
     };
@@ -77,9 +78,13 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     return (
       <div key={comment.id} style={{ marginLeft: `${indent}px` }}>
         <div className="flex gap-3.5 py-4 border-b border-neutral-100">
-          <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
-            <User className="w-4 h-4 text-neutral-400" />
-          </div>
+          {comment.authorPhotoURL ? (
+            <img src={comment.authorPhotoURL} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0 text-[13px] font-bold text-neutral-400">
+              {comment.author.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-grow min-w-0">
             <div className="flex items-center gap-3 mb-1.5">
               <button

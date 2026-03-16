@@ -17,7 +17,7 @@ import {
   seedProjects,
   subscribeToUserVotes,
 } from './services/firestoreService';
-import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield } from 'lucide-react';
+import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen } from 'lucide-react';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   [Category.WEB]: <Layers className="w-4 h-4" />,
@@ -26,6 +26,12 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   [Category.IOT]: <Zap className="w-4 h-4" />,
   [Category.GAME]: <Zap className="w-4 h-4" />,
   [Category.DATA]: <Zap className="w-4 h-4" />,
+  [Category.BLOCKCHAIN]: <Bitcoin className="w-4 h-4" />,
+  [Category.CYBERSECURITY]: <ShieldCheck className="w-4 h-4" />,
+  [Category.DEVOPS]: <Cloud className="w-4 h-4" />,
+  [Category.AR_VR]: <Glasses className="w-4 h-4" />,
+  [Category.FINTECH]: <DollarSign className="w-4 h-4" />,
+  [Category.EDTECH]: <BookOpen className="w-4 h-4" />,
 };
 
 const App: React.FC = () => {

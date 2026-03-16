@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Project, Comment, ProjectUpdate, ProjectStatus } from '../types';
 import { generateProjectInsight } from '../services/geminiService';
 import { getProjectBadges } from '../services/utils';
-import { ArrowLeft, Github, Sparkles, User, Monitor, ChevronUp, AlertCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X } from 'lucide-react';
 import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
@@ -10,7 +10,7 @@ import { AddUpdateForm } from './AddUpdateForm';
 import { formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
-import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject, restoreProject, updateProjectDescription } from '../services/firestoreService';
+import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject, restoreProject, updateProjectDescription, updateProjectDetails, uploadProjectImage } from '../services/firestoreService';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -48,8 +48,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [suspensionReason, setSuspensionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
   const [showEditDescriptionModal, setShowEditDescriptionModal] = useState(false);
   const [editedDescription, setEditedDescription] = useState(project.description);
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
+  const [editedDemoUrl, setEditedDemoUrl] = useState(project.demoUrl || '');
+  const [editedWebsiteUrl, setEditedWebsiteUrl] = useState(project.websiteUrl || '');
+  const [editedImageFile, setEditedImageFile] = useState<File | null>(null);
+  const [editedImagePreview, setEditedImagePreview] = useState<string | null>(null);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const badges = getProjectBadges(project);
 
@@ -195,6 +202,34 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
+  const handleEditDetails = async () => {
+    if (!user || user.uid !== authorUid) return;
+    setIsProcessing(true);
+    try {
+      const fields: { demoUrl?: string; websiteUrl?: string; imageUrl?: string } = {
+        demoUrl: editedDemoUrl,
+        websiteUrl: editedWebsiteUrl,
+      };
+
+      if (editedImageFile) {
+        const newImageUrl = await uploadProjectImage(editedImageFile, project.id, `cover_${editedImageFile.name}`);
+        fields.imageUrl = newImageUrl;
+      }
+
+      await updateProjectDetails(project.id, user.uid, fields);
+      onUpdateProject({ ...project, ...fields });
+      toast('Project details updated!', 'success');
+      setShowEditDetailsModal(false);
+      setEditedImageFile(null);
+      setEditedImagePreview(null);
+    } catch (err) {
+      console.error('Failed to update details:', err);
+      toast('Failed to update details', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="animate-fade-up">
 
@@ -243,9 +278,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <span>Posted {formatDate(project.datePosted)}</span>
           <span className="text-neutral-200">|</span>
           <span className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[9px] font-bold text-gouni-dark">
-              {(project.displayName || project.studentName).charAt(0)}
-            </div>
+            {project.authorPhotoURL ? (
+              <img src={project.authorPhotoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[9px] font-bold text-gouni-dark">
+                {(project.displayName || project.studentName).charAt(0)}
+              </div>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -270,7 +309,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
           {/* Image gallery */}
           <div className="mb-10">
-            <div className="aspect-video w-full bg-neutral-100 rounded-2xl overflow-hidden mb-3">
+            <div
+              className="aspect-video w-full bg-neutral-100 rounded-2xl overflow-hidden mb-3 cursor-zoom-in"
+              onClick={() => setShowImageViewer(true)}
+            >
               <img src={activeImage} alt={project.title} className="w-full h-full object-cover" />
             </div>
             {(project.screenshots.length > 0) && (
@@ -454,6 +496,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </a>
             ) : null}
 
+            {user && user.uid === authorUid && (
+              <Button
+                variant="outline"
+                className="w-full justify-center rounded-xl text-gouni-primary border-gouni-primary/30 hover:bg-blue-50"
+                onClick={() => {
+                  setEditedDemoUrl(project.demoUrl || '');
+                  setEditedWebsiteUrl(project.websiteUrl || '');
+                  setEditedImageFile(null);
+                  setEditedImagePreview(null);
+                  setShowEditDetailsModal(true);
+                }}
+              >
+                Edit Details
+              </Button>
+            )}
+
             {profile?.isAdmin && (
               <div className="flex gap-2 pt-3 border-t border-neutral-200">
                 <Button
@@ -496,9 +554,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <div className="bg-white rounded-2xl border border-neutral-200 p-5">
             <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-4">Author</h4>
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-gouni-secondary/80 rounded-xl flex items-center justify-center text-lg font-bold text-gouni-dark">
-                {(project.displayName || project.studentName).charAt(0)}
-              </div>
+              {project.authorPhotoURL ? (
+                <img src={project.authorPhotoURL} alt="" className="w-11 h-11 rounded-xl object-cover" />
+              ) : (
+                <div className="w-11 h-11 bg-gouni-secondary/80 rounded-xl flex items-center justify-center text-lg font-bold text-gouni-dark">
+                  {(project.displayName || project.studentName).charAt(0)}
+                </div>
+              )}
               <div>
                 <div className="text-[14px] font-semibold text-neutral-900">{project.displayName || project.studentName}</div>
                 <div className="text-[12px] text-neutral-400">{project.level}</div>
@@ -635,6 +697,140 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Edit Details Modal (URLs + Image) */}
+      {showEditDetailsModal && user && user.uid === authorUid && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-neutral-900 mb-5">Edit Project Details</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Demo URL</label>
+                <input
+                  type="url"
+                  value={editedDemoUrl}
+                  onChange={(e) => setEditedDemoUrl(e.target.value)}
+                  placeholder="https://demo.example.com"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Website URL</label>
+                <input
+                  type="url"
+                  value={editedWebsiteUrl}
+                  onChange={(e) => setEditedWebsiteUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Project Image</label>
+                <input
+                  ref={editImageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast('Image must be under 5MB', 'error');
+                      return;
+                    }
+                    setEditedImageFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => setEditedImagePreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }}
+                />
+                {editedImagePreview ? (
+                  <div className="relative rounded-xl overflow-hidden border border-neutral-200">
+                    <img src={editedImagePreview} alt="Preview" className="w-full h-40 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => { setEditedImageFile(null); setEditedImagePreview(null); }}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => editImageInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-neutral-200 rounded-xl p-6 flex flex-col items-center text-center bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer"
+                  >
+                    <span className="text-[13px] font-medium text-neutral-600">Upload new image</span>
+                    <span className="text-[11px] text-neutral-400 mt-1">PNG, JPG up to 5MB (optional)</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDetailsModal(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleEditDetails}
+                isLoading={isProcessing}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Viewer */}
+      {showImageViewer && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowImageViewer(false)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            onClick={() => setShowImageViewer(false)}
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <img
+            src={activeImage}
+            alt={project.title}
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {/* Thumbnail strip */}
+          {project.screenshots.length > 0 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/60 p-2 rounded-xl backdrop-blur-sm">
+              <button
+                onClick={(e) => { e.stopPropagation(); setActiveImage(project.imageUrl); }}
+                className={`w-16 h-11 rounded-lg overflow-hidden border-2 transition-all ${activeImage === project.imageUrl ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'}`}
+              >
+                <img src={project.imageUrl} className="w-full h-full object-cover" />
+              </button>
+              {project.screenshots.map((shot, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => { e.stopPropagation(); setActiveImage(shot); }}
+                  className={`w-16 h-11 rounded-lg overflow-hidden border-2 transition-all ${activeImage === shot ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                >
+                  <img src={shot} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

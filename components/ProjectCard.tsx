@@ -93,11 +93,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* Author avatar */}
-            <div className="w-6 h-6 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[10px] font-bold text-gouni-dark">
-              {project.studentName.charAt(0)}
-            </div>
+            {project.authorPhotoURL ? (
+              <img src={project.authorPhotoURL} alt="" className="w-6 h-6 rounded-full object-cover" />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[10px] font-bold text-gouni-dark">
+                {(project.displayName || project.studentName).charAt(0)}
+              </div>
+            )}
             <span className="text-[12px] text-neutral-500">
-              {project.studentName}
+              {project.displayName || project.studentName}
             </span>
           </div>
 

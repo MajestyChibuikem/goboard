@@ -574,6 +574,24 @@ export async function updateProjectDescription(
   });
 }
 
+export async function updateProjectDetails(
+  projectId: string,
+  userId: string,
+  fields: { demoUrl?: string; websiteUrl?: string; imageUrl?: string }
+): Promise<void> {
+  const projectRef = doc(db, 'projects', projectId);
+  const projectSnap = await getDoc(projectRef);
+
+  if (!projectSnap.exists()) throw new Error('Project not found');
+  const project = projectSnap.data();
+
+  if (project.authorUid !== userId) {
+    throw new Error('Only the project author can edit project details');
+  }
+
+  await updateDoc(projectRef, fields);
+}
+
 export function subscribeToPendingProjects(callback: (projects: Project[]) => void) {
   return subscribeToProjects(callback, 'pending');
 }

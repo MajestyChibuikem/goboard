@@ -60,8 +60,9 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
       onSubmit({
         ...formData,
-        displayName: profile?.displayName || 'Student', // NEW: Use user's displayName
-        studentName: profile?.displayName || 'Student', // Keep for backward compatibility
+        displayName: profile?.displayName || 'Student',
+        studentName: profile?.displayName || 'Student',
+        authorPhotoURL: profile?.photoURL || null,
         techStack: formData.techStack.split(',').map(s => s.trim()),
         imageUrl,
         comments: [],
