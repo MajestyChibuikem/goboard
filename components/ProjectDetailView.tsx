@@ -11,6 +11,7 @@ import { formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject, restoreProject, updateProjectDescription, updateProjectDetails, uploadProjectImage } from '../services/firestoreService';
+import { UserAvatar } from './UserAvatar';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -278,13 +279,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <span>Posted {formatDate(project.datePosted)}</span>
           <span className="text-neutral-200">|</span>
           <span className="flex items-center gap-1.5">
-            {project.authorPhotoURL ? (
-              <img src={project.authorPhotoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
-            ) : (
-              <div className="w-5 h-5 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[9px] font-bold text-gouni-dark">
-                {(project.displayName || project.studentName).charAt(0)}
-              </div>
-            )}
+            <UserAvatar
+              uid={authorUid}
+              photoURL={project.authorPhotoURL}
+              fallbackName={project.displayName || project.studentName}
+              size="xs"
+            />
             <button
               type="button"
               onClick={() => {
@@ -554,13 +554,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <div className="bg-white rounded-2xl border border-neutral-200 p-5">
             <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-4">Author</h4>
             <div className="flex items-center gap-3">
-              {project.authorPhotoURL ? (
-                <img src={project.authorPhotoURL} alt="" className="w-11 h-11 rounded-xl object-cover" />
-              ) : (
-                <div className="w-11 h-11 bg-gouni-secondary/80 rounded-xl flex items-center justify-center text-lg font-bold text-gouni-dark">
-                  {(project.displayName || project.studentName).charAt(0)}
-                </div>
-              )}
+              <UserAvatar
+                uid={authorUid}
+                photoURL={project.authorPhotoURL}
+                fallbackName={project.displayName || project.studentName}
+                size="lg"
+                className="rounded-xl"
+              />
               <div>
                 <div className="text-[14px] font-semibold text-neutral-900">{project.displayName || project.studentName}</div>
                 <div className="text-[12px] text-neutral-400">{project.level}</div>

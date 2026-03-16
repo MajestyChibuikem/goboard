@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { UserCacheProvider } from './contexts/UserCacheContext';
 import { router } from './router';
 
 const rootElement = document.getElementById('root');
@@ -17,7 +18,9 @@ root.render(
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          <RouterProvider router={router} />
+          <UserCacheProvider>
+            <RouterProvider router={router} />
+          </UserCacheProvider>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

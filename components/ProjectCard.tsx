@@ -3,6 +3,7 @@ import { Project } from '../types';
 import { formatDate, getProjectBadges } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
 import { ChevronUp, MessageCircle } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
 
 interface ProjectCardProps {
   project: Project;
@@ -92,14 +93,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
         {/* Meta row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {/* Author avatar */}
-            {project.authorPhotoURL ? (
-              <img src={project.authorPhotoURL} alt="" className="w-6 h-6 rounded-full object-cover" />
-            ) : (
-              <div className="w-6 h-6 rounded-full bg-gouni-secondary/80 flex items-center justify-center text-[10px] font-bold text-gouni-dark">
-                {(project.displayName || project.studentName).charAt(0)}
-              </div>
-            )}
+            <UserAvatar
+              uid={project.authorUid}
+              photoURL={project.authorPhotoURL}
+              fallbackName={project.displayName || project.studentName}
+              size="sm"
+            />
             <span className="text-[12px] text-neutral-500">
               {project.displayName || project.studentName}
             </span>
