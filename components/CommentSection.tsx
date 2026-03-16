@@ -5,6 +5,66 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from './Button';
 import { MessageSquare, Send, Lock, Reply } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
+import { useResolvedUser } from '../contexts/UserCacheContext';
+
+/** Extracted so we can call useResolvedUser (hook) per comment. */
+const CommentItem: React.FC<{
+  comment: Comment;
+  depth: number;
+  getReplies: (id: string) => Comment[];
+  onProfileClick?: (uid: string) => void;
+  onReply: (commentId: string) => void;
+  formatDate: (d: string) => string;
+}> = ({ comment, depth, getReplies, onProfileClick, onReply, formatDate: fmt }) => {
+  const replies = getReplies(comment.id);
+  const indent = depth * 20;
+  const resolved = useResolvedUser(comment.authorUid, comment.author, comment.authorPhotoURL);
+
+  return (
+    <div style={{ marginLeft: `${indent}px` }}>
+      <div className="flex gap-3.5 py-4 border-b border-neutral-100">
+        <UserAvatar
+          uid={comment.authorUid}
+          photoURL={resolved.photoURL}
+          fallbackName={resolved.displayName}
+          size="md"
+        />
+        <div className="flex-grow min-w-0">
+          <div className="flex items-center gap-3 mb-1.5">
+            <button
+              type="button"
+              onClick={() => comment.authorUid && onProfileClick?.(comment.authorUid)}
+              className="text-[13px] font-semibold text-neutral-900 hover:underline hover:text-neutral-700 active:text-gouni-primary transition-colors cursor-pointer"
+            >
+              {resolved.displayName}
+            </button>
+            <span className="text-[11px] text-neutral-400">{fmt(comment.date)}</span>
+            {depth === 0 && (
+              <button
+                onClick={() => onReply(comment.id)}
+                className="text-[11px] text-neutral-500 hover:text-gouni-primary transition-colors flex items-center gap-1"
+              >
+                <Reply className="w-3 h-3" /> Reply
+              </button>
+            )}
+          </div>
+          <p className="text-[14px] text-neutral-600 leading-relaxed">{comment.content}</p>
+        </div>
+      </div>
+      {replies.map(reply => (
+        <CommentItem
+          key={reply.id}
+          comment={reply}
+          depth={depth + 1}
+          getReplies={getReplies}
+          onProfileClick={onProfileClick}
+          onReply={onReply}
+          formatDate={fmt}
+        />
+      ))}
+    </div>
+  );
+};
 
 interface CommentSectionProps {
   comments: Comment[];
@@ -71,49 +131,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     setReplyingTo(null);
   };
 
-  // Render a single comment with optional nesting
-  const renderComment = (comment: Comment, depth = 0) => {
-    const replies = getReplies(comment.id);
-    const indent = depth * 20;
-
-    return (
-      <div key={comment.id} style={{ marginLeft: `${indent}px` }}>
-        <div className="flex gap-3.5 py-4 border-b border-neutral-100">
-          <UserAvatar
-            uid={comment.authorUid}
-            photoURL={comment.authorPhotoURL}
-            fallbackName={comment.author}
-            size="md"
-          />
-          <div className="flex-grow min-w-0">
-            <div className="flex items-center gap-3 mb-1.5">
-              <button
-                type="button"
-                onClick={() => comment.authorUid && onProfileClick?.(comment.authorUid)}
-                className="text-[13px] font-semibold text-neutral-900 hover:underline hover:text-neutral-700 active:text-gouni-primary transition-colors cursor-pointer"
-              >
-                {comment.author}
-              </button>
-              <span className="text-[11px] text-neutral-400">{formatDate(comment.date)}</span>
-              {depth === 0 && (
-                <button
-                  onClick={() => {
-                    setReplyingTo(comment.id);
-                    setCommentMode('global');
-                  }}
-                  className="text-[11px] text-neutral-500 hover:text-gouni-primary transition-colors flex items-center gap-1"
-                >
-                  <Reply className="w-3 h-3" /> Reply
-                </button>
-              )}
-            </div>
-            <p className="text-[14px] text-neutral-600 leading-relaxed">{comment.content}</p>
-          </div>
-        </div>
-        {/* Render nested replies */}
-        {replies.map(reply => renderComment(reply, depth + 1))}
-      </div>
-    );
+  const handleReply = (commentId: string) => {
+    setReplyingTo(commentId);
+    setCommentMode('global');
   };
 
   return (
@@ -130,7 +150,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           <div>
             <h4 className="text-[13px] font-semibold text-neutral-500 uppercase tracking-wider mb-4">Global Comments</h4>
             <div className="space-y-0 mb-6">
-              {globalComments.filter(c => !c.parentCommentId).map(comment => renderComment(comment))}
+              {globalComments.filter(c => !c.parentCommentId).map(comment => (
+                <CommentItem key={comment.id} comment={comment} depth={0} getReplies={getReplies} onProfileClick={onProfileClick} onReply={handleReply} formatDate={formatDate} />
+              ))}
             </div>
           </div>
         )}
@@ -149,7 +171,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                 <p className="text-[13px] text-neutral-600 line-clamp-2">{update.content}</p>
               </div>
               <div className="space-y-0">
-                {updateComments.filter(c => !c.parentCommentId).map(comment => renderComment(comment))}
+                {updateComments.filter(c => !c.parentCommentId).map(comment => (
+                  <CommentItem key={comment.id} comment={comment} depth={0} getReplies={getReplies} onProfileClick={onProfileClick} onReply={handleReply} formatDate={formatDate} />
+                ))}
               </div>
             </div>
           );

@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject, restoreProject, updateProjectDescription, updateProjectDetails, uploadProjectImage } from '../services/firestoreService';
 import { UserAvatar } from './UserAvatar';
+import { useResolvedUser } from '../contexts/UserCacheContext';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG } from '../constants';
 
@@ -73,6 +74,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   };
 
   const authorUid = (project as any).authorUid as string | undefined;
+  const author = useResolvedUser(authorUid, project.displayName || project.studentName, project.authorPhotoURL);
 
   const handleAddComment = async (newComment: Comment) => {
     // Optimistic update
@@ -281,8 +283,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <span className="flex items-center gap-1.5">
             <UserAvatar
               uid={authorUid}
-              photoURL={project.authorPhotoURL}
-              fallbackName={project.displayName || project.studentName}
+              photoURL={author.photoURL}
+              fallbackName={author.displayName}
               size="xs"
             />
             <button
@@ -294,7 +296,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               }}
               className="font-medium text-neutral-700 hover:text-neutral-900 hover:underline active:text-gouni-primary transition-colors cursor-pointer"
             >
-              {project.displayName || project.studentName}
+              {author.displayName}
             </button>
             <span className="text-neutral-300">·</span>
             <span>{project.level}</span>
@@ -556,13 +558,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <div className="flex items-center gap-3">
               <UserAvatar
                 uid={authorUid}
-                photoURL={project.authorPhotoURL}
-                fallbackName={project.displayName || project.studentName}
+                photoURL={author.photoURL}
+                fallbackName={author.displayName}
                 size="lg"
                 className="rounded-xl"
               />
               <div>
-                <div className="text-[14px] font-semibold text-neutral-900">{project.displayName || project.studentName}</div>
+                <div className="text-[14px] font-semibold text-neutral-900">{author.displayName}</div>
                 <div className="text-[12px] text-neutral-400">{project.level}</div>
               </div>
             </div>

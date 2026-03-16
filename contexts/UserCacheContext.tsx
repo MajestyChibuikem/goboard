@@ -18,6 +18,21 @@ const UserCacheContext = createContext<UserCacheContextValue>({
 
 export const useUserCache = () => useContext(UserCacheContext);
 
+/** Resolve a user's current displayName and photoURL by uid, with static fallbacks. */
+export function useResolvedUser(uid?: string, fallbackName?: string, fallbackPhoto?: string | null) {
+  const { getUser, fetchUser } = useUserCache();
+
+  React.useEffect(() => {
+    if (uid) fetchUser(uid);
+  }, [uid, fetchUser]);
+
+  const cached = uid ? getUser(uid) : null;
+  return {
+    displayName: cached?.displayName || fallbackName || 'Student',
+    photoURL: cached?.photoURL || fallbackPhoto || null,
+  };
+}
+
 export const UserCacheProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const cache = useRef<Record<string, CachedUser>>({});
   const pending = useRef<Set<string>>(new Set());

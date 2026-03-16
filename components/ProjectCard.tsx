@@ -4,6 +4,7 @@ import { formatDate, getProjectBadges } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
 import { ChevronUp, MessageCircle } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
+import { useResolvedUser } from '../contexts/UserCacheContext';
 
 interface ProjectCardProps {
   project: Project;
@@ -15,6 +16,7 @@ interface ProjectCardProps {
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote, voted, disabled }) => {
   const badges = getProjectBadges(project);
+  const author = useResolvedUser(project.authorUid, project.displayName || project.studentName, project.authorPhotoURL);
 
   return (
     <div
@@ -95,12 +97,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           <div className="flex items-center gap-2">
             <UserAvatar
               uid={project.authorUid}
-              photoURL={project.authorPhotoURL}
-              fallbackName={project.displayName || project.studentName}
+              photoURL={author.photoURL}
+              fallbackName={author.displayName}
               size="sm"
             />
             <span className="text-[12px] text-neutral-500">
-              {project.displayName || project.studentName}
+              {author.displayName}
             </span>
           </div>
 
