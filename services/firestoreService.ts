@@ -73,6 +73,12 @@ function projectFromDoc(docSnap: any): Project {
   } as Project & { authorUid?: string; approvalStatus?: string };
 }
 
+export async function getProjectById(projectId: string): Promise<Project | null> {
+  const snap = await getDoc(doc(projectsCol, projectId));
+  if (!snap.exists()) return null;
+  return projectFromDoc(snap);
+}
+
 // ─── Projects ───
 
 export function subscribeToProjects(
