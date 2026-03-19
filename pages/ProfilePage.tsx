@@ -8,7 +8,7 @@ const ProfilePage: React.FC = () => {
   return (
     <div className="max-w-[1440px] mx-auto">
       <UserProfile
-        onBack={() => navigate('/')}
+        onBack={() => navigate('/browse')}
         onProjectClick={(project) => navigate(`/project/${project.id}`)}
       />
     </div>

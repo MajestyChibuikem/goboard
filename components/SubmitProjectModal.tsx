@@ -86,7 +86,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-up">
+      <div className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[75vh] overflow-y-auto animate-fade-up">
 
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neutral-100">

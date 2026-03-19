@@ -62,7 +62,7 @@ const ProjectPage: React.FC = () => {
         <h2 className="text-xl font-semibold text-neutral-900 mb-2">Project not found</h2>
         <p className="text-sm text-neutral-400 mb-6">This project may have been removed or doesn't exist.</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/browse')}
           className="text-sm font-medium text-gouni-primary hover:underline"
         >
           Back to projects
@@ -75,7 +75,7 @@ const ProjectPage: React.FC = () => {
     <>
       <ProjectDetailView
         project={project}
-        onBack={() => navigate('/')}
+        onBack={() => navigate('/browse')}
         onUpdateProject={handleUpdateProject}
         allProjects={projects}
         onProjectClick={(p) => navigate(`/project/${p.id}`)}

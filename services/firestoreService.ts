@@ -927,6 +927,33 @@ export async function getTopUsersByXP(maxLimit: number = 5): Promise<any[]> {
 
 // ─── Seed Data ───
 
+// ─── Favorites ───
+
+export async function toggleFavorite(userId: string, projectId: string): Promise<boolean> {
+  const favRef = doc(db, 'users', userId, 'favorites', projectId);
+  const snap = await getDoc(favRef);
+  if (snap.exists()) {
+    await deleteDoc(favRef);
+    return false; // removed
+  } else {
+    await setDoc(favRef, { addedAt: serverTimestamp() });
+    return true; // added
+  }
+}
+
+export async function getUserFavorites(userId: string): Promise<Set<string>> {
+  const favsCol = collection(db, 'users', userId, 'favorites');
+  const snap = await getDocs(favsCol);
+  return new Set(snap.docs.map(d => d.id));
+}
+
+export function subscribeToUserFavorites(userId: string, callback: (favs: Set<string>) => void) {
+  const favsCol = collection(db, 'users', userId, 'favorites');
+  return onSnapshot(favsCol, (snap) => {
+    callback(new Set(snap.docs.map(d => d.id)));
+  });
+}
+
 export async function seedProjects(projects: Project[]) {
   const snap = await getDocs(query(projectsCol));
   if (!snap.empty) return; // Already seeded

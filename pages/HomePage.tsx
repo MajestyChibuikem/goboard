@@ -30,6 +30,9 @@ import {
   Glasses,
   DollarSign,
   BookOpen,
+  ChevronUp,
+  X,
+  Bookmark,
 } from 'lucide-react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 
@@ -58,6 +61,8 @@ export interface HomeContext {
   handleVote: (e: React.MouseEvent, projectId: string) => void;
   requireAuth: (action: () => void) => void;
   setIsSubmitModalOpen: (open: boolean) => void;
+  userFavorites: Set<string>;
+  handleToggleFavorite: (e: React.MouseEvent, projectId: string) => void;
 }
 
 const HomePage: React.FC = () => {
@@ -69,6 +74,8 @@ const HomePage: React.FC = () => {
     handleVote,
     requireAuth,
     setIsSubmitModalOpen,
+    userFavorites,
+    handleToggleFavorite,
   } = useOutletContext<HomeContext>();
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -90,6 +97,8 @@ const HomePage: React.FC = () => {
   const [trendingTechs, setTrendingTechs] = useState<{ tech: string; count: number }[]>([]);
   const [showEditNoticeModal, setShowEditNoticeModal] = useState(false);
   const [noticeEditText, setNoticeEditText] = useState(boardNotice.content);
+  const [showMobileRightPanel, setShowMobileRightPanel] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   useEffect(() => {
     getTopUsersByXP(3)
@@ -113,6 +122,7 @@ const HomePage: React.FC = () => {
 
   const filteredProjects = useMemo(() => {
     let filtered = projects.filter(project => {
+      if (showFavorites && !userFavorites.has(project.id)) return false;
       const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             project.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             project.techStack.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -131,7 +141,7 @@ const HomePage: React.FC = () => {
           return new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime();
       }
     });
-  }, [projects, searchQuery, selectedCategory, sortBy]);
+  }, [projects, searchQuery, selectedCategory, sortBy, showFavorites, userFavorites]);
 
   const handleShowProfile = (userId: string) => {
     setSelectedProfileUserId(userId);
@@ -143,9 +153,9 @@ const HomePage: React.FC = () => {
       <nav className="hidden lg:block w-52 shrink-0 sticky top-24 h-fit">
         <div className="space-y-1">
           <button
-            onClick={() => setSelectedCategory('All')}
+            onClick={() => { setSelectedCategory('All'); setShowFavorites(false); }}
             className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
-              selectedCategory === 'All'
+              selectedCategory === 'All' && !showFavorites
                 ? 'bg-neutral-900 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
             }`}
@@ -154,13 +164,30 @@ const HomePage: React.FC = () => {
             All Projects
           </button>
 
+          {user && (
+            <button
+              onClick={() => { setShowFavorites(true); setSelectedCategory('All'); }}
+              className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
+                showFavorites
+                  ? 'bg-neutral-900 text-white shadow-sm'
+                  : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+              }`}
+            >
+              <Bookmark className="w-4 h-4" />
+              Favorites
+              {userFavorites.size > 0 && (
+                <span className="ml-auto text-[11px] opacity-60">{userFavorites.size}</span>
+              )}
+            </button>
+          )}
+
           <div className="pt-5 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Categories</div>
           {CATEGORIES.map(cat => (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => { setSelectedCategory(cat); setShowFavorites(false); }}
               className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] rounded-xl transition-all ${
-                selectedCategory === cat
+                selectedCategory === cat && !showFavorites
                   ? 'bg-neutral-900 text-white shadow-sm'
                   : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
               }`}
@@ -178,7 +205,7 @@ const HomePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
-              {selectedCategory === 'All' ? 'Discover Projects' : selectedCategory}
+              {showFavorites ? 'Favorites' : selectedCategory === 'All' ? 'Discover Projects' : selectedCategory}
             </h1>
             <p className="text-sm text-neutral-400 mt-1">
               {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} from GoUni students
@@ -249,7 +276,9 @@ const HomePage: React.FC = () => {
                   project={project}
                   onClick={(p) => navigate(`/project/${p.id}`)}
                   onVote={handleVote}
+                  onToggleFavorite={handleToggleFavorite}
                   voted={userVotes.has(project.id)}
+                  favorited={userFavorites.has(project.id)}
                   disabled={votingPending.has(project.id) || (!!user && user.uid === (project as any).authorUid)}
                 />
               </div>
@@ -258,97 +287,202 @@ const HomePage: React.FC = () => {
         ) : (
           <div className="text-center py-24">
             <div className="w-16 h-16 mx-auto mb-4 bg-neutral-100 rounded-2xl flex items-center justify-center">
-              <Tag className="w-7 h-7 text-neutral-300" />
+              {showFavorites ? <Bookmark className="w-7 h-7 text-neutral-300" /> : <Tag className="w-7 h-7 text-neutral-300" />}
             </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-1">No projects found</h3>
-            <p className="text-sm text-neutral-400 mb-6">Be the first to submit a project in this category</p>
-            <Button variant="primary" className="rounded-xl" onClick={() => requireAuth(() => setIsSubmitModalOpen(true))}>
-              <Plus className="w-4 h-4 mr-1.5" /> Submit Project
-            </Button>
+            <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+              {showFavorites ? 'No favorites yet' : 'No projects found'}
+            </h3>
+            <p className="text-sm text-neutral-400 mb-6">
+              {showFavorites ? 'Bookmark projects to save them here for quick access' : 'Be the first to submit a project in this category'}
+            </p>
+            {!showFavorites && (
+              <Button variant="primary" className="rounded-xl" onClick={() => requireAuth(() => setIsSubmitModalOpen(true))}>
+                <Plus className="w-4 h-4 mr-1.5" /> Submit Project
+              </Button>
+            )}
           </div>
         )}
       </main>
 
-      {/* Right Sidebar (Desktop) */}
-      <aside className="hidden xl:block w-72 shrink-0 space-y-6">
-        {/* Leaderboard */}
-        <div className="bg-white rounded-2xl border border-neutral-200/60 overflow-hidden">
-          <div className="px-5 py-4 flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <span className="text-[13px] font-bold text-neutral-900">Top Contributors</span>
-          </div>
-          <div className="px-2 pb-2">
-            {topUsersByXP.map((u, idx) => (
-              <button
-                type="button"
-                key={u.uid}
-                onClick={() => handleShowProfile(u.uid)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
-              >
-                <div className="relative">
-                  {u.photoURL ? (
-                    <img src={u.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
-                      {(u.displayName || 'A').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
-                    idx === 0 ? 'bg-amber-400 text-amber-900'
-                    : idx === 1 ? 'bg-neutral-300 text-neutral-700'
-                    : 'bg-orange-300 text-orange-800'
-                  }`}>
-                    {idx + 1}
-                  </span>
-                </div>
-                <div className="flex-grow min-w-0">
-                  <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
-                  <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Notice */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200/60 p-5">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">
-              {boardNotice.title}
+      {/* Right Sidebar (Desktop — sticky) */}
+      <aside className="hidden xl:block w-72 shrink-0">
+        <div className="sticky top-24 space-y-6 max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-hide">
+          {/* Leaderboard */}
+          <div className="bg-white rounded-2xl border border-neutral-200/60 overflow-hidden">
+            <div className="px-5 py-4 flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span className="text-[13px] font-bold text-neutral-900">Top Contributors</span>
             </div>
-            {profile?.isAdmin && (
-              <button
-                onClick={() => {
-                  setNoticeEditText(boardNotice.content);
-                  setShowEditNoticeModal(true);
-                }}
-                className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold"
-              >
-                Edit
-              </button>
-            )}
+            <div className="px-2 pb-2">
+              {topUsersByXP.map((u, idx) => (
+                <button
+                  type="button"
+                  key={u.uid}
+                  onClick={() => handleShowProfile(u.uid)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                >
+                  <div className="relative">
+                    {u.photoURL ? (
+                      <img src={u.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
+                        {(u.displayName || 'A').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                      idx === 0 ? 'bg-amber-400 text-amber-900'
+                      : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                      : 'bg-orange-300 text-orange-800'
+                    }`}>
+                      {idx + 1}
+                    </span>
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
+                    <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-          <p className="text-[13px] text-neutral-700 leading-relaxed">
-            {boardNotice.content}
-          </p>
-        </div>
 
-        {/* Trending Tech */}
-        <div className="bg-white rounded-2xl border border-neutral-200/60 p-5">
-          <div className="text-[13px] font-bold text-neutral-900 mb-4">Trending Technologies</div>
-          <div className="flex flex-wrap gap-2">
-            {trendingTechs.length > 0 ? (
-              trendingTechs.map(({ tech, count }) => (
-                <span key={tech} className="px-3 py-1.5 bg-neutral-50 text-neutral-600 text-[12px] font-medium rounded-lg border border-neutral-100 hover:border-neutral-300 hover:bg-white transition-all cursor-default" title={`${count} project${count !== 1 ? 's' : ''}`}>
-                  {tech} <span className="text-neutral-400 text-[11px]">({count})</span>
-                </span>
-              ))
-            ) : (
-              <span className="text-[12px] text-neutral-400">No technologies yet</span>
-            )}
+          {/* Notice */}
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200/60 p-5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">
+                {boardNotice.title}
+              </div>
+              {profile?.isAdmin && (
+                <button
+                  onClick={() => {
+                    setNoticeEditText(boardNotice.content);
+                    setShowEditNoticeModal(true);
+                  }}
+                  className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            <p className="text-[13px] text-neutral-700 leading-relaxed">
+              {boardNotice.content}
+            </p>
+          </div>
+
+          {/* Trending Tech */}
+          <div className="bg-white rounded-2xl border border-neutral-200/60 p-5">
+            <div className="text-[13px] font-bold text-neutral-900 mb-4">Trending Technologies</div>
+            <div className="flex flex-wrap gap-2">
+              {trendingTechs.length > 0 ? (
+                trendingTechs.map(({ tech, count }) => (
+                  <span key={tech} className="px-3 py-1.5 bg-neutral-50 text-neutral-600 text-[12px] font-medium rounded-lg border border-neutral-100 hover:border-neutral-300 hover:bg-white transition-all cursor-default" title={`${count} project${count !== 1 ? 's' : ''}`}>
+                    {tech} <span className="text-neutral-400 text-[11px]">({count})</span>
+                  </span>
+                ))
+              ) : (
+                <span className="text-[12px] text-neutral-400">No technologies yet</span>
+              )}
+            </div>
           </div>
         </div>
       </aside>
+
+      {/* Mobile right-panel toggle (visible below xl) */}
+      <button
+        onClick={() => setShowMobileRightPanel(true)}
+        className="xl:hidden fixed bottom-6 right-6 z-40 w-12 h-12 bg-neutral-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-800 transition-colors"
+        title="Leaderboard & Info"
+      >
+        <Trophy className="w-5 h-5" />
+      </button>
+
+      {/* Mobile right-panel slide-up sheet */}
+      {showMobileRightPanel && (
+        <div className="xl:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={() => setShowMobileRightPanel(false)}>
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-[#fafafa] rounded-t-3xl max-h-[75vh] overflow-y-auto animate-slide-up p-6 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center mb-2">
+              <div className="w-10 h-1 bg-neutral-300 rounded-full" />
+            </div>
+
+            {/* Close */}
+            <button
+              onClick={() => setShowMobileRightPanel(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-neutral-200 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-neutral-500" />
+            </button>
+
+            {/* Leaderboard */}
+            <div className="bg-white rounded-2xl border border-neutral-200/60 overflow-hidden">
+              <div className="px-5 py-4 flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                <span className="text-[13px] font-bold text-neutral-900">Top Contributors</span>
+              </div>
+              <div className="px-2 pb-2">
+                {topUsersByXP.map((u, idx) => (
+                  <button
+                    type="button"
+                    key={u.uid}
+                    onClick={() => { handleShowProfile(u.uid); setShowMobileRightPanel(false); }}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                  >
+                    <div className="relative">
+                      {u.photoURL ? (
+                        <img src={u.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
+                          {(u.displayName || 'A').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                        idx === 0 ? 'bg-amber-400 text-amber-900'
+                        : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                        : 'bg-orange-300 text-orange-800'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                    </div>
+                    <div className="flex-grow min-w-0">
+                      <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
+                      <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notice */}
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200/60 p-5">
+              <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-2">
+                {boardNotice.title}
+              </div>
+              <p className="text-[13px] text-neutral-700 leading-relaxed">
+                {boardNotice.content}
+              </p>
+            </div>
+
+            {/* Trending Tech */}
+            <div className="bg-white rounded-2xl border border-neutral-200/60 p-5">
+              <div className="text-[13px] font-bold text-neutral-900 mb-4">Trending Technologies</div>
+              <div className="flex flex-wrap gap-2">
+                {trendingTechs.length > 0 ? (
+                  trendingTechs.map(({ tech, count }) => (
+                    <span key={tech} className="px-3 py-1.5 bg-neutral-50 text-neutral-600 text-[12px] font-medium rounded-lg border border-neutral-100">
+                      {tech} <span className="text-neutral-400 text-[11px]">({count})</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[12px] text-neutral-400">No technologies yet</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Board Notice Modal */}
       {showEditNoticeModal && profile?.isAdmin && (

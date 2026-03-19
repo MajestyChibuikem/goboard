@@ -671,8 +671,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {/* Edit Description Modal */}
       {showEditDescriptionModal && user && user.uid === authorUid && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up max-h-[70vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-neutral-900 mb-4">Edit Project Description</h3>
             <textarea
               value={editedDescription}
@@ -705,7 +705,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       {/* Edit Details Modal (URLs + Image) */}
       {showEditDetailsModal && user && user.uid === authorUid && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[70vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-neutral-900 mb-5">Edit Project Details</h3>
 
             <div className="space-y-4">
@@ -810,7 +810,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           <img
             src={activeImage}
             alt={project.title}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            className="max-w-full max-h-[75vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
           {/* Thumbnail strip */}

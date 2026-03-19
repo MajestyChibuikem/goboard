@@ -8,7 +8,7 @@ const AdminPage: React.FC = () => {
   return (
     <div className="max-w-[1440px] mx-auto">
       <AdminQueue
-        onBack={() => navigate('/')}
+        onBack={() => navigate('/browse')}
         onProjectClick={(project) => navigate(`/project/${project.id}`)}
       />
     </div>

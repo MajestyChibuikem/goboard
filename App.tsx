@@ -16,6 +16,8 @@ import {
   getUserVotes,
   seedProjects,
   subscribeToUserVotes,
+  toggleFavorite,
+  subscribeToUserFavorites,
 } from './services/firestoreService';
 import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen } from 'lucide-react';
 
@@ -49,6 +51,7 @@ const App: React.FC = () => {
   const [userVotes, setUserVotes] = useState<Set<string>>(new Set());
   const [votingPending, setVotingPending] = useState<Set<string>>(new Set());
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
+  const [userFavorites, setUserFavorites] = useState<Set<string>>(new Set());
 
   // Determine current page from URL for sidebar highlighting
   const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : 'home';
@@ -94,6 +97,43 @@ const App: React.FC = () => {
     }
     return () => unsub?.();
   }, [user]);
+
+  // Subscribe to user favorites
+  useEffect(() => {
+    if (!user) {
+      setUserFavorites(new Set());
+      return;
+    }
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = subscribeToUserFavorites(user.uid, setUserFavorites);
+    } catch (err) {
+      console.warn('Failed to subscribe to favorites:', err);
+    }
+    return () => unsub?.();
+  }, [user]);
+
+  const handleToggleFavorite = useCallback(async (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation();
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    // Optimistic update
+    const wasFav = userFavorites.has(projectId);
+    const newFavs = new Set(userFavorites);
+    if (wasFav) newFavs.delete(projectId); else newFavs.add(projectId);
+    setUserFavorites(newFavs);
+
+    try {
+      const added = await toggleFavorite(user.uid, projectId);
+      toast(added ? 'Added to favorites!' : 'Removed from favorites.', 'success');
+    } catch (err) {
+      console.error('Toggle favorite failed:', err);
+      setUserFavorites(userFavorites); // revert
+      toast('Failed to update favorites.', 'error');
+    }
+  }, [user, userFavorites]);
 
   // Hide custom loading screen when Firebase is ready
   useEffect(() => {
@@ -196,6 +236,8 @@ const App: React.FC = () => {
     handleVote,
     requireAuth,
     setIsSubmitModalOpen,
+    userFavorites,
+    handleToggleFavorite,
   };
 
   return (
@@ -212,7 +254,7 @@ const App: React.FC = () => {
 
             <div
               className="flex items-center gap-2.5 cursor-pointer"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/browse')}
             >
               <div className="w-8 h-8 bg-gouni-dark rounded-lg flex items-center justify-center">
                 <GraduationCap className="w-4.5 h-4.5 text-white" />
@@ -346,7 +388,7 @@ const App: React.FC = () => {
               </div>
               <nav className="space-y-1">
                 <button
-                  onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
+                  onClick={() => { navigate('/browse'); setIsMobileMenuOpen(false); }}
                   className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 font-medium rounded-xl text-sm ${
                     currentPage === 'home' ? 'text-neutral-900 bg-neutral-100' : 'text-neutral-500 hover:bg-neutral-50'
                   }`}
@@ -357,7 +399,7 @@ const App: React.FC = () => {
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
-                    onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
+                    onClick={() => { navigate('/browse'); setIsMobileMenuOpen(false); }}
                     className="flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 rounded-xl"
                   >
                     {CATEGORY_ICONS[cat] || <Tag className="w-4 h-4" />}

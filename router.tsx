@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App';
 
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const HomePage = React.lazy(() => import('./pages/HomePage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const AdminPage = React.lazy(() => import('./pages/AdminPage'));
@@ -16,10 +17,18 @@ const PageFallback = () => (
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: (
+      <Suspense fallback={<PageFallback />}>
+        <LandingPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/',
     element: <App />,
     children: [
       {
-        index: true,
+        path: 'browse',
         element: (
           <Suspense fallback={<PageFallback />}>
             <HomePage />

@@ -2,7 +2,7 @@ import React from 'react';
 import { Project } from '../types';
 import { formatDate, getProjectBadges } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
-import { ChevronUp, MessageCircle } from 'lucide-react';
+import { ChevronUp, MessageCircle, Bookmark } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
 import { useResolvedUser } from '../contexts/UserCacheContext';
 
@@ -10,11 +10,13 @@ interface ProjectCardProps {
   project: Project;
   onClick: (project: Project) => void;
   onVote: (e: React.MouseEvent, projectId: string) => void;
+  onToggleFavorite?: (e: React.MouseEvent, projectId: string) => void;
   voted?: boolean;
+  favorited?: boolean;
   disabled?: boolean;
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote, voted, disabled }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVote, onToggleFavorite, voted, favorited, disabled }) => {
   const badges = getProjectBadges(project);
   const author = useResolvedUser(project.authorUid, project.displayName || project.studentName, project.authorPhotoURL);
 
@@ -71,20 +73,35 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           <h3 className="text-[15px] font-semibold text-neutral-900 leading-snug group-hover:text-gouni-primary transition-colors line-clamp-1">
             {project.title}
           </h3>
-          <button
-            onClick={(e) => { e.stopPropagation(); onVote(e, project.id); }}
-            disabled={disabled}
-            aria-pressed={!!voted}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all shrink-0 group/vote ${
-              voted
-                ? 'border-orange-300 bg-orange-50 text-orange-600'
-                : 'border-surface-border hover:border-orange-300 hover:bg-orange-50'
-            }`}
-            title={voted ? 'Remove vote' : 'Upvote'}
-          >
-            <ChevronUp className={`w-3.5 h-3.5 ${voted ? 'text-orange-500' : 'text-neutral-400 group-hover/vote:text-orange-500'}`} />
-            <span className={`text-xs font-semibold ${voted ? 'text-orange-600' : 'text-neutral-600 group-hover/vote:text-orange-600'}`}>{project.likes}</span>
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onToggleFavorite && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(e, project.id); }}
+                className={`p-1.5 rounded-lg border transition-all ${
+                  favorited
+                    ? 'border-blue-300 bg-blue-50 text-blue-600'
+                    : 'border-surface-border hover:border-blue-300 hover:bg-blue-50 text-neutral-400 hover:text-blue-500'
+                }`}
+                title={favorited ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Bookmark className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onVote(e, project.id); }}
+              disabled={disabled}
+              aria-pressed={!!voted}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all group/vote ${
+                voted
+                  ? 'border-orange-300 bg-orange-50 text-orange-600'
+                  : 'border-surface-border hover:border-orange-300 hover:bg-orange-50'
+              }`}
+              title={voted ? 'Remove vote' : 'Upvote'}
+            >
+              <ChevronUp className={`w-3.5 h-3.5 ${voted ? 'text-orange-500' : 'text-neutral-400 group-hover/vote:text-orange-500'}`} />
+              <span className={`text-xs font-semibold ${voted ? 'text-orange-600' : 'text-neutral-600 group-hover/vote:text-orange-600'}`}>{project.likes}</span>
+            </button>
+          </div>
         </div>
 
         {/* Description */}
