@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ProjectUpdate, ProjectStatus } from '../types';
 import { formatDate } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
-import { Flag, Image, ChevronDown, ChevronUp } from 'lucide-react';
+import { Flag, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface ProjectTimelineProps {
   updates: ProjectUpdate[];
@@ -120,6 +120,27 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
         </div>
       ) : (
         <p className="text-[13px] text-neutral-400 text-center py-6">No updates posted yet.</p>
+      )}
+
+      {/* Lightbox for expanded image */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setExpandedImage(null)}
+        >
+          <button
+            onClick={() => setExpandedImage(null)}
+            className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={expandedImage}
+            alt="Update"
+            className="max-w-full max-h-[85vh] rounded-xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );
