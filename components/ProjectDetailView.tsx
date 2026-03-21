@@ -96,13 +96,24 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
-  const handleAddUpdate = async (updateData: Omit<ProjectUpdate, 'id' | 'date'>) => {
+  const handleAddUpdate = async (updateData: Omit<ProjectUpdate, 'id' | 'date'>, imageFile?: File) => {
     if (!user) { onRequireAuth(); return; }
+
+    let imageUrl: string | undefined;
+    if (imageFile) {
+      try {
+        imageUrl = await uploadProjectImage(imageFile, project.id, `update_${Date.now()}_${imageFile.name}`);
+      } catch (err) {
+        console.error('Failed to upload update image:', err);
+        toast('Image upload failed, posting without image.', 'error');
+      }
+    }
 
     const newUpdate: ProjectUpdate = {
       ...updateData,
       id: Date.now().toString(),
       date: new Date().toISOString(),
+      ...(imageUrl && { imageUrl }),
     };
 
     // Optimistic update

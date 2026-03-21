@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ProjectUpdate, ProjectStatus } from '../types';
 import { STATUS_CONFIG } from '../constants';
 import { Button } from './Button';
-import { Plus, Send, Lock } from 'lucide-react';
+import { Plus, Send, Lock, Image as ImageIcon, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AddUpdateFormProps {
   currentStatus: ProjectStatus;
-  onAddUpdate: (update: Omit<ProjectUpdate, 'id' | 'date'>) => void;
+  onAddUpdate: (update: Omit<ProjectUpdate, 'id' | 'date'>, imageFile?: File) => void;
   onStatusChange: (status: ProjectStatus) => void;
-  projectAuthorUid?: string; // NEW: Required to check permissions
-  currentUserUid?: string | null; // NEW: Current user's UID
+  projectAuthorUid?: string;
+  currentUserUid?: string | null;
 }
 
 export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
@@ -20,11 +20,14 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
   projectAuthorUid,
   currentUserUid
 }) => {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState('');
   const [milestone, setMilestone] = useState('');
   const [newStatus, setNewStatus] = useState<ProjectStatus>(currentStatus);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Check if current user can edit
   const canEdit = currentUserUid && (currentUserUid === projectAuthorUid || profile?.isAdmin);
@@ -38,20 +41,35 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
     );
   }
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
 
     const updateData: Omit<ProjectUpdate, 'id' | 'date'> = {
       content: content.trim(),
-      authorUid: currentUserUid, // NEW: Include authorUid
+      authorUid: currentUserUid,
     };
 
     if (milestone.trim()) {
       updateData.milestone = milestone.trim();
     }
 
-    onAddUpdate(updateData);
+    onAddUpdate(updateData, imageFile || undefined);
 
     if (newStatus !== currentStatus) {
       onStatusChange(newStatus);
@@ -59,6 +77,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
 
     setContent('');
     setMilestone('');
+    clearImage();
     setIsOpen(false);
   };
 
@@ -90,6 +109,38 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
         className="w-full p-3.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none min-h-[100px] text-sm resize-none transition-all placeholder:text-neutral-400"
         required
       />
+
+      {/* Optional image attachment */}
+      <div>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          className="hidden"
+        />
+        {imagePreview ? (
+          <div className="relative inline-block">
+            <img src={imagePreview} alt="Preview" className="h-28 rounded-xl border border-neutral-200 object-cover" />
+            <button
+              type="button"
+              onClick={clearImage}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-neutral-200 text-[12px] text-neutral-400 hover:text-neutral-600 hover:border-neutral-300 transition-all"
+          >
+            <ImageIcon className="w-4 h-4" />
+            Attach image (optional)
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
