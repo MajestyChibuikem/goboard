@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from './Button';
 import { Category, Project } from '../types';
-import { uploadProjectImage } from '../services/firestoreService';
+import { uploadProjectImage, isProjectTitleTaken } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
 
 interface SubmitProjectModalProps {
@@ -25,6 +25,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [titleError, setTitleError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,9 +43,18 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTitleError('');
     setSubmitting(true);
 
     try {
+      // Check for duplicate title (case-insensitive)
+      const taken = await isProjectTitleTaken(formData.title);
+      if (taken) {
+        setTitleError('A project with this name already exists. Please choose a different title.');
+        setSubmitting(false);
+        return;
+      }
+
       let imageUrl = `https://picsum.photos/seed/${Math.random()}/800/600`;
 
       // Upload image if provided
@@ -107,10 +117,13 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
               required
               name="title"
               value={formData.title}
-              onChange={handleChange}
-              className={inputStyles}
+              onChange={(e) => { handleChange(e); setTitleError(''); }}
+              className={`${inputStyles} ${titleError ? 'border-red-400 focus:ring-red-200 focus:border-red-400' : ''}`}
               placeholder="e.g. Campus Navigator"
             />
+            {titleError && (
+              <p className="text-[12px] text-red-600 mt-1">{titleError}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

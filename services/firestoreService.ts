@@ -110,12 +110,26 @@ export function subscribeToProjects(
   });
 }
 
+export async function isProjectTitleTaken(title: string): Promise<boolean> {
+  const normalised = title.trim().toLowerCase();
+  const q = query(projectsCol, where('titleLower', '==', normalised));
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
+
 export async function createProject(
   data: Omit<Project, 'id' | 'likes' | 'datePosted' | 'comments' | 'screenshots' | 'updates'>,
   authorUid: string
 ) {
+  // Enforce case-insensitive unique title
+  const taken = await isProjectTitleTaken(data.title);
+  if (taken) {
+    throw new Error('A project with this name already exists. Please choose a different title.');
+  }
+
   const docRef = await addDoc(projectsCol, {
     ...data,
+    titleLower: data.title.trim().toLowerCase(),
     likes: 0,
     datePosted: serverTimestamp(),
     comments: [],
