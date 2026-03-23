@@ -120,7 +120,7 @@ const LandingPage: React.FC = () => {
               onClick={handleBeginJourney}
               className="px-5 py-2 text-sm font-medium bg-white text-[#0a0a0a] rounded-full hover:bg-neutral-200 transition-colors"
             >
-              Begin Journey
+              {user ? 'Dashboard' : 'Begin Journey'}
             </button>
           </div>
         </nav>
@@ -146,7 +146,7 @@ const LandingPage: React.FC = () => {
               onClick={handleBeginJourney}
               className="mt-12 px-8 py-3.5 text-[15px] font-medium bg-white text-[#0a0a0a] rounded-full hover:bg-neutral-200 transition-colors"
             >
-              Begin Journey
+              {user ? 'Go to Dashboard' : 'Begin Journey'}
             </button>
           </div>
 
