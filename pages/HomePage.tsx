@@ -164,6 +164,14 @@ const HomePage: React.FC = () => {
             All Projects
           </button>
 
+          <button
+            onClick={() => navigate('/lit-club')}
+            className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+          >
+            <BookOpen className="w-4 h-4" />
+            Lit Club
+          </button>
+
           {user && (
             <button
               onClick={() => { setShowFavorites(true); setSelectedCategory('All'); }}

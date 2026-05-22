@@ -26,7 +26,7 @@ import {
 } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { db, storage, auth } from './firebase';
-import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice } from '../types';
+import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice, Writing, WritingGenre } from '../types';
 
 // ─── Collection refs ───
 
@@ -348,7 +348,7 @@ export async function addComment(projectId: string, comment: Comment) {
 
   // Create notification for parent comment author if this is a reply
   if (comment.parentCommentId && comment.authorUid) {
-    const parentComment = current.find(c => c.id === comment.parentCommentId);
+    const parentComment = current.find((c: Comment) => c.id === comment.parentCommentId);
     if (parentComment && parentComment.authorUid && parentComment.authorUid !== comment.authorUid) {
       await createNotification({
         type: 'reply',
@@ -996,4 +996,343 @@ export async function seedProjects(projects: Project[]) {
     });
   });
   await batch.commit();
+}
+
+// ─── Literature Club ───
+
+const writingsCol = collection(db, 'writings');
+const litVotesCol = collection(db, 'litVotes');
+
+function writingFromDoc(docSnap: any): Writing {
+  const d = docSnap.data();
+  return {
+    id: docSnap.id,
+    title: d.title || '',
+    body: d.body || '',
+    genre: d.genre || 'essay',
+    displayName: d.displayName || '',
+    authorPhotoURL: d.authorPhotoURL || null,
+    likes: d.likes || 0,
+    datePosted: tsToISO(d.datePosted),
+    comments: d.comments || [],
+    ...(d.authorUid && { authorUid: d.authorUid }),
+    ...(d.approvalStatus && { approvalStatus: d.approvalStatus }),
+    ...(d.rejectionReason && { rejectionReason: d.rejectionReason }),
+    ...(d.isSuspended && { isSuspended: d.isSuspended }),
+    ...(d.suspendedBy && { suspendedBy: d.suspendedBy }),
+    ...(d.suspendedAt && { suspendedAt: d.suspendedAt }),
+    ...(d.suspensionReason && { suspensionReason: d.suspensionReason }),
+  } as Writing;
+}
+
+export async function getWritingById(writingId: string): Promise<Writing | null> {
+  const snap = await getDoc(doc(writingsCol, writingId));
+  if (!snap.exists()) return null;
+  return writingFromDoc(snap);
+}
+
+export function subscribeToWritings(
+  callback: (writings: Writing[]) => void,
+  approvalFilter: 'approved' | 'pending' | 'all' = 'approved',
+  isAdmin: boolean = false,
+  userId?: string
+) {
+  let q;
+  if (approvalFilter === 'all') {
+    q = query(writingsCol, orderBy('datePosted', 'desc'));
+  } else {
+    q = query(
+      writingsCol,
+      where('approvalStatus', '==', approvalFilter),
+      orderBy('datePosted', 'desc')
+    );
+  }
+
+  return onSnapshot(q, (snapshot) => {
+    let writings = snapshot.docs.map(writingFromDoc);
+    if (!isAdmin) {
+      writings = writings.filter(w => !w.isSuspended || (userId && w.authorUid === userId));
+    }
+    callback(writings);
+  });
+}
+
+export function subscribeToPendingWritings(callback: (writings: Writing[]) => void) {
+  return subscribeToWritings(callback, 'pending');
+}
+
+export async function createWriting(
+  data: { title: string; body: string; genre: WritingGenre; displayName: string; authorPhotoURL?: string | null },
+  authorUid: string
+) {
+  const docRef = await addDoc(writingsCol, {
+    ...data,
+    likes: 0,
+    datePosted: serverTimestamp(),
+    comments: [],
+    authorUid,
+    approvalStatus: 'pending',
+  });
+
+  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT);
+  await checkFirstWritingBonus(authorUid);
+
+  return docRef.id;
+}
+
+async function checkFirstWritingBonus(authorUid: string) {
+  const q = query(writingsCol, where('authorUid', '==', authorUid));
+  const snap = await getDocs(q);
+  if (snap.size === 1) {
+    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT);
+  }
+}
+
+export async function approveWriting(writingId: string) {
+  const writingRef = doc(writingsCol, writingId);
+  const writingSnap = await getDoc(writingRef);
+  await updateDoc(writingRef, { approvalStatus: 'approved' });
+
+  if (writingSnap.exists()) {
+    const writing = writingSnap.data();
+    if (writing.authorUid) {
+      await createNotification({
+        type: 'approval',
+        userId: writing.authorUid,
+        triggerUid: 'ADMIN',
+        triggerDisplayName: 'Admin',
+        projectId: writingId,
+        projectTitle: writing.title,
+        message: `Your writing "${writing.title}" has been approved!`,
+        previewText: writing.body.substring(0, 100),
+        viewedAt: null,
+        link: { type: 'project', id: writingId },
+      });
+      await awardXP(writing.authorUid, XP_VALUES.PROJECT_APPROVED);
+    }
+  }
+}
+
+export async function rejectWriting(writingId: string, reason?: string) {
+  const writingRef = doc(writingsCol, writingId);
+  const writingSnap = await getDoc(writingRef);
+  await updateDoc(writingRef, {
+    approvalStatus: 'rejected',
+    rejectionReason: reason || '',
+  });
+
+  if (writingSnap.exists()) {
+    const writing = writingSnap.data();
+    if (writing.authorUid) {
+      await createNotification({
+        type: 'rejection',
+        userId: writing.authorUid,
+        triggerUid: 'ADMIN',
+        triggerDisplayName: 'Admin',
+        projectId: writingId,
+        projectTitle: writing.title,
+        message: `Your writing "${writing.title}" was not approved`,
+        previewText: reason || 'No reason provided',
+        viewedAt: null,
+        link: { type: 'project', id: writingId },
+      });
+    }
+  }
+}
+
+export async function deleteWriting(writingId: string, userId: string) {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists() || !userSnap.data().isAdmin) {
+    throw new Error('Only admins can delete writings');
+  }
+  await deleteDoc(doc(writingsCol, writingId));
+
+  const votesQuery = query(litVotesCol, where('writingId', '==', writingId));
+  const votesSnap = await getDocs(votesQuery);
+  const batch = writeBatch(db);
+  votesSnap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+}
+
+export async function suspendWriting(writingId: string, adminUid: string, reason: string) {
+  const writingRef = doc(writingsCol, writingId);
+  const writingSnap = await getDoc(writingRef);
+  if (!writingSnap.exists()) throw new Error('Writing not found');
+  const writing = writingSnap.data();
+
+  await updateDoc(writingRef, {
+    isSuspended: true,
+    suspendedBy: adminUid,
+    suspendedAt: new Date().toISOString(),
+    suspensionReason: reason,
+  });
+
+  if (writing.authorUid && writing.authorUid !== adminUid) {
+    await createNotification({
+      type: 'suspension',
+      userId: writing.authorUid,
+      triggerUid: adminUid,
+      triggerDisplayName: 'Admin',
+      projectId: writingId,
+      projectTitle: writing.title,
+      message: `Your writing "${writing.title}" has been suspended`,
+      previewText: reason,
+      viewedAt: null,
+      link: { type: 'project', id: writingId },
+    });
+  }
+}
+
+export async function restoreWriting(writingId: string, adminUid: string) {
+  const writingRef = doc(writingsCol, writingId);
+  const writingSnap = await getDoc(writingRef);
+  if (!writingSnap.exists()) throw new Error('Writing not found');
+  const writing = writingSnap.data();
+
+  await updateDoc(writingRef, {
+    isSuspended: false,
+    suspendedBy: null,
+    suspendedAt: null,
+    suspensionReason: null,
+  });
+
+  if (writing.authorUid && writing.authorUid !== adminUid) {
+    await createNotification({
+      type: 'approval',
+      userId: writing.authorUid,
+      triggerUid: adminUid,
+      triggerDisplayName: 'Admin',
+      projectId: writingId,
+      projectTitle: writing.title,
+      message: `Your writing "${writing.title}" has been restored`,
+      previewText: 'Your writing is now visible to all users',
+      viewedAt: null,
+      link: { type: 'project', id: writingId },
+    });
+  }
+}
+
+export async function toggleWritingVote(
+  writingId: string,
+  userId: string,
+  authorUid?: string
+): Promise<boolean> {
+  const voteId = `${userId}_${writingId}`;
+  const voteRef = doc(litVotesCol, voteId);
+  const writingRef = doc(writingsCol, writingId);
+  const voteSnap = await getDoc(voteRef);
+  const batch = writeBatch(db);
+
+  if (voteSnap.exists()) {
+    batch.delete(voteRef);
+    batch.update(writingRef, { likes: increment(-1) });
+    await batch.commit();
+    return false;
+  } else {
+    batch.set(voteRef, { userId, writingId, createdAt: serverTimestamp() });
+    batch.update(writingRef, { likes: increment(1) });
+    await batch.commit();
+
+    if (authorUid && authorUid !== userId) {
+      awardXP(authorUid, XP_VALUES.RECEIVE_VOTE).catch(console.error);
+    }
+    return true;
+  }
+}
+
+export function subscribeToUserLitVotes(userId: string, callback: (votes: Set<string>) => void) {
+  const q = query(litVotesCol, where('userId', '==', userId));
+  return onSnapshot(q, (snapshot) => {
+    const voted = new Set<string>();
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      if (d?.writingId) voted.add(d.writingId);
+    });
+    callback(voted);
+  });
+}
+
+export async function seedWritings(writings: Omit<Writing, 'id'>[]) {
+  const snap = await getDocs(query(writingsCol));
+  if (!snap.empty) return;
+
+  const batch = writeBatch(db);
+  writings.forEach(w => {
+    const ref = doc(writingsCol);
+    batch.set(ref, {
+      ...w,
+      datePosted: Timestamp.fromDate(new Date(w.datePosted)),
+      authorUid: null,
+    });
+  });
+  await batch.commit();
+}
+
+export async function addWritingComment(writingId: string, comment: Comment) {
+  const writingRef = doc(writingsCol, writingId);
+  const snap = await getDoc(writingRef);
+  if (!snap.exists()) return;
+
+  if (!comment.parentCommentId) comment.parentCommentId = null;
+
+  const writing = snap.data();
+  const current = writing.comments || [];
+  await updateDoc(writingRef, { comments: [...current, comment] });
+
+  if (!comment.parentCommentId && comment.authorUid && writing.authorUid && comment.authorUid !== writing.authorUid) {
+    await createNotification({
+      type: 'comment',
+      userId: writing.authorUid,
+      triggerUid: comment.authorUid,
+      triggerDisplayName: comment.author,
+      projectId: writingId,
+      projectTitle: writing.title,
+      commentId: comment.id,
+      message: `${comment.author} commented on your writing`,
+      previewText: comment.content.substring(0, 100),
+      viewedAt: null,
+      link: { type: 'project', id: writingId },
+    });
+  }
+
+  if (comment.parentCommentId && comment.authorUid) {
+    const parentComment = current.find((c: Comment) => c.id === comment.parentCommentId);
+    if (parentComment && parentComment.authorUid && parentComment.authorUid !== comment.authorUid) {
+      await createNotification({
+        type: 'reply',
+        userId: parentComment.authorUid,
+        triggerUid: comment.authorUid,
+        triggerDisplayName: comment.author,
+        projectId: writingId,
+        projectTitle: writing.title,
+        commentId: comment.id,
+        parentCommentId: comment.parentCommentId,
+        message: `${comment.author} replied to your comment`,
+        previewText: comment.content.substring(0, 100),
+        viewedAt: null,
+        link: { type: 'project', id: writingId },
+      });
+    }
+  }
+
+  const mentions = parseMentions(comment.content);
+  for (const mention of mentions) {
+    const mentionedUser = await findUserByDisplayName(mention);
+    if (mentionedUser && mentionedUser.uid && mentionedUser.uid !== comment.authorUid) {
+      await createNotification({
+        type: 'mention',
+        userId: mentionedUser.uid,
+        triggerUid: comment.authorUid || 'unknown',
+        triggerDisplayName: comment.author,
+        projectId: writingId,
+        projectTitle: writing.title,
+        commentId: comment.id,
+        message: `${comment.author} mentioned you in a comment`,
+        previewText: comment.content.substring(0, 100),
+        viewedAt: null,
+        link: { type: 'project', id: writingId },
+      });
+    }
+  }
 }

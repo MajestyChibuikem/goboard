@@ -106,3 +106,24 @@ export interface BoardNotice {
   updatedAt: string;
   updatedBy?: string;
 }
+
+export type WritingGenre = 'short-story' | 'poem' | 'essay';
+
+export interface Writing {
+  id: string;
+  title: string;
+  body: string;
+  genre: WritingGenre;
+  authorUid?: string;
+  displayName?: string;
+  authorPhotoURL?: string | null;
+  likes: number;
+  datePosted: string;
+  comments: Comment[];
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  isSuspended?: boolean;
+  suspendedBy?: string;
+  suspendedAt?: string;
+  suspensionReason?: string;
+}

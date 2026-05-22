@@ -7,6 +7,8 @@ const HomePage = React.lazy(() => import('./pages/HomePage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 const ProjectPage = React.lazy(() => import('./pages/ProjectPage'));
+const LitClubPage = React.lazy(() => import('./pages/LitClubPage'));
+const WritingPage = React.lazy(() => import('./pages/WritingPage'));
 
 const PageFallback = () => (
   <div className="flex items-center justify-center py-24">
@@ -56,6 +58,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageFallback />}>
             <ProjectPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'lit-club',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <LitClubPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'writing/:id',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <WritingPage />
           </Suspense>
         ),
       },

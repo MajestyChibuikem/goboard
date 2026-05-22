@@ -54,7 +54,7 @@ const App: React.FC = () => {
   const [userFavorites, setUserFavorites] = useState<Set<string>>(new Set());
 
   // Determine current page from URL for sidebar highlighting
-  const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : 'home';
+  const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : location.pathname.startsWith('/lit-club') || location.pathname.startsWith('/writing/') ? 'lit-club' : 'home';
 
   // Subscribe to Firestore projects
   useEffect(() => {
@@ -394,6 +394,14 @@ const App: React.FC = () => {
                   }`}
                 >
                   <Home className="w-4 h-4" /> All Projects
+                </button>
+                <button
+                  onClick={() => { navigate('/lit-club'); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 font-medium rounded-xl text-sm ${
+                    currentPage === 'lit-club' ? 'text-neutral-900 bg-neutral-100' : 'text-neutral-500 hover:bg-neutral-50'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" /> Lit Club
                 </button>
                 <div className="pt-4 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Categories</div>
                 {CATEGORIES.map(cat => (
