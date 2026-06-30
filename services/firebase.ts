@@ -11,6 +11,14 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error(
+    "🚨 FIREBASE CONFIGURATION ERROR: Missing VITE_FIREBASE_API_KEY or VITE_FIREBASE_PROJECT_ID! " +
+    "If you are seeing a Firestore CORS ('access control checks') error, it is because your Vercel environment variables for Firebase are missing or incorrect. " +
+    "Please go to your Vercel dashboard and ensure all VITE_FIREBASE_* variables are set."
+  );
+}
+
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);

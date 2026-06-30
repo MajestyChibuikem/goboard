@@ -53,7 +53,13 @@ export const useAuth = () => {
 
 function cleanOldFirebaseUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  if (url.includes('firebasestorage.app') || url.includes('appspot.com')) {
+  if (
+    url.includes('firebasestorage.app') || 
+    url.includes('appspot.com') ||
+    url.includes('firebasestorage.googleapis.com') ||
+    url.startsWith('users/') || 
+    url.startsWith('projects/')
+  ) {
     return null;
   }
   return url;
