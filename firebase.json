@@ -1,7 +1,6 @@
 {
   "hosting": {
-    "site": "gotechboard-7af85",
-    "public": "public",
+    "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
   }
 }

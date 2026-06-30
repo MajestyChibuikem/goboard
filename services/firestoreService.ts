@@ -19,13 +19,8 @@ import {
   setDoc,
   limit,
 } from 'firebase/firestore';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
-import { db, storage, auth } from './firebase';
+import { db, auth } from './firebase';
 import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice, Writing, WritingGenre } from '../types';
 
 // ─── Collection refs ───
@@ -769,27 +764,47 @@ async function checkFirstProjectBonus(authorUid: string) {
 
 // ─── Image Upload ───
 
+async function uploadToCloudinary(file: File): Promise<string> {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+  if (!cloudName || !uploadPreset) {
+    throw new Error("Cloudinary configuration is missing. Please check your .env variables.");
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', uploadPreset);
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Cloudinary upload failed: ${errorData.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.secure_url;
+}
+
 export async function uploadProjectImage(
   file: File,
-  projectId: string,
-  fileName?: string
+  _projectId: string,
+  _fileName?: string
 ): Promise<string> {
-  const name = fileName || `${Date.now()}_${file.name}`;
-  const storageRef = ref(storage, `projects/${projectId}/${name}`);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
+  return uploadToCloudinary(file);
 }
 
 // ─── User Profile ───
 
 export async function uploadUserAvatar(
-  userId: string,
+  _userId: string,
   file: File
 ): Promise<string> {
-  const name = `${Date.now()}_${file.name}`;
-  const storageRef = ref(storage, `users/${userId}/avatar/${name}`);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
+  return uploadToCloudinary(file);
 }
 
 export async function getUserProfile(userId: string) {
