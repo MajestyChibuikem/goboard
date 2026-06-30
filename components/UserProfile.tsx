@@ -183,30 +183,34 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
         {/* Rank progress */}
         <div className="mt-6 pt-6 border-t border-neutral-100">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-base">{RANK_EMOJIS[profile.rank] || '🎓'}</span>
-              <span className="text-[13px] font-bold text-neutral-900">{profile.rank}</span>
+              <span className="text-xl">{RANK_EMOJIS[profile.rank] || '🎓'}</span>
+              <span className="text-sm font-bold text-neutral-900">{profile.rank}</span>
             </div>
-            {currentTier.max !== Infinity && (
-              <span className="text-[11px] text-neutral-400">{profile.xp}/{currentTier.max + 1} XP to next rank</span>
+            {currentTier.max !== Infinity ? (
+              <span className="text-[12px] font-medium text-neutral-500">
+                <span className="text-gouni-primary font-bold">{profile.xp}</span> / {currentTier.max + 1} XP
+              </span>
+            ) : (
+              <span className="text-[12px] font-bold text-gouni-primary">MAX RANK</span>
             )}
           </div>
-          <div className="w-full h-2 bg-neutral-100 rounded-full overflow-hidden">
+          
+          <div className="relative w-full h-3 bg-neutral-100 rounded-full overflow-hidden shadow-inner">
             <div
-              className="h-full bg-gradient-to-r from-gouni-primary to-blue-500 rounded-full transition-all duration-500"
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-gouni-primary to-blue-400 rounded-full transition-all duration-1000 ease-out"
               style={{ width: `${progressInTier}%` }}
             />
           </div>
+          
           <div className="flex justify-between mt-2">
-            {RANK_PROGRESS.map(tier => (
-              <span
-                key={tier.rank}
-                className={`text-[10px] font-medium ${profile.xp >= tier.min ? 'text-neutral-600' : 'text-neutral-300'}`}
-              >
-                {tier.rank.split(' ').pop()}
+            <span className="text-[11px] font-semibold text-neutral-400">Current</span>
+            {currentTier.max !== Infinity && (
+              <span className="text-[11px] font-semibold text-neutral-400">
+                Next: {RANK_PROGRESS[RANK_PROGRESS.indexOf(currentTier) + 1]?.rank || 'Next Rank'}
               </span>
-            ))}
+            )}
           </div>
         </div>
       </div>
