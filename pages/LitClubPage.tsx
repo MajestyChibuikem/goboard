@@ -190,7 +190,7 @@ const LitClubPage: React.FC = () => {
           >
             <div className="relative">
               {u.photoURL ? (
-                <img src={u.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <img src={u.photoURL || undefined} alt="" className="w-8 h-8 rounded-full object-cover" />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
                   {(u.displayName || 'A').charAt(0).toUpperCase()}

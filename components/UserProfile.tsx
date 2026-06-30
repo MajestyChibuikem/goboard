@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth, getRank, RANK_EMOJIS } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { RANK_EMOJIS } from '../services/utils';
 import { getUserProjects, updateDisplayName } from '../services/firestoreService';
 import { Project } from '../types';
 import { ArrowLeft, Mail, Calendar, Zap, Trophy, Layers, Flame, Edit2, Check, X } from 'lucide-react';
@@ -119,7 +120,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           {/* Avatar + upload */}
           <div className="flex flex-col items-center gap-3">
             {user.photoURL ? (
-              <img src={user.photoURL} alt="" className="w-20 h-20 rounded-2xl object-cover" />
+              <img src={user.photoURL || undefined} alt="" className="w-20 h-20 rounded-2xl object-cover" />
             ) : (
               <div className="w-20 h-20 rounded-2xl bg-gouni-secondary flex items-center justify-center text-3xl font-bold text-gouni-dark">
                 {(user.displayName || 'S').charAt(0).toUpperCase()}
@@ -262,7 +263,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 className="flex items-center gap-4 bg-white rounded-2xl border border-neutral-200 p-4 hover:border-neutral-300 hover:shadow-card-hover transition-all cursor-pointer"
               >
                 <div className="w-16 h-12 rounded-xl bg-neutral-100 overflow-hidden shrink-0">
-                  <img src={project.imageUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={project.imageUrl || undefined} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-grow min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">

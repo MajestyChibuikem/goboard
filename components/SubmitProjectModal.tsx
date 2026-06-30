@@ -223,7 +223,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
           />
           {imagePreview ? (
             <div className="relative rounded-2xl overflow-hidden border border-neutral-200">
-              <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover" />
+              <img src={imagePreview || undefined} alt="Preview" className="w-full h-48 object-cover" />
               <button
                 type="button"
                 onClick={() => { setImageFile(null); setImagePreview(null); }}

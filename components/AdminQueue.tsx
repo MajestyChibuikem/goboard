@@ -248,7 +248,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
                       className="w-24 h-18 rounded-xl bg-neutral-100 overflow-hidden shrink-0 cursor-pointer"
                       onClick={() => onProjectClick(project)}
                     >
-                      <img src={project.imageUrl} alt="" className="w-full h-full object-cover" />
+                      <img src={project.imageUrl || undefined} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2 mb-1">

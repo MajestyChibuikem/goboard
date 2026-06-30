@@ -121,7 +121,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
         />
         {imagePreview ? (
           <div className="relative inline-block">
-            <img src={imagePreview} alt="Preview" className="h-28 rounded-xl border border-neutral-200 object-cover" />
+            <img src={imagePreview || undefined} alt="Preview" className="h-28 rounded-xl border border-neutral-200 object-cover" />
             <button
               type="button"
               onClick={clearImage}

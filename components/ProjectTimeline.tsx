@@ -87,7 +87,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
                       className="mb-2 rounded-xl overflow-hidden border border-neutral-200 hover:border-neutral-300 transition-all inline-block"
                     >
                       <img
-                        src={update.imageUrl}
+                        src={update.imageUrl || undefined}
                         alt="Update"
                         className="h-32 w-auto object-cover"
                       />
@@ -135,7 +135,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
             <X className="w-5 h-5" />
           </button>
           <img
-            src={expandedImage}
+            src={expandedImage || undefined}
             alt="Update"
             className="max-w-full max-h-[85vh] rounded-xl object-contain"
             onClick={(e) => e.stopPropagation()}

@@ -28,7 +28,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
       {/* Thumbnail */}
       <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-neutral-100 mb-4">
         <img
-          src={project.imageUrl}
+          src={project.imageUrl || undefined}
           alt={project.title}
           className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
         />

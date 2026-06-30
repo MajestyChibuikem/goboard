@@ -204,7 +204,7 @@ const LandingPage: React.FC = () => {
                 {/* Card image */}
                 <div className="rounded-2xl overflow-hidden border border-white/[0.08] bg-white/[0.03] mb-5">
                   <img
-                    src={card.image}
+                    src={card.image || undefined}
                     alt={card.title}
                     className="w-full h-auto"
                     loading="lazy"
@@ -264,7 +264,7 @@ const LandingPage: React.FC = () => {
             <div className="flex-1 w-full">
               <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-lg">
                 <img
-                  src={useCaseTabs[activeTab].image}
+                  src={useCaseTabs[activeTab].image || undefined}
                   alt={useCaseTabs[activeTab].title}
                   className="w-full h-auto"
                 />

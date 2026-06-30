@@ -39,7 +39,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   if (resolvedPhoto) {
     return (
       <img
-        src={resolvedPhoto}
+        src={resolvedPhoto || undefined}
         alt=""
         className={`${sizeClass.split(' ').slice(0, 2).join(' ')} rounded-full object-cover shrink-0 ${className}`}
       />

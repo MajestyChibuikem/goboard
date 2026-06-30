@@ -326,7 +326,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               className="aspect-video w-full bg-neutral-100 rounded-2xl overflow-hidden mb-3 cursor-zoom-in"
               onClick={() => setShowImageViewer(true)}
             >
-              <img src={activeImage} alt={project.title} className="w-full h-full object-cover" />
+              <img src={activeImage || undefined} alt={project.title} className="w-full h-full object-cover" />
             </div>
             {(project.screenshots.length > 0) && (
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -334,7 +334,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   onClick={() => setActiveImage(project.imageUrl)}
                   className={`w-20 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === project.imageUrl ? 'border-neutral-900 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
                 >
-                  <img src={project.imageUrl} className="w-full h-full object-cover" />
+                  <img src={project.imageUrl || undefined} className="w-full h-full object-cover" />
                 </button>
                 {project.screenshots.map((shot, idx) => (
                   <button
@@ -342,7 +342,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     onClick={() => setActiveImage(shot)}
                     className={`w-20 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === shot ? 'border-neutral-900 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
-                    <img src={shot} className="w-full h-full object-cover" />
+                    <img src={shot || undefined} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -442,7 +442,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                       onClick={() => onProjectClick(sim)}
                     >
                        <div className="aspect-[16/10] bg-neutral-100 overflow-hidden">
-                          <img src={sim.imageUrl} alt={sim.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                          <img src={sim.imageUrl || undefined} alt={sim.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                        </div>
                        <div className="p-4">
                          <h4 className="text-[14px] font-semibold text-neutral-900 group-hover:text-gouni-primary transition-colors truncate">{sim.title}</h4>
@@ -764,7 +764,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 />
                 {editedImagePreview ? (
                   <div className="relative rounded-xl overflow-hidden border border-neutral-200">
-                    <img src={editedImagePreview} alt="Preview" className="w-full h-40 object-cover" />
+                    <img src={editedImagePreview || undefined} alt="Preview" className="w-full h-40 object-cover" />
                     <button
                       type="button"
                       onClick={() => { setEditedImageFile(null); setEditedImagePreview(null); }}
@@ -819,7 +819,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <X className="w-6 h-6 text-white" />
           </button>
           <img
-            src={activeImage}
+            src={activeImage || undefined}
             alt={project.title}
             className="max-w-full max-h-[75vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
@@ -831,7 +831,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 onClick={(e) => { e.stopPropagation(); setActiveImage(project.imageUrl); }}
                 className={`w-16 h-11 rounded-lg overflow-hidden border-2 transition-all ${activeImage === project.imageUrl ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'}`}
               >
-                <img src={project.imageUrl} className="w-full h-full object-cover" />
+                <img src={project.imageUrl || undefined} className="w-full h-full object-cover" />
               </button>
               {project.screenshots.map((shot, idx) => (
                 <button
@@ -839,7 +839,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   onClick={(e) => { e.stopPropagation(); setActiveImage(shot); }}
                   className={`w-16 h-11 rounded-lg overflow-hidden border-2 transition-all ${activeImage === shot ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'}`}
                 >
-                  <img src={shot} className="w-full h-full object-cover" />
+                  <img src={shot || undefined} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>

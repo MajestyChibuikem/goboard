@@ -305,7 +305,7 @@ const App: React.FC = () => {
                    className="flex items-center gap-2 p-1 rounded-xl hover:bg-neutral-100 transition-colors"
                  >
                    {user.photoURL ? (
-                     <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                     <img src={user.photoURL || undefined} alt="" className="w-8 h-8 rounded-full object-cover" />
                    ) : (
                      <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[12px] font-bold text-gouni-dark">
                        {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}

@@ -14,6 +14,7 @@ import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnap
 import { auth, googleProvider, db } from '../services/firebase';
 import { uploadUserAvatar, deleteViewedNotifications } from '../services/firestoreService';
 import { XP_VALUES } from '../services/firestoreService';
+import { getRank } from '../services/utils';
 
 export interface UserProfile {
   uid: string;
@@ -48,28 +49,6 @@ export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
-};
-
-const RANK_THRESHOLDS = [
-  { min: 2000, rank: 'Hall of Fame' },
-  { min: 1000, rank: 'Campus Legend' },
-  { min: 600, rank: 'Campus Builder' },
-  { min: 300, rank: 'Code Ninja' },
-  { min: 100, rank: 'Rising Dev' },
-  { min: 0, rank: 'Freshman Coder' },
-];
-
-export const RANK_EMOJIS: Record<string, string> = {
-  'Freshman Coder': '🎓',
-  'Rising Dev': '🚀',
-  'Code Ninja': '🥷',
-  'Campus Builder': '🏗️',
-  'Campus Legend': '🌟',
-  'Hall of Fame': '🏆',
-};
-
-export const getRank = (xp: number): string => {
-  return RANK_THRESHOLDS.find(t => xp >= t.min)?.rank || 'Freshman Coder';
 };
 
 function cleanOldFirebaseUrl(url: string | null | undefined): string | null {

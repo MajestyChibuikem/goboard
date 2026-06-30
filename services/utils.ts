@@ -37,3 +37,25 @@ export const getProjectBadges = (project: Project): Badge[] => {
 
   return badges;
 };
+
+const RANK_THRESHOLDS = [
+  { min: 2000, rank: 'Hall of Fame' },
+  { min: 1000, rank: 'Campus Legend' },
+  { min: 600, rank: 'Campus Builder' },
+  { min: 300, rank: 'Code Ninja' },
+  { min: 100, rank: 'Rising Dev' },
+  { min: 0, rank: 'Freshman Coder' },
+];
+
+export const RANK_EMOJIS: Record<string, string> = {
+  'Freshman Coder': '🎓',
+  'Rising Dev': '🚀',
+  'Code Ninja': '🥷',
+  'Campus Builder': '🏗️',
+  'Campus Legend': '🌟',
+  'Hall of Fame': '🏆',
+};
+
+export const getRank = (xp: number): string => {
+  return RANK_THRESHOLDS.find(t => xp >= t.min)?.rank || 'Freshman Coder';
+};

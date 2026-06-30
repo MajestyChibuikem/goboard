@@ -115,7 +115,7 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
           <div className="text-center mb-8 md:mb-10">
             {profile.photoURL ? (
               <img
-                src={profile.photoURL}
+                src={profile.photoURL || undefined}
                 alt={profile.displayName}
                 className="w-20 h-20 md:w-24 md:h-24 rounded-full mx-auto mb-4 object-cover border-2 border-neutral-200"
               />
@@ -168,7 +168,7 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
                       {project.imageUrl && (
                         <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden flex-shrink-0 border border-neutral-200">
                           <img
-                            src={project.imageUrl}
+                            src={project.imageUrl || undefined}
                             alt={project.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
