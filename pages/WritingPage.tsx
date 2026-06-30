@@ -116,7 +116,7 @@ const WritingPage: React.FC = () => {
         <PublicProfileModal
           userId={selectedProfileUserId}
           onClose={() => setSelectedProfileUserId(null)}
-          onProjectClick={(p) => navigate(`/project/${p.id}`)}
+          onProjectClick={(p) => navigate(`/project/${p.slug || p.id}`)}
         />
       )}
     </>

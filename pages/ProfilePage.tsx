@@ -9,7 +9,7 @@ const ProfilePage: React.FC = () => {
     <div className="max-w-[1440px] mx-auto">
       <UserProfile
         onBack={() => navigate('/browse')}
-        onProjectClick={(project) => navigate(`/project/${project.id}`)}
+        onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
       />
     </div>
   );

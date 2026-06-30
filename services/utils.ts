@@ -3,6 +3,17 @@ import { Project, Badge } from '../types';
 const ADJECTIVES = ['Silent', 'Binary', 'Crypto', 'Pixel', 'Quantum', 'Rapid', 'Cyber', 'Null', 'Mega', 'Giga', 'Nano', 'Happy', 'Angry', 'Swift'];
 const NOUNS = ['Coder', 'Byte', 'Glitch', 'Surfer', 'Ninja', 'Wizard', 'Script', 'Bot', 'Compiler', 'Server', 'Node', 'Badger', 'Fox', 'Hawk'];
 
+export const generateSlug = (title: string): string => {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric characters with hyphens
+    .replace(/^-+|-+$/g, '');    // Remove leading/trailing hyphens
+
+  // Append a short random string (4 characters) to ensure uniqueness
+  const shortId = Math.random().toString(36).substring(2, 6);
+  return `${base}-${shortId}`;
+};
+
 export const generateAnonymousName = (): string => {
   const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
   const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];

@@ -437,7 +437,7 @@ const LitClubPage: React.FC = () => {
         <PublicProfileModal
           userId={selectedProfileUserId}
           onClose={() => setSelectedProfileUserId(null)}
-          onProjectClick={(project) => navigate(`/project/${project.id}`)}
+          onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
         />
       )}
     </div>

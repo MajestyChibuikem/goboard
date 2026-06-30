@@ -22,6 +22,7 @@ import {
 import { updateProfile } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice, Writing, WritingGenre } from '../types';
+import { generateSlug } from './utils';
 
 // ─── Collection refs ───
 
@@ -55,6 +56,7 @@ function projectFromDoc(docSnap: any): Project {
   const d = docSnap.data();
   return {
     id: docSnap.id,
+    slug: d.slug,
     title: d.title || '',
     description: d.description || '',
     studentName: d.studentName || '',
@@ -86,6 +88,18 @@ export async function getProjectById(projectId: string): Promise<Project | null>
   const snap = await getDoc(doc(projectsCol, projectId));
   if (!snap.exists()) return null;
   return projectFromDoc(snap);
+}
+
+export async function getProjectBySlugOrId(slugOrId: string): Promise<Project | null> {
+  // First, try to find by slug
+  const q = query(projectsCol, where('slug', '==', slugOrId), limit(1));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    return projectFromDoc(snap.docs[0]);
+  }
+
+  // Fallback to fetch by ID for older projects
+  return getProjectById(slugOrId);
 }
 
 // ─── Projects ───
@@ -138,6 +152,7 @@ export async function createProject(
 
   const docRef = await addDoc(projectsCol, {
     ...data,
+    slug: generateSlug(data.title),
     titleLower: data.title.trim().toLowerCase(),
     likes: 0,
     datePosted: serverTimestamp(),

@@ -282,7 +282,7 @@ const HomePage: React.FC = () => {
               <div key={project.id} className={idx > 0 ? `animate-fade-up animate-fade-up-delay-${Math.min(idx, 3)}` : 'animate-fade-up'}>
                 <ProjectCard
                   project={project}
-                  onClick={(p) => navigate(`/project/${p.id}`)}
+                  onClick={(p) => navigate(`/project/${p.slug || p.id}`)}
                   onVote={handleVote}
                   onToggleFavorite={handleToggleFavorite}
                   voted={userVotes.has(project.id)}
@@ -532,7 +532,7 @@ const HomePage: React.FC = () => {
         <PublicProfileModal
           userId={selectedProfileUserId}
           onClose={() => setSelectedProfileUserId(null)}
-          onProjectClick={(project) => navigate(`/project/${project.id}`)}
+          onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
         />
       )}
     </div>

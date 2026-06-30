@@ -48,6 +48,7 @@ export interface Notification {
 
 export interface Project {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   studentName: string; // Legacy field for backward compatibility

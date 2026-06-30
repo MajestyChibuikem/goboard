@@ -3,7 +3,7 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { Project } from '../types';
 import { ProjectDetailView } from '../components/ProjectDetailView';
 import { PublicProfileModal } from '../components/PublicProfileModal';
-import { getProjectById } from '../services/firestoreService';
+import { getProjectBySlugOrId } from '../services/firestoreService';
 import type { HomeContext } from './HomePage';
 
 const ProjectPage: React.FC = () => {
@@ -25,7 +25,7 @@ const ProjectPage: React.FC = () => {
   useEffect(() => {
     if (!id) return;
 
-    const fromList = projects.find(p => p.id === id);
+    const fromList = projects.find(p => p.slug === id || p.id === id);
     if (fromList) {
       setProject(fromList);
       setLoading(false);
@@ -33,7 +33,7 @@ const ProjectPage: React.FC = () => {
     }
 
     // Not in local list — fetch from Firestore (handles refresh)
-    getProjectById(id)
+    getProjectBySlugOrId(id)
       .then(p => {
         setProject(p);
         setLoading(false);
@@ -78,7 +78,7 @@ const ProjectPage: React.FC = () => {
         onBack={() => navigate('/browse')}
         onUpdateProject={handleUpdateProject}
         allProjects={projects}
-        onProjectClick={(p) => navigate(`/project/${p.id}`)}
+        onProjectClick={(p) => navigate(`/project/${p.slug || p.id}`)}
         onVote={handleVote}
         onRequireAuth={() => requireAuth(() => {})}
         onProfileClick={(userId) => setSelectedProfileUserId(userId)}
@@ -90,7 +90,7 @@ const ProjectPage: React.FC = () => {
         <PublicProfileModal
           userId={selectedProfileUserId}
           onClose={() => setSelectedProfileUserId(null)}
-          onProjectClick={(p) => navigate(`/project/${p.id}`)}
+          onProjectClick={(p) => navigate(`/project/${p.slug || p.id}`)}
         />
       )}
     </>
