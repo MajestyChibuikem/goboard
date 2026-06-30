@@ -72,6 +72,14 @@ export const getRank = (xp: number): string => {
   return RANK_THRESHOLDS.find(t => xp >= t.min)?.rank || 'Freshman Coder';
 };
 
+function cleanOldFirebaseUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.includes('firebasestorage.app') || url.includes('appspot.com')) {
+    return null;
+  }
+  return url;
+}
+
 async function ensureUserProfile(user: User): Promise<UserProfile> {
   const ref = doc(db, 'users', user.uid);
   const snap = await getDoc(ref);
@@ -84,11 +92,14 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       await setDoc(ref, { xp: 0, seasonXp: 0 }, { merge: true });
     }
 
+    let photoURL = data.photoURL || user.photoURL;
+    photoURL = cleanOldFirebaseUrl(photoURL);
+
     return {
       uid: user.uid,
       displayName: data.displayName || user.displayName || 'Student',
       email: data.email || user.email || '',
-      photoURL: data.photoURL || user.photoURL,
+      photoURL,
       xp: data.xp || 0,
       seasonXp: data.seasonXp || 0,
       rank: getRank(data.xp || 0),

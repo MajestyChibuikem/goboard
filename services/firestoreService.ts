@@ -37,6 +37,14 @@ function tsToISO(ts: any): string {
   return new Date(ts).toISOString();
 }
 
+function cleanOldFirebaseUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.includes('firebasestorage.app') || url.includes('appspot.com')) {
+    return null;
+  }
+  return url;
+}
+
 function projectFromDoc(docSnap: any): Project {
   const d = docSnap.data();
   return {
@@ -48,8 +56,8 @@ function projectFromDoc(docSnap: any): Project {
     level: d.level || '',
     category: d.category || 'Web Development',
     techStack: d.techStack || [],
-    imageUrl: d.imageUrl || '',
-    screenshots: d.screenshots || [],
+    imageUrl: cleanOldFirebaseUrl(d.imageUrl) || '',
+    screenshots: (d.screenshots || []).map(cleanOldFirebaseUrl).filter(Boolean) as string[],
     likes: d.likes || 0,
     demoUrl: d.demoUrl || undefined,
     repoUrl: d.repoUrl || undefined,
@@ -810,7 +818,11 @@ export async function uploadUserAvatar(
 export async function getUserProfile(userId: string) {
   const snap = await getDoc(doc(db, 'users', userId));
   if (!snap.exists()) return null;
-  return { uid: userId, ...snap.data() };
+  const data = snap.data();
+  if (data.photoURL) {
+    data.photoURL = cleanOldFirebaseUrl(data.photoURL);
+  }
+  return { uid: userId, ...data };
 }
 
 export async function getUserProjects(authorUid: string): Promise<Project[]> {
@@ -1026,7 +1038,7 @@ function writingFromDoc(docSnap: any): Writing {
     body: d.body || '',
     genre: d.genre || 'essay',
     displayName: d.displayName || '',
-    authorPhotoURL: d.authorPhotoURL || null,
+    authorPhotoURL: cleanOldFirebaseUrl(d.authorPhotoURL),
     likes: d.likes || 0,
     datePosted: tsToISO(d.datePosted),
     comments: d.comments || [],
