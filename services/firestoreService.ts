@@ -71,21 +71,31 @@ function projectFromDoc(docSnap: any): Project {
 }
 
 export async function getProjectById(projectId: string): Promise<Project | null> {
-  const snap = await getDoc(doc(projectsCol, projectId));
-  if (!snap.exists()) return null;
-  return projectFromDoc(snap);
+  try {
+    const snap = await getDoc(doc(projectsCol, projectId));
+    if (!snap.exists()) return null;
+    return projectFromDoc(snap);
+  } catch (err) {
+    console.warn('getProjectById failed or access denied:', err);
+    return null;
+  }
 }
 
 export async function getProjectBySlugOrId(slugOrId: string): Promise<Project | null> {
-  // First, try to find by slug
-  const q = query(projectsCol, where('slug', '==', slugOrId), limit(1));
-  const snap = await getDocs(q);
-  if (!snap.empty) {
-    return projectFromDoc(snap.docs[0]);
-  }
+  try {
+    // First, try to find by slug
+    const q = query(projectsCol, where('slug', '==', slugOrId), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      return projectFromDoc(snap.docs[0]);
+    }
 
-  // Fallback to fetch by ID for older projects
-  return getProjectById(slugOrId);
+    // Fallback to fetch by ID for older projects
+    return await getProjectById(slugOrId);
+  } catch (err) {
+    console.warn('getProjectBySlugOrId failed or access denied:', err);
+    return null;
+  }
 }
 
 // ─── Projects ───
@@ -853,6 +863,23 @@ export async function getUserProjects(authorUid: string): Promise<Project[]> {
   return snap.docs.map(projectFromDoc);
 }
 
+export async function getUserApprovedProjects(authorUid: string): Promise<Project[]> {
+  try {
+    const q = query(
+      projectsCol,
+      where('authorUid', '==', authorUid),
+      where('approvalStatus', '==', 'approved')
+    );
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(projectFromDoc)
+      .filter(p => !p.isSuspended);
+  } catch (err) {
+    console.warn('getUserApprovedProjects failed or access denied:', err);
+    return [];
+  }
+}
+
 // ─── Notification System ───
 
 export async function createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'expiresAt'>) {
@@ -1091,9 +1118,14 @@ function writingFromDoc(docSnap: any): Writing {
 }
 
 export async function getWritingById(writingId: string): Promise<Writing | null> {
-  const snap = await getDoc(doc(writingsCol, writingId));
-  if (!snap.exists()) return null;
-  return writingFromDoc(snap);
+  try {
+    const snap = await getDoc(doc(writingsCol, writingId));
+    if (!snap.exists()) return null;
+    return writingFromDoc(snap);
+  } catch (err) {
+    console.warn('getWritingById failed or access denied:', err);
+    return null;
+  }
 }
 
 export function subscribeToWritings(

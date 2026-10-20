@@ -71,17 +71,22 @@ const LitClubPage: React.FC = () => {
 
   // Subscribe to writings, seed demo data if collection is empty
   useEffect(() => {
+    const isAdmin = profile?.isAdmin || false;
     const unsub = subscribeToWritings(
       (data) => {
         if (data.length === 0) {
-          seedWritings(INITIAL_WRITINGS).catch(console.error);
+          if (isAdmin) {
+            seedWritings(INITIAL_WRITINGS).catch(console.error);
+          } else {
+            setReady(true);
+          }
         } else {
           setWritings(data);
           setReady(true);
         }
       },
-      'all',
-      profile?.isAdmin || false,
+      isAdmin ? 'all' : 'approved',
+      isAdmin,
       user?.uid
     );
     return unsub;

@@ -124,7 +124,12 @@ service cloud.firestore {
     // ── Projects ──
 
     match /projects/{projectId} {
-      allow read: if true;
+      allow read: if resource.data.approvalStatus == 'approved' || (
+        isSignedIn() && (
+          resource.data.authorUid == request.auth.uid ||
+          isAdmin()
+        )
+      );
 
       allow create: if isSignedIn() &&
         request.resource.data.authorUid == request.auth.uid &&
@@ -201,7 +206,12 @@ service cloud.firestore {
     // ── Writings (Lit Club) ──
 
     match /writings/{writingId} {
-      allow read: if true;
+      allow read: if resource.data.approvalStatus == 'approved' || (
+        isSignedIn() && (
+          resource.data.authorUid == request.auth.uid ||
+          isAdmin()
+        )
+      );
 
       allow create: if isSignedIn() &&
         request.resource.data.authorUid == request.auth.uid &&

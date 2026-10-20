@@ -60,8 +60,8 @@ const App: React.FC = () => {
   useEffect(() => {
     let unsub: (() => void) | undefined;
     try {
+      const isAdmin = profile?.isAdmin || false;
       unsub = subscribeToProjects((firestoreProjects) => {
-        const isAdmin = profile?.isAdmin || false;
         const filtered = firestoreProjects.filter(project => {
           if (isAdmin) return true;
           if (user?.uid && project.authorUid === user.uid) return true;
@@ -70,12 +70,12 @@ const App: React.FC = () => {
 
         if (filtered.length > 0) {
           setProjects(filtered);
-        } else if (!firestoreReady) {
+        } else if (!firestoreReady && isAdmin) {
           seedProjects(INITIAL_PROJECTS).then(() => setFirestoreReady(true)).catch(console.error);
           return;
         }
         setFirestoreReady(true);
-      }, 'all', profile?.isAdmin || false, user?.uid);
+      }, isAdmin ? 'all' : 'approved', isAdmin, user?.uid);
     } catch (err) {
       console.warn('Firestore not available, using local data:', err);
     }

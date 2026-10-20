@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Trophy, Code2, Zap } from 'lucide-react';
-import { getUserProfile, getUserProjects } from '../services/firestoreService';
+import { getUserProfile, getUserApprovedProjects } from '../services/firestoreService';
 import { Project } from '../types';
 
 interface UserProfile {
@@ -39,8 +39,8 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
             joinedAt: (userProfile as any).joinedAt,
           });
         }
-        const userProjects = await getUserProjects(userId);
-        setProjects(userProjects.filter(p => p.approvalStatus === 'approved').slice(0, 4));
+        const userProjects = await getUserApprovedProjects(userId);
+        setProjects(userProjects.slice(0, 4));
       } catch (err) {
         console.error('Failed to load user profile:', err);
       } finally {
