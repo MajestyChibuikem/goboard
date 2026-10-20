@@ -1,6 +1,7 @@
 import path from 'path';
 import { defineConfig, loadEnv, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 function devApiPlugin(apiKey: string): Plugin {
   return {
@@ -89,6 +90,7 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [
         react(),
+        tailwindcss(),
         devApiPlugin(env.GEMINI_API_KEY || '')
       ],
       resolve: {
