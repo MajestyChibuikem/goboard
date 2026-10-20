@@ -66,3 +66,31 @@ export const RANK_EMOJIS: Record<string, string> = {
 export const getRank = (xp: number): string => {
   return RANK_THRESHOLDS.find(t => xp >= t.min)?.rank || 'Freshman Coder';
 };
+
+export const cleanOldFirebaseUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  if (
+    url.includes('firebasestorage.app') || 
+    url.includes('appspot.com') ||
+    url.includes('firebasestorage.googleapis.com') ||
+    url.startsWith('users/') || 
+    url.startsWith('projects/')
+  ) {
+    return null;
+  }
+  return url;
+};
+
+export const canViewItem = (
+  item: { approvalStatus?: string; isSuspended?: boolean; authorUid?: string },
+  userId?: string,
+  isAdmin?: boolean
+): boolean => {
+  if (isAdmin) return true;
+  if (item.isSuspended) {
+    return Boolean(userId && item.authorUid === userId);
+  }
+  if (item.approvalStatus === 'approved') return true;
+  return Boolean(userId && item.authorUid === userId);
+};
+

@@ -8,7 +8,7 @@
       "destination": "https://gotechboard-7af85.firebaseapp.com/__/auth/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

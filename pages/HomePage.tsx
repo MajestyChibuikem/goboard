@@ -9,7 +9,6 @@ import {
   getTopUsersByXP,
   getBoardNotice,
   updateBoardNotice,
-  getTrendingTechnologies,
 } from '../services/firestoreService';
 import { useToast } from '../components/Toast';
 import { CATEGORIES } from '../constants';
@@ -94,11 +93,28 @@ const HomePage: React.FC = () => {
     content: 'Post more projects to gain more XP!!',
     updatedAt: new Date().toISOString(),
   });
-  const [trendingTechs, setTrendingTechs] = useState<{ tech: string; count: number }[]>([]);
   const [showEditNoticeModal, setShowEditNoticeModal] = useState(false);
   const [noticeEditText, setNoticeEditText] = useState(boardNotice.content);
   const [showMobileRightPanel, setShowMobileRightPanel] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
+
+  const trendingTechs = useMemo(() => {
+    const techCounts: Record<string, number> = {};
+    projects.forEach(project => {
+      if (project.approvalStatus === 'approved' && !project.isSuspended && Array.isArray(project.techStack)) {
+        project.techStack.forEach(tech => {
+          if (tech) {
+            techCounts[tech] = (techCounts[tech] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    return Object.entries(techCounts)
+      .map(([tech, count]) => ({ tech, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [projects]);
 
   useEffect(() => {
     getTopUsersByXP(3)
@@ -111,14 +127,6 @@ const HomePage: React.FC = () => {
       .then(notice => notice && setBoardNotice(notice))
       .catch(err => console.warn('Failed to fetch board notice:', err));
   }, []);
-
-  useEffect(() => {
-    if (projects.length > 0) {
-      getTrendingTechnologies(6)
-        .then(setTrendingTechs)
-        .catch(err => console.warn('Failed to fetch trending tech:', err));
-    }
-  }, [projects]);
 
   const filteredProjects = useMemo(() => {
     let filtered = projects.filter(project => {

@@ -4,13 +4,14 @@ import { Writing } from '../types';
 import { WritingDetailView } from '../components/WritingDetailView';
 import { PublicProfileModal } from '../components/PublicProfileModal';
 import { getWritingById, toggleWritingVote, subscribeToUserLitVotes } from '../services/firestoreService';
+import { canViewItem } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/Toast';
 
 const WritingPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
 
   const [writing, setWriting] = useState<Writing | null>(null);
@@ -84,11 +85,13 @@ const WritingPage: React.FC = () => {
     );
   }
 
-  if (!writing) {
+  const isAllowedToView = writing ? canViewItem(writing, user?.uid, profile?.isAdmin) : false;
+
+  if (!writing || !isAllowedToView) {
     return (
       <div className="text-center py-24">
         <h2 className="text-xl font-semibold text-neutral-900 mb-2">Writing not found</h2>
-        <p className="text-sm text-neutral-400 mb-6">This piece may have been removed or doesn't exist.</p>
+        <p className="text-sm text-neutral-400 mb-6">This piece may have been removed, is pending review, or doesn't exist.</p>
         <button
           onClick={() => navigate('/lit-club')}
           className="text-sm font-medium text-gouni-primary hover:underline"

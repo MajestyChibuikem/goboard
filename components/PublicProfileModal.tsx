@@ -29,7 +29,15 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
       try {
         const userProfile = await getUserProfile(userId);
         if (userProfile) {
-          setProfile(userProfile);
+          setProfile({
+            uid: userId,
+            displayName: (userProfile as any).displayName || 'Student',
+            email: (userProfile as any).email,
+            photoURL: (userProfile as any).photoURL || null,
+            xp: (userProfile as any).xp || 0,
+            rank: (userProfile as any).rank,
+            joinedAt: (userProfile as any).joinedAt,
+          });
         }
         const userProjects = await getUserProjects(userId);
         setProjects(userProjects.filter(p => p.approvalStatus === 'approved').slice(0, 4));

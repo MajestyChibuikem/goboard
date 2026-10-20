@@ -1,7 +1,107 @@
 rules_version = '2';
 
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /projects/{projectId}
+// Fields:
+//   - slug: string (optional)
+//   - title: string
+//   - titleLower: string
+//   - description: string
+//   - level: string
+//   - category: string
+//   - techStack: list of strings
+//   - imageUrl: string
+//   - screenshots: list of strings
+//   - likes: number
+//   - comments: list of comment maps
+//   - updates: list of update maps
+//   - status: string ('idea' | 'in-progress' | 'beta' | 'launched')
+//   - authorUid: string (immutable creator UID)
+//   - approvalStatus: string ('pending' | 'approved' | 'rejected')
+//   - xpMilestonesAwarded: list of numbers
+//   - isSuspended: bool (optional)
+//   - suspendedBy: string (optional)
+//   - suspendedAt: string (optional)
+//   - suspensionReason: string (optional)
+//
+// Collection: /votes/{voteId} (document ID format: {userId}_{projectId})
+// Fields:
+//   - userId: string
+//   - projectId: string
+//   - createdAt: timestamp
+//
+// Collection: /writings/{writingId}
+// Fields:
+//   - title: string
+//   - body: string
+//   - genre: string ('short-story' | 'poem' | 'essay')
+//   - displayName: string
+//   - authorPhotoURL: string (optional)
+//   - likes: number
+//   - comments: list of comment maps
+//   - authorUid: string
+//   - approvalStatus: string ('pending' | 'approved' | 'rejected')
+//   - rejectionReason: string (optional)
+//   - isSuspended: bool (optional)
+//
+// Collection: /litVotes/{voteId} (document ID format: {userId}_{writingId})
+// Fields:
+//   - userId: string
+//   - writingId: string
+//   - createdAt: timestamp
+//
+// Collection: /users/{userId}
+// Fields:
+//   - uid: string
+//   - displayName: string
+//   - email: string
+//   - photoURL: string (optional)
+//   - xp: number
+//   - seasonXp: number
+//   - streakDays: number
+//   - lastLoginDate: string
+//   - commentXpToday: number
+//   - lastCommentXpDate: string
+//   - isAdmin: bool (IMMUTABLE by non-admins)
+//   - hasEditedDisplayName: bool
+//   - displayNameEditedAt: string (optional)
+//   - joinedAt: timestamp or string
+//
+// Subcollection: /users/{userId}/notifications/{notifId}
+// Fields:
+//   - type: string
+//   - userId: string
+//   - triggerUid: string
+//   - triggerDisplayName: string
+//   - projectId: string
+//   - projectTitle: string
+//   - message: string
+//   - previewText: string
+//   - viewedAt: string or null
+//   - createdAt: string
+//   - expiresAt: string
+//   - link: map (optional)
+//
+// Subcollection: /users/{userId}/favorites/{projectId}
+// Fields:
+//   - addedAt: timestamp
+//
+// Collection: /settings/{docId}
+// Fields:
+//   - title: string
+//   - content: string
+//   - updatedAt: string
+//   - updatedBy: string (optional)
+//
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helper Functions ──
 
     function isSignedIn() {
       return request.auth != null;
@@ -16,49 +116,225 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function affectedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ── Projects ──
+
     match /projects/{projectId} {
       allow read: if true;
-      allow create: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.approvalStatus == 'pending' &&
+        request.resource.data.likes == 0 &&
+        request.resource.data.comments.size() == 0 &&
+        request.resource.data.updates.size() == 0;
+
       allow update: if isSignedIn() && (
-        resource.data.authorUid == request.auth.uid || isAdmin()
+        isAdmin() ||
+
+        // Author editing their own project content
+        (
+          resource.data.authorUid == request.auth.uid &&
+          !affectedKeys().hasAny([
+            'authorUid',
+            'approvalStatus',
+            'isSuspended',
+            'suspendedBy',
+            'suspendedAt',
+            'suspensionReason',
+            'likes',
+            'xpMilestonesAwarded'
+          ])
+        ) ||
+
+        // Any signed-in user toggling vote (likes ±1, atomized with vote document)
+        (
+          affectedKeys().hasOnly(['likes']) &&
+          math.abs(request.resource.data.likes - resource.data.likes) == 1 &&
+          (
+            (request.resource.data.likes > resource.data.likes &&
+              !exists(/databases/$(database)/documents/votes/$(request.auth.uid + '_' + projectId)) &&
+              getAfter(/databases/$(database)/documents/votes/$(request.auth.uid + '_' + projectId)) != null) ||
+            (request.resource.data.likes < resource.data.likes &&
+              exists(/databases/$(database)/documents/votes/$(request.auth.uid + '_' + projectId)) &&
+              getAfter(/databases/$(database)/documents/votes/$(request.auth.uid + '_' + projectId)) == null)
+          )
+        ) ||
+
+        // Any signed-in user appending a comment
+        (
+          affectedKeys().hasOnly(['comments']) &&
+          request.resource.data.comments.size() == resource.data.comments.size() + 1 &&
+          request.resource.data.comments[resource.data.comments.size()].authorUid == request.auth.uid
+        ) ||
+
+        // Awarding vote milestones (append-only)
+        (
+          affectedKeys().hasOnly(['xpMilestonesAwarded']) &&
+          request.resource.data.xpMilestonesAwarded.size() >= resource.data.xpMilestonesAwarded.size()
+        )
       );
+
       allow delete: if isAdmin();
     }
+
+    // ── Votes ──
 
     match /votes/{voteId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        voteId == request.auth.uid + '_' + request.resource.data.projectId &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      allow update: if false;
     }
+
+    // ── Writings (Lit Club) ──
 
     match /writings/{writingId} {
       allow read: if true;
-      allow create: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.approvalStatus == 'pending' &&
+        request.resource.data.likes == 0 &&
+        request.resource.data.comments.size() == 0;
+
       allow update: if isSignedIn() && (
-        resource.data.authorUid == request.auth.uid || isAdmin()
+        isAdmin() ||
+
+        // Author editing their own writing
+        (
+          resource.data.authorUid == request.auth.uid &&
+          !affectedKeys().hasAny([
+            'authorUid',
+            'approvalStatus',
+            'isSuspended',
+            'suspendedBy',
+            'suspendedAt',
+            'suspensionReason',
+            'likes',
+            'rejectionReason'
+          ])
+        ) ||
+
+        // Any signed-in user toggling vote on writing (likes ±1, atomized with litVotes document)
+        (
+          affectedKeys().hasOnly(['likes']) &&
+          math.abs(request.resource.data.likes - resource.data.likes) == 1 &&
+          (
+            (request.resource.data.likes > resource.data.likes &&
+              !exists(/databases/$(database)/documents/litVotes/$(request.auth.uid + '_' + writingId)) &&
+              getAfter(/databases/$(database)/documents/litVotes/$(request.auth.uid + '_' + writingId)) != null) ||
+            (request.resource.data.likes < resource.data.likes &&
+              exists(/databases/$(database)/documents/litVotes/$(request.auth.uid + '_' + writingId)) &&
+              getAfter(/databases/$(database)/documents/litVotes/$(request.auth.uid + '_' + writingId)) == null)
+          )
+        ) ||
+
+        // Any signed-in user appending a comment to writing
+        (
+          affectedKeys().hasOnly(['comments']) &&
+          request.resource.data.comments.size() == resource.data.comments.size() + 1 &&
+          request.resource.data.comments[resource.data.comments.size()].authorUid == request.auth.uid
+        )
       );
+
       allow delete: if isAdmin();
     }
 
+    // ── Lit Votes ──
+
     match /litVotes/{voteId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        voteId == request.auth.uid + '_' + request.resource.data.writingId &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      allow update: if false;
     }
+
+    // ── Users & Subcollections ──
 
     match /users/{userId} {
       allow read: if true;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
 
+      // New profile creation: must be owner, cannot bootstrap as admin, starts at 0 XP
+      allow create: if isOwner(userId) &&
+        request.resource.data.isAdmin == false &&
+        request.resource.data.xp == 0 &&
+        request.resource.data.seasonXp == 0 &&
+        request.resource.data.hasEditedDisplayName == false;
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+
+        // Owner updating profile
+        (
+          isOwner(userId) &&
+          // Cannot promote to admin or alter joinedAt
+          !affectedKeys().hasAny(['isAdmin', 'joinedAt']) &&
+          // Display name edit can only flip once from false to true
+          (
+            request.resource.data.hasEditedDisplayName == resource.data.hasEditedDisplayName ||
+            (resource.data.hasEditedDisplayName == false && request.resource.data.hasEditedDisplayName == true)
+          ) &&
+          // Owner XP increase must be bounded
+          request.resource.data.xp >= resource.data.xp &&
+          request.resource.data.xp <= resource.data.xp + 100 &&
+          request.resource.data.seasonXp >= resource.data.seasonXp &&
+          request.resource.data.seasonXp <= resource.data.seasonXp + 100
+        ) ||
+
+        // Non-owner awarding XP to another user (vote/comment rewards)
+        (
+          affectedKeys().hasOnly(['xp', 'seasonXp']) &&
+          request.resource.data.xp > resource.data.xp &&
+          request.resource.data.xp <= resource.data.xp + 100 &&
+          request.resource.data.seasonXp > resource.data.seasonXp &&
+          request.resource.data.seasonXp <= resource.data.seasonXp + 100
+        )
+      );
+
+      allow delete: if isAdmin();
+
+      // Notifications subcollection
       match /notifications/{notifId} {
         allow read: if isOwner(userId);
-        allow write: if isSignedIn();
+
+        allow create: if isSignedIn() && (
+          request.resource.data.triggerUid == request.auth.uid ||
+          request.resource.data.triggerUid == 'ADMIN' ||
+          isAdmin()
+        );
+
+        allow update: if isOwner(userId) &&
+          affectedKeys().hasOnly(['viewedAt']);
+
+        allow delete: if isOwner(userId) || isAdmin();
       }
 
+      // Favorites subcollection
       match /favorites/{projectId} {
         allow read: if isOwner(userId);
         allow write: if isOwner(userId);
       }
     }
+
+    // ── Settings ──
 
     match /settings/{docId} {
       allow read: if true;

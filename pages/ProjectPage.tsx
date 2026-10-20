@@ -4,11 +4,14 @@ import { Project } from '../types';
 import { ProjectDetailView } from '../components/ProjectDetailView';
 import { PublicProfileModal } from '../components/PublicProfileModal';
 import { getProjectBySlugOrId } from '../services/firestoreService';
+import { canViewItem } from '../services/utils';
+import { useAuth } from '../contexts/AuthContext';
 import type { HomeContext } from './HomePage';
 
 const ProjectPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const {
     projects,
     userVotes,
@@ -56,11 +59,13 @@ const ProjectPage: React.FC = () => {
     );
   }
 
-  if (!project) {
+  const isAllowedToView = project ? canViewItem(project, user?.uid, profile?.isAdmin) : false;
+
+  if (!project || !isAllowedToView) {
     return (
       <div className="max-w-[1440px] mx-auto text-center py-24">
         <h2 className="text-xl font-semibold text-neutral-900 mb-2">Project not found</h2>
-        <p className="text-sm text-neutral-400 mb-6">This project may have been removed or doesn't exist.</p>
+        <p className="text-sm text-neutral-400 mb-6">This project may have been removed, is pending review, or doesn't exist.</p>
         <button
           onClick={() => navigate('/browse')}
           className="text-sm font-medium text-gouni-primary hover:underline"

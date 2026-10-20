@@ -7,36 +7,42 @@ import { NotificationItem } from './NotificationItem';
 
 interface NotificationBellProps {
   onProjectClick?: (projectId: string) => void;
+  onWritingClick?: (writingId: string) => void;
 }
 
-export const NotificationBell: React.FC<NotificationBellProps> = ({ onProjectClick }) => {
+export const NotificationBell: React.FC<NotificationBellProps> = ({ onProjectClick, onWritingClick }) => {
   const { user } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
 
     const unsub = subscribeToUserNotifications(user.uid, (notifs) => {
       setNotifications(notifs);
-
-      // Mark all as viewed when dropdown opens
-      if (showDropdown && notifs.some(n => !n.viewedAt)) {
-        notifs.forEach(n => {
-          if (!n.viewedAt) {
-            markNotificationAsViewed(user.uid, n.id).catch(err =>
-              console.error('Failed to mark notification as viewed:', err)
-            );
-          }
-        });
-      }
-
       setLoading(false);
     });
 
     return unsub;
-  }, [user, showDropdown]);
+  }, [user]);
+
+  // Mark all unread as viewed when dropdown is opened
+  useEffect(() => {
+    if (!user || !showDropdown) return;
+    const unread = notifications.filter(n => !n.viewedAt);
+    if (unread.length > 0) {
+      unread.forEach(n => {
+        markNotificationAsViewed(user.uid, n.id).catch(err =>
+          console.error('Failed to mark notification as viewed:', err)
+        );
+      });
+    }
+  }, [user, showDropdown, notifications]);
 
   const unreadCount = notifications.filter(n => !n.viewedAt).length;
 
@@ -78,7 +84,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onProjectCli
                     key={notif.id}
                     notification={notif}
                     onNavigate={(notification) => {
-                      if (notification.link?.type === 'project' && notification.link.id) {
+                      if (notification.link?.type === 'writing' && notification.link.id) {
+                        onWritingClick?.(notification.link.id);
+                        setShowDropdown(false);
+                      } else if (notification.link?.type === 'project' && notification.link.id) {
                         onProjectClick?.(notification.link.id);
                         setShowDropdown(false);
                       }

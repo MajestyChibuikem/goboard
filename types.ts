@@ -41,7 +41,7 @@ export interface Notification {
   createdAt: string;
   expiresAt: string;
   link?: {
-    type: 'project' | 'profile';
+    type: 'project' | 'writing' | 'profile';
     id: string;
   };
 }

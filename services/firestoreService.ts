@@ -22,7 +22,7 @@ import {
 import { updateProfile } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice, Writing, WritingGenre } from '../types';
-import { generateSlug } from './utils';
+import { generateSlug, cleanOldFirebaseUrl } from './utils';
 
 // ─── Collection refs ───
 
@@ -36,20 +36,6 @@ function tsToISO(ts: any): string {
   if (!ts) return new Date().toISOString();
   if (ts.toDate) return ts.toDate().toISOString();
   return new Date(ts).toISOString();
-}
-
-function cleanOldFirebaseUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (
-    url.includes('firebasestorage.app') || 
-    url.includes('appspot.com') ||
-    url.includes('firebasestorage.googleapis.com') ||
-    url.startsWith('users/') || 
-    url.startsWith('projects/')
-  ) {
-    return null;
-  }
-  return url;
 }
 
 function projectFromDoc(docSnap: any): Project {
@@ -150,9 +136,24 @@ export async function createProject(
     throw new Error('A project with this name already exists. Please choose a different title.');
   }
 
+  let baseSlug = generateSlug(data.title);
+  if (!baseSlug) {
+    baseSlug = 'project';
+  }
+
+  let slug = baseSlug;
+  let counter = 1;
+  while (true) {
+    const slugQuery = query(projectsCol, where('slug', '==', slug), limit(1));
+    const slugSnap = await getDocs(slugQuery);
+    if (slugSnap.empty) break;
+    counter += 1;
+    slug = `${baseSlug}-${counter}`;
+  }
+
   const docRef = await addDoc(projectsCol, {
     ...data,
-    slug: generateSlug(data.title),
+    slug,
     titleLower: data.title.trim().toLowerCase(),
     likes: 0,
     datePosted: serverTimestamp(),
@@ -346,7 +347,7 @@ export async function addComment(projectId: string, comment: Comment) {
   const project = snap.data();
   const current = snap.data().comments || [];
   await updateDoc(projectRef, {
-    comments: [...current, comment],
+    comments: arrayUnion(comment),
   });
 
   // Create notification for project author if this is a root comment (not a reply)
@@ -902,7 +903,8 @@ export function subscribeToUserNotifications(
 }
 
 export function parseMentions(text: string): string[] {
-  const mentionRegex = /@([a-zA-Z0-9\s\-\.]+)(?:\s|$|[,!?])/g;
+  // Matches @Name or @FirstName LastName (up to 3 words, bounded by punctuation or space)
+  const mentionRegex = /@([a-zA-Z0-9_.-]+(?:\s+[a-zA-Z0-9_.-]+){0,2})(?=[,!?\s]|$)/g;
   const mentions: string[] = [];
   let match;
 
@@ -916,13 +918,28 @@ export function parseMentions(text: string): string[] {
   return mentions;
 }
 
-export async function findUserByDisplayName(displayName: string) {
+export async function findUserByDisplayName(displayName: string): Promise<{ uid: string; [key: string]: any } | null> {
+  const trimmed = displayName.trim();
+  if (!trimmed) return null;
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('displayName', '==', displayName));
+  const q = query(usersRef, where('displayName', '==', trimmed), limit(1));
   const snap = await getDocs(q);
 
-  if (snap.empty) return null;
-  return snap.docs[0].data();
+  if (snap.empty) {
+    // If multiple words were passed, try matching just the first word as a fallback
+    const words = trimmed.split(/\s+/);
+    if (words.length > 1) {
+      const qFirst = query(usersRef, where('displayName', '==', words[0]), limit(1));
+      const snapFirst = await getDocs(qFirst);
+      if (!snapFirst.empty) {
+        const d = snapFirst.docs[0];
+        return { uid: d.id, ...d.data() };
+      }
+    }
+    return null;
+  }
+  const d = snap.docs[0];
+  return { uid: d.id, ...d.data() };
 }
 
 // ─── Board Notice ───
@@ -1154,7 +1171,7 @@ export async function approveWriting(writingId: string) {
         message: `Your writing "${writing.title}" has been approved!`,
         previewText: writing.body.substring(0, 100),
         viewedAt: null,
-        link: { type: 'project', id: writingId },
+        link: { type: 'writing', id: writingId },
       });
       await awardXP(writing.authorUid, XP_VALUES.PROJECT_APPROVED);
     }
@@ -1182,7 +1199,7 @@ export async function rejectWriting(writingId: string, reason?: string) {
         message: `Your writing "${writing.title}" was not approved`,
         previewText: reason || 'No reason provided',
         viewedAt: null,
-        link: { type: 'project', id: writingId },
+        link: { type: 'writing', id: writingId },
       });
     }
   }
@@ -1227,7 +1244,7 @@ export async function suspendWriting(writingId: string, adminUid: string, reason
       message: `Your writing "${writing.title}" has been suspended`,
       previewText: reason,
       viewedAt: null,
-      link: { type: 'project', id: writingId },
+      link: { type: 'writing', id: writingId },
     });
   }
 }
@@ -1256,7 +1273,7 @@ export async function restoreWriting(writingId: string, adminUid: string) {
       message: `Your writing "${writing.title}" has been restored`,
       previewText: 'Your writing is now visible to all users',
       viewedAt: null,
-      link: { type: 'project', id: writingId },
+      link: { type: 'writing', id: writingId },
     });
   }
 }
@@ -1326,7 +1343,7 @@ export async function addWritingComment(writingId: string, comment: Comment) {
 
   const writing = snap.data();
   const current = writing.comments || [];
-  await updateDoc(writingRef, { comments: [...current, comment] });
+  await updateDoc(writingRef, { comments: arrayUnion(comment) });
 
   if (!comment.parentCommentId && comment.authorUid && writing.authorUid && comment.authorUid !== writing.authorUid) {
     await createNotification({
@@ -1340,7 +1357,7 @@ export async function addWritingComment(writingId: string, comment: Comment) {
       message: `${comment.author} commented on your writing`,
       previewText: comment.content.substring(0, 100),
       viewedAt: null,
-      link: { type: 'project', id: writingId },
+      link: { type: 'writing', id: writingId },
     });
   }
 
@@ -1359,7 +1376,7 @@ export async function addWritingComment(writingId: string, comment: Comment) {
         message: `${comment.author} replied to your comment`,
         previewText: comment.content.substring(0, 100),
         viewedAt: null,
-        link: { type: 'project', id: writingId },
+        link: { type: 'writing', id: writingId },
       });
     }
   }
@@ -1379,7 +1396,7 @@ export async function addWritingComment(writingId: string, comment: Comment) {
         message: `${comment.author} mentioned you in a comment`,
         previewText: comment.content.substring(0, 100),
         viewedAt: null,
-        link: { type: 'project', id: writingId },
+        link: { type: 'writing', id: writingId },
       });
     }
   }

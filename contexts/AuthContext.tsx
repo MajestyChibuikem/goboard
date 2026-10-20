@@ -14,7 +14,7 @@ import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnap
 import { auth, googleProvider, db } from '../services/firebase';
 import { uploadUserAvatar, deleteViewedNotifications } from '../services/firestoreService';
 import { XP_VALUES } from '../services/firestoreService';
-import { getRank } from '../services/utils';
+import { getRank, cleanOldFirebaseUrl } from '../services/utils';
 
 export interface UserProfile {
   uid: string;
@@ -28,8 +28,8 @@ export interface UserProfile {
   lastLoginDate: string;
   isAdmin: boolean;
   joinedAt: string;
-  hasEditedDisplayName: boolean; // NEW: Track if one-time edit was used
-  displayNameEditedAt?: string; // NEW: When they edited it
+  hasEditedDisplayName: boolean;
+  displayNameEditedAt?: string;
 }
 
 interface AuthContextType {
@@ -51,20 +51,6 @@ export const useAuth = () => {
   return ctx;
 };
 
-function cleanOldFirebaseUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (
-    url.includes('firebasestorage.app') || 
-    url.includes('appspot.com') ||
-    url.includes('firebasestorage.googleapis.com') ||
-    url.startsWith('users/') || 
-    url.startsWith('projects/')
-  ) {
-    return null;
-  }
-  return url;
-}
-
 async function ensureUserProfile(user: User): Promise<UserProfile> {
   const ref = doc(db, 'users', user.uid);
   const snap = await getDoc(ref);
@@ -72,9 +58,9 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
   if (snap.exists()) {
     const data = snap.data();
 
-    // Ensure xp field exists (fix for users created before XP system)
-    if (!('xp' in data)) {
-      await setDoc(ref, { xp: 0, seasonXp: 0 }, { merge: true });
+    // Ensure xp and uid fields exist (fix for users created before XP system)
+    if (!('xp' in data) || !('uid' in data)) {
+      await setDoc(ref, { xp: data.xp || 0, seasonXp: data.seasonXp || 0, uid: user.uid }, { merge: true });
     }
 
     let photoURL = data.photoURL || user.photoURL;
@@ -99,6 +85,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
 
   // First time user — create their profile
   const newProfile = {
+    uid: user.uid,
     displayName: user.displayName || 'Student',
     email: user.email || '',
     photoURL: user.photoURL || null,
@@ -225,12 +212,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(prevProfile => prevProfile ? {
           ...prevProfile,
           displayName: data.displayName || prevProfile.displayName,
-          hasEditedDisplayName: data.hasEditedDisplayName || prevProfile.hasEditedDisplayName,
+          hasEditedDisplayName: data.hasEditedDisplayName ?? prevProfile.hasEditedDisplayName,
           displayNameEditedAt: data.displayNameEditedAt || prevProfile.displayNameEditedAt,
-          xp: data.xp || prevProfile.xp,
-          seasonXp: data.seasonXp || prevProfile.seasonXp,
-          rank: getRank(data.xp || 0),
-          streakDays: data.streakDays || prevProfile.streakDays,
+          photoURL: cleanOldFirebaseUrl(data.photoURL) ?? prevProfile.photoURL,
+          isAdmin: data.isAdmin ?? prevProfile.isAdmin,
+          xp: data.xp ?? prevProfile.xp,
+          seasonXp: data.seasonXp ?? prevProfile.seasonXp,
+          rank: getRank(data.xp ?? prevProfile.xp ?? 0),
+          streakDays: data.streakDays ?? prevProfile.streakDays,
         } : prevProfile);
       }
     });
@@ -279,7 +268,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await updateProfile(currentUser, { photoURL });
       await updateDoc(doc(db, 'users', currentUser.uid), { photoURL });
 
-      setUser(prev => (prev ? { ...prev, photoURL } : prev));
       setProfile(prev => (prev ? { ...prev, photoURL } : prev));
     } catch (err) {
       console.error('Failed to update profile photo:', err);
