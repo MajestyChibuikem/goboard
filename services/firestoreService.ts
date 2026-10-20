@@ -662,7 +662,33 @@ export const XP_VALUES = {
   MIN_ACCOUNT_AGE_DAYS: 7,
 } as const;
 
-export async function awardXP(userId: string, amount: number) {
+export async function awardXP(userId: string, amount: number, action?: string) {
+  try {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch('/api/award-xp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          targetUserId: userId,
+          amount,
+          action: action || 'CUSTOM_AWARD',
+        }),
+      });
+
+      if (response.ok) {
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Serverless XP award error, falling back to direct write:', err);
+  }
+
+  // Fallback to client-side write (bounded by Firestore security rules)
   const userRef = doc(db, 'users', userId);
   await updateDoc(userRef, {
     xp: increment(amount),
