@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, MessageCircle, AtSign, ArrowDownRight } from 'lucide-react';
+import { Check, X, MessageCircle, AtSign, ArrowDownRight, Trophy, ShieldCheck, Coins, Info } from 'lucide-react';
 import { Notification } from '../types';
 
 interface NotificationItemProps {
@@ -16,6 +16,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
       case 'approval':
         return <Check className="w-4 h-4 text-emerald-600" />;
       case 'rejection':
+      case 'id_rejected':
         return <X className="w-4 h-4 text-red-600" />;
       case 'comment':
         return <MessageCircle className="w-4 h-4 text-blue-600" />;
@@ -23,6 +24,14 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
         return <ArrowDownRight className="w-4 h-4 text-purple-600" />;
       case 'mention':
         return <AtSign className="w-4 h-4 text-orange-600" />;
+      case 'paper_approved':
+        return <Trophy className="w-4 h-4 text-amber-500" />;
+      case 'paper_closed':
+        return <Info className="w-4 h-4 text-neutral-500" />;
+      case 'id_verified':
+        return <ShieldCheck className="w-4 h-4 text-emerald-600" />;
+      case 'payday_paid':
+        return <Coins className="w-4 h-4 text-amber-600" />;
       default:
         return <MessageCircle className="w-4 h-4 text-neutral-600" />;
     }
@@ -33,13 +42,23 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
       case 'approval':
         return 'Project Approved';
       case 'rejection':
-        return 'Project Rejected';
+        return 'Rejected';
       case 'comment':
         return 'New Comment';
       case 'reply':
         return 'New Reply';
       case 'mention':
         return 'You were mentioned';
+      case 'paper_approved':
+        return 'Exam Bounty Winner';
+      case 'paper_closed':
+        return 'Course Bounty Closed';
+      case 'id_verified':
+        return 'Student ID Verified';
+      case 'id_rejected':
+        return 'Student ID Rejected';
+      case 'payday_paid':
+        return 'Payday Reward Sent';
       default:
         return 'Notification';
     }

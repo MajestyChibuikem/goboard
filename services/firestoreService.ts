@@ -15,6 +15,7 @@ import {
   Timestamp,
   writeBatch,
   arrayUnion,
+  arrayRemove,
   runTransaction,
   setDoc,
   limit,
@@ -1521,12 +1522,18 @@ export const DEFAULT_CAMPAIGN_CONFIG: CampaignConfig = {
 
 export function normalizeCourseCode(code: string): string {
   if (!code) return '';
-  const clean = code.trim().toUpperCase().replace(/[-_]+/g, ' ');
+  // Strip slashes and non-alphanumeric characters so it is always a safe Firestore doc ID
+  const clean = code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   const match = clean.match(/^([A-Z]+)\s*(\d+[A-Z]?)$/);
   if (match) {
     return `${match[1]} ${match[2]}`;
   }
-  return clean.replace(/\s+/g, ' ');
+  return clean;
 }
 
 export async function getCampaignConfig(): Promise<CampaignConfig> {
@@ -1578,38 +1585,39 @@ export function subscribeToCourseBounties(callback: (bounties: CourseBountySumma
   });
 }
 
+function examPaperFromDoc(d: any): ExamPaperSubmission {
+  const data = d.data();
+  return {
+    id: d.id,
+    courseCode: data.courseCode || '',
+    courseTitle: data.courseTitle || '',
+    level: data.level || '',
+    semester: data.semester || '',
+    imageUrls: (data.imageUrls || []).map(cleanOldFirebaseUrl).filter(Boolean) as string[],
+    authorUid: data.authorUid || '',
+    displayName: data.displayName || 'Student',
+    authorPhotoURL: cleanOldFirebaseUrl(data.authorPhotoURL) || null,
+    slotNumber: data.slotNumber || 1,
+    status: data.status || 'pending',
+    rejectionReason: data.rejectionReason,
+    createdAt: tsToISO(data.createdAt),
+    reviewedAt: data.reviewedAt,
+    reviewedBy: data.reviewedBy,
+  };
+}
+
 export function subscribeToExamPapers(
   callback: (papers: ExamPaperSubmission[]) => void,
   statusFilter: 'all' | 'pending' | 'approved' = 'all'
 ) {
-  let q;
-  if (statusFilter === 'all') {
-    q = query(examPapersCol, orderBy('createdAt', 'desc'));
-  } else {
-    q = query(examPapersCol, where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
-  }
+  const q = statusFilter === 'all'
+    ? query(examPapersCol, orderBy('createdAt', 'desc'))
+    : query(examPapersCol, where('status', '==', statusFilter));
 
   return onSnapshot(q, (snap) => {
-    const papers = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        courseCode: data.courseCode || '',
-        courseTitle: data.courseTitle || '',
-        level: data.level || '',
-        semester: data.semester || '',
-        imageUrls: (data.imageUrls || []).map(cleanOldFirebaseUrl).filter(Boolean) as string[],
-        authorUid: data.authorUid || '',
-        displayName: data.displayName || 'Student',
-        authorPhotoURL: cleanOldFirebaseUrl(data.authorPhotoURL) || null,
-        slotNumber: data.slotNumber || 1,
-        status: data.status || 'pending',
-        rejectionReason: data.rejectionReason,
-        createdAt: tsToISO(data.createdAt),
-        reviewedAt: data.reviewedAt,
-        reviewedBy: data.reviewedBy,
-      } as ExamPaperSubmission;
-    });
+    const papers = snap.docs
+      .map(examPaperFromDoc)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     callback(papers);
   });
 }
@@ -1618,28 +1626,11 @@ export function subscribeToUserExamPapers(
   userId: string,
   callback: (papers: ExamPaperSubmission[]) => void
 ) {
-  const q = query(examPapersCol, where('authorUid', '==', userId), orderBy('createdAt', 'desc'));
+  const q = query(examPapersCol, where('authorUid', '==', userId));
   return onSnapshot(q, (snap) => {
-    const papers = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        courseCode: data.courseCode || '',
-        courseTitle: data.courseTitle || '',
-        level: data.level || '',
-        semester: data.semester || '',
-        imageUrls: (data.imageUrls || []).map(cleanOldFirebaseUrl).filter(Boolean) as string[],
-        authorUid: data.authorUid || '',
-        displayName: data.displayName || 'Student',
-        authorPhotoURL: cleanOldFirebaseUrl(data.authorPhotoURL) || null,
-        slotNumber: data.slotNumber || 1,
-        status: data.status || 'pending',
-        rejectionReason: data.rejectionReason,
-        createdAt: tsToISO(data.createdAt),
-        reviewedAt: data.reviewedAt,
-        reviewedBy: data.reviewedBy,
-      } as ExamPaperSubmission;
-    });
+    const papers = snap.docs
+      .map(examPaperFromDoc)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     callback(papers);
   });
 }
@@ -1729,29 +1720,49 @@ export async function selectCoursePaperWinner(
   const bountyRef = doc(db, 'courseBounties', normalizedCode);
   const winnerUserRef = doc(db, 'users', winnerUid);
 
-  const paperSnap = await getDoc(paperRef);
-  if (!paperSnap.exists()) throw new Error('Paper submission not found');
+  // Use a transaction to guard against double-clicking or concurrent approvals
+  await runTransaction(db, async (tx) => {
+    const [paperSnap, bountySnap] = await Promise.all([
+      tx.get(paperRef),
+      tx.get(bountyRef),
+    ]);
 
-  const batch = writeBatch(db);
+    if (!paperSnap.exists()) {
+      throw new Error('Paper submission not found.');
+    }
+    if (paperSnap.data().status === 'approved') {
+      throw new Error('This paper submission has already been approved.');
+    }
+    if (bountySnap.exists() && bountySnap.data().isCollected) {
+      throw new Error(`A winner has already been selected for ${normalizedCode}.`);
+    }
 
-  // 1. Mark winning paper as approved
-  batch.update(paperRef, {
-    status: 'approved',
-    reviewedAt: new Date().toISOString(),
-  });
+    const nowIso = new Date().toISOString();
 
-  // 2. Award GoCoins to winner
-  batch.update(winnerUserRef, {
-    goCoins: increment(rewardAmount),
-    totalGoCoinsEarned: increment(rewardAmount),
-  });
+    // 1. Mark winning paper as approved
+    tx.update(paperRef, {
+      status: 'approved',
+      reviewedAt: nowIso,
+    });
 
-  // 3. Mark course as collected
-  batch.update(bountyRef, {
-    isCollected: true,
-    winnerUid,
-    winnerPaperId: paperId,
-    updatedAt: new Date().toISOString(),
+    // 2. Award GoCoins to winner
+    tx.update(winnerUserRef, {
+      goCoins: increment(rewardAmount),
+      totalGoCoinsEarned: increment(rewardAmount),
+    });
+
+    // 3. Mark course as collected
+    tx.set(
+      bountyRef,
+      {
+        courseCode: normalizedCode,
+        isCollected: true,
+        winnerUid,
+        winnerPaperId: paperId,
+        updatedAt: nowIso,
+      },
+      { merge: true }
+    );
   });
 
   // 4. Close all other pending submissions for this course
@@ -1762,16 +1773,19 @@ export async function selectCoursePaperWinner(
   );
   const otherPapersSnap = await getDocs(otherPapersQuery);
 
-  otherPapersSnap.docs.forEach((d) => {
-    if (d.id !== paperId) {
-      batch.update(d.ref, {
-        status: 'not_selected',
-        reviewedAt: new Date().toISOString(),
-      });
-    }
-  });
-
-  await batch.commit();
+  if (!otherPapersSnap.empty) {
+    const batch = writeBatch(db);
+    const nowIso = new Date().toISOString();
+    otherPapersSnap.docs.forEach((d) => {
+      if (d.id !== paperId) {
+        batch.update(d.ref, {
+          status: 'not_selected',
+          reviewedAt: nowIso,
+        });
+      }
+    });
+    await batch.commit();
+  }
 
   // 5. Send notification to winner
   await createNotification({
@@ -1819,21 +1833,35 @@ export async function rejectCoursePaper(
   const paperRef = doc(db, 'examPapers', paperId);
   const bountyRef = doc(db, 'courseBounties', normalizedCode);
 
-  const batch = writeBatch(db);
+  await runTransaction(db, async (tx) => {
+    const [paperSnap, bountySnap] = await Promise.all([
+      tx.get(paperRef),
+      tx.get(bountyRef),
+    ]);
 
-  batch.update(paperRef, {
-    status: 'rejected',
-    rejectionReason: reason,
-    reviewedAt: new Date().toISOString(),
+    if (!paperSnap.exists()) {
+      throw new Error('Paper submission not found.');
+    }
+    if (paperSnap.data().status !== 'pending') {
+      throw new Error('Only pending submissions can be rejected.');
+    }
+
+    const nowIso = new Date().toISOString();
+    tx.update(paperRef, {
+      status: 'rejected',
+      rejectionReason: reason,
+      reviewedAt: nowIso,
+    });
+
+    if (bountySnap.exists()) {
+      const currentCount = bountySnap.data().submissionCount || 0;
+      tx.update(bountyRef, {
+        submissionCount: Math.max(0, currentCount - 1),
+        submittedUserIds: arrayRemove(authorUid),
+        updatedAt: nowIso,
+      });
+    }
   });
-
-  // Decrement submissionCount so slot opens up for another student
-  batch.update(bountyRef, {
-    submissionCount: increment(-1),
-    updatedAt: new Date().toISOString(),
-  });
-
-  await batch.commit();
 
   await createNotification({
     type: 'rejection',
@@ -1843,9 +1871,54 @@ export async function rejectCoursePaper(
     projectId: paperId,
     projectTitle: `${normalizedCode} Exam Paper`,
     message: `Your ${normalizedCode} paper submission was not accepted`,
-    previewText: reason || 'Image was blurry or unreadable. A slot has been reopened.',
+    previewText: reason || 'Image was blurry or unreadable. Your slot has been reopened so you can re-upload a clearer photo.',
     viewedAt: null,
     link: { type: 'campaign', id: paperId },
+  });
+}
+
+export function subscribeToPendingVerifications(callback: (users: any[]) => void) {
+  const q = query(usersCol, where('verificationStatus', '==', 'pending'));
+  return onSnapshot(q, (snap) => {
+    const users = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        uid: d.id,
+        ...data,
+        photoURL: cleanOldFirebaseUrl(data.photoURL),
+        studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl),
+      };
+    });
+    callback(users);
+  });
+}
+
+export function subscribeToUsersWithGoCoins(callback: (users: any[]) => void) {
+  const q = query(usersCol, where('goCoins', '>', 0));
+  return onSnapshot(q, (snap) => {
+    const users = snap.docs
+      .map(d => {
+        const data = d.data();
+        return {
+          uid: d.id,
+          ...data,
+          photoURL: cleanOldFirebaseUrl(data.photoURL),
+          studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl),
+        };
+      })
+      .sort((a: any, b: any) => (b.goCoins || 0) - (a.goCoins || 0));
+    callback(users);
+  });
+}
+
+export function subscribeToPayoutHistory(callback: (payouts: PayoutRecord[]) => void) {
+  const q = query(payoutsCol, orderBy('paidAt', 'desc'), limit(50));
+  return onSnapshot(q, (snap) => {
+    const records = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+    } as PayoutRecord));
+    callback(records);
   });
 }
 
@@ -1925,33 +1998,44 @@ export async function markStudentAsPaid(
   bankDetails: BankDetails,
   seasonNumber = 1
 ): Promise<void> {
+  if (coinsToDeduct <= 0) {
+    throw new Error('Coins to deduct must be greater than 0.');
+  }
+
   const studentRef = doc(db, 'users', studentUid);
   const payoutRef = doc(payoutsCol);
 
-  const studentSnap = await getDoc(studentRef);
-  const studentData = studentSnap.data() || {};
-  const studentName = studentData.displayName || 'Student';
+  await runTransaction(db, async (tx) => {
+    const studentSnap = await tx.get(studentRef);
+    if (!studentSnap.exists()) {
+      throw new Error('Student profile not found.');
+    }
 
-  const batch = writeBatch(db);
+    const studentData = studentSnap.data();
+    const currentCoins = studentData.goCoins || 0;
+    if (currentCoins < coinsToDeduct) {
+      throw new Error(`Student only has ${currentCoins} GoCoins available.`);
+    }
 
-  // 1. Deduct paid coins
-  batch.update(studentRef, {
-    goCoins: increment(-coinsToDeduct),
+    const studentName = studentData.displayName || 'Student';
+
+    // 1. Deduct paid coins safely
+    tx.update(studentRef, {
+      goCoins: currentCoins - coinsToDeduct,
+    });
+
+    // 2. Record payout log
+    tx.set(payoutRef, {
+      userId: studentUid,
+      displayName: studentName,
+      coinsPaid: coinsToDeduct,
+      nairaAmount,
+      bankDetails,
+      seasonNumber,
+      paidAt: new Date().toISOString(),
+      paidBy: adminUid,
+    });
   });
-
-  // 2. Record payout log
-  batch.set(payoutRef, {
-    userId: studentUid,
-    displayName: studentName,
-    coinsPaid: coinsToDeduct,
-    nairaAmount,
-    bankDetails,
-    seasonNumber,
-    paidAt: new Date().toISOString(),
-    paidBy: adminUid,
-  });
-
-  await batch.commit();
 
   // 3. Notify student
   await createNotification({

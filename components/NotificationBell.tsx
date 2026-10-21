@@ -8,9 +8,16 @@ import { NotificationItem } from './NotificationItem';
 interface NotificationBellProps {
   onProjectClick?: (projectId: string) => void;
   onWritingClick?: (writingId: string) => void;
+  onProfileClick?: () => void;
+  onCampaignClick?: (paperId?: string) => void;
 }
 
-export const NotificationBell: React.FC<NotificationBellProps> = ({ onProjectClick, onWritingClick }) => {
+export const NotificationBell: React.FC<NotificationBellProps> = ({
+  onProjectClick,
+  onWritingClick,
+  onProfileClick,
+  onCampaignClick,
+}) => {
   const { user } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -89,6 +96,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onProjectCli
                         setShowDropdown(false);
                       } else if (notification.link?.type === 'project' && notification.link.id) {
                         onProjectClick?.(notification.link.id);
+                        setShowDropdown(false);
+                      } else if (notification.link?.type === 'profile') {
+                        onProfileClick?.();
+                        setShowDropdown(false);
+                      } else if (notification.link?.type === 'campaign') {
+                        onCampaignClick?.(notification.link.id);
                         setShowDropdown(false);
                       }
                     }}
