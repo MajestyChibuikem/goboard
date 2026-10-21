@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, Writing } from '../types';
 import {
   subscribeToPendingProjects, approveProject, rejectProject, deleteProject,
-  awardXP, XP_VALUES, resetDatabase,
+  resetDatabase,
   subscribeToPendingWritings, approveWriting, rejectWriting, deleteWriting,
 } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,8 +62,6 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({ onBack, onProjectClick }
     setProcessing(project.id);
     try {
       await approveProject(project.id);
-      const authorUid = (project as any).authorUid;
-      if (authorUid) await awardXP(authorUid, XP_VALUES.PROJECT_APPROVED);
       toast('Project approved!', 'success');
     } catch (err) {
       console.error('Failed to approve:', err);

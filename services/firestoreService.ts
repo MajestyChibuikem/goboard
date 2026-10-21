@@ -177,7 +177,7 @@ export async function createProject(
   });
 
   // Award submission XP + check first project bonus
-  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT);
+  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT, 'SUBMIT_PROJECT');
   await checkFirstProjectBonus(authorUid);
 
   return docRef.id;
@@ -487,7 +487,7 @@ export async function approveProject(projectId: string) {
       });
 
       // Award XP to project author
-      await awardXP(project.authorUid, XP_VALUES.PROJECT_APPROVED);
+      await awardXP(project.authorUid, XP_VALUES.PROJECT_APPROVED, 'PROJECT_APPROVED');
     }
   }
 }
@@ -733,7 +733,7 @@ async function awardVoteXP(
   const hasMinVotes = await projectHasMinVotes(projectId);
   if (!hasMinVotes) return;
 
-  await awardXP(authorUid, XP_VALUES.RECEIVE_VOTE);
+  await awardXP(authorUid, XP_VALUES.RECEIVE_VOTE, 'RECEIVE_VOTE');
 
   // Check milestones after the vote
   await checkVoteMilestones(projectId, authorUid);
@@ -750,31 +750,31 @@ async function checkVoteMilestones(projectId: string, authorUid: string) {
     const likes: number = data.likes || 0;
     const awarded: number[] = data.xpMilestonesAwarded || [];
 
-    const milestones: { threshold: number; xp: number }[] = [
-      { threshold: 10, xp: XP_VALUES.VOTE_MILESTONE_10 },
-      { threshold: 50, xp: XP_VALUES.VOTE_MILESTONE_50 },
+    const milestones: { threshold: number; xp: number; action: string }[] = [
+      { threshold: 10, xp: XP_VALUES.VOTE_MILESTONE_10, action: 'VOTE_MILESTONE_10' },
+      { threshold: 50, xp: XP_VALUES.VOTE_MILESTONE_50, action: 'VOTE_MILESTONE_50' },
     ];
 
-    let totalBonus = 0;
+    const achievedMilestones: { xp: number; action: string }[] = [];
     const newAwarded = [...awarded];
 
     for (const m of milestones) {
       if (likes >= m.threshold && !awarded.includes(m.threshold)) {
-        totalBonus += m.xp;
+        achievedMilestones.push({ xp: m.xp, action: m.action });
         newAwarded.push(m.threshold);
       }
     }
 
-    if (totalBonus > 0) {
+    if (achievedMilestones.length > 0) {
       transaction.update(projectRef, { xpMilestonesAwarded: newAwarded });
     }
 
-    // XP award happens outside the project transaction to keep it simple
-    // We store the bonus to apply after
-    return totalBonus;
-  }).then(async (bonus) => {
-    if (bonus && bonus > 0) {
-      await awardXP(authorUid, bonus);
+    return achievedMilestones;
+  }).then(async (milestones) => {
+    if (milestones && milestones.length > 0) {
+      for (const m of milestones) {
+        await awardXP(authorUid, m.xp, m.action);
+      }
     }
   });
 }
@@ -813,7 +813,7 @@ export async function awardCommentXP(
 
   // Award project author XP for receiving a comment
   if (authorUid && authorUid !== commenterId) {
-    await awardXP(authorUid, XP_VALUES.RECEIVE_COMMENT);
+    await awardXP(authorUid, XP_VALUES.RECEIVE_COMMENT, 'RECEIVE_COMMENT');
   }
 }
 
@@ -824,7 +824,7 @@ async function checkFirstProjectBonus(authorUid: string) {
   const snap = await getDocs(q);
   // Count is 1 because the project was just created
   if (snap.size === 1) {
-    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT);
+    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT, 'FIRST_PROJECT');
   }
 }
 
@@ -1197,7 +1197,7 @@ export async function createWriting(
     approvalStatus: 'pending',
   });
 
-  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT);
+  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT, 'SUBMIT_PROJECT');
   await checkFirstWritingBonus(authorUid);
 
   return docRef.id;
@@ -1207,7 +1207,7 @@ async function checkFirstWritingBonus(authorUid: string) {
   const q = query(writingsCol, where('authorUid', '==', authorUid));
   const snap = await getDocs(q);
   if (snap.size === 1) {
-    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT);
+    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT, 'FIRST_PROJECT');
   }
 }
 
@@ -1231,7 +1231,7 @@ export async function approveWriting(writingId: string) {
         viewedAt: null,
         link: { type: 'writing', id: writingId },
       });
-      await awardXP(writing.authorUid, XP_VALUES.PROJECT_APPROVED);
+      await awardXP(writing.authorUid, XP_VALUES.PROJECT_APPROVED, 'PROJECT_APPROVED');
     }
   }
 }
@@ -1358,7 +1358,7 @@ export async function toggleWritingVote(
     await batch.commit();
 
     if (authorUid && authorUid !== userId) {
-      awardXP(authorUid, XP_VALUES.RECEIVE_VOTE).catch(console.error);
+      awardXP(authorUid, XP_VALUES.RECEIVE_VOTE, 'RECEIVE_VOTE').catch(console.error);
     }
     return true;
   }

@@ -12,8 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../services/firebase';
-import { uploadUserAvatar, deleteViewedNotifications } from '../services/firestoreService';
-import { XP_VALUES } from '../services/firestoreService';
+import { uploadUserAvatar, deleteViewedNotifications, awardXP, XP_VALUES } from '../services/firestoreService';
 import { getRank, cleanOldFirebaseUrl } from '../services/utils';
 
 export interface UserProfile {
@@ -132,6 +131,8 @@ async function trackLoginStreak(userId: string) {
   const today = getDateString();
   const yesterday = getYesterday();
 
+  let shouldAwardStreakXp = false;
+
   await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(userRef);
     if (!snapshot.exists()) return;
@@ -151,14 +152,18 @@ async function trackLoginStreak(userId: string) {
       streakDays: newStreak,
     };
 
-    // Award 10 XP every time the streak hits a multiple of 3
     if (newStreak % 3 === 0) {
-      updates.xp = (data.xp || 0) + XP_VALUES.LOGIN_STREAK;
-      updates.seasonXp = (data.seasonXp || 0) + XP_VALUES.LOGIN_STREAK;
+      shouldAwardStreakXp = true;
     }
 
     transaction.update(userRef, updates);
   });
+
+  if (shouldAwardStreakXp) {
+    await awardXP(userId, XP_VALUES.LOGIN_STREAK, 'LOGIN_STREAK').catch((err) => {
+      console.warn('Failed to award login streak XP:', err);
+    });
+  }
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
