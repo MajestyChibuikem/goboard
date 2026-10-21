@@ -21,7 +21,22 @@ import {
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { Project, Comment, ProjectUpdate, ProjectStatus, Notification, BoardNotice, Writing, WritingGenre } from '../types';
+import {
+  Project,
+  Comment,
+  ProjectUpdate,
+  ProjectStatus,
+  Notification,
+  BoardNotice,
+  Writing,
+  WritingGenre,
+  CampaignConfig,
+  ExamPaperSubmission,
+  CourseBountySummary,
+  StudentVerificationStatus,
+  BankDetails,
+  PayoutRecord,
+} from '../types';
 import { generateSlug, cleanOldFirebaseUrl } from './utils';
 
 // ─── Collection refs ───
@@ -29,6 +44,10 @@ import { generateSlug, cleanOldFirebaseUrl } from './utils';
 const projectsCol = collection(db, 'projects');
 const usersCol = collection(db, 'users');
 const votesCol = collection(db, 'votes');
+const examPapersCol = collection(db, 'examPapers');
+const courseBountiesCol = collection(db, 'courseBounties');
+const payoutsCol = collection(db, 'payouts');
+const campaignConfigDoc = doc(db, 'settings', 'campaignConfig');
 
 // ─── Helpers ───
 
@@ -876,6 +895,30 @@ export async function uploadUserAvatar(
   return uploadToCloudinary(file);
 }
 
+export async function uploadStudentIdCard(
+  userId: string,
+  file: File
+): Promise<string> {
+  const imageUrl = await uploadToCloudinary(file);
+  await updateDoc(doc(db, 'users', userId), {
+    studentIdCardUrl: imageUrl,
+    verificationStatus: 'pending',
+    verificationRejectionReason: null,
+  });
+  return imageUrl;
+}
+
+export async function uploadUserBanner(
+  userId: string,
+  file: File
+): Promise<string> {
+  const imageUrl = await uploadToCloudinary(file);
+  await updateDoc(doc(db, 'users', userId), {
+    bannerUrl: imageUrl,
+  });
+  return imageUrl;
+}
+
 export async function getUserProfile(userId: string) {
   const snap = await getDoc(doc(db, 'users', userId));
   if (!snap.exists()) return null;
@@ -1462,3 +1505,466 @@ export async function addWritingComment(writingId: string, comment: Comment) {
     }
   }
 }
+
+// ─── Season 1 Campaign & Economy ───
+
+export const DEFAULT_CAMPAIGN_CONFIG: CampaignConfig = {
+  seasonNumber: 1,
+  title: 'Season 1: Exam Question Paper Bounty',
+  description: 'Collect exam question papers, earn 500 GoCoins per approved course, and get paid automatically on Payday!',
+  rewardPerPaper: 500,
+  nairaPer500Coins: 500,
+  paydayDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+  isActive: true,
+  maxSubmissionsPerCourse: 5,
+};
+
+export function normalizeCourseCode(code: string): string {
+  if (!code) return '';
+  const clean = code.trim().toUpperCase().replace(/[-_]+/g, ' ');
+  const match = clean.match(/^([A-Z]+)\s*(\d+[A-Z]?)$/);
+  if (match) {
+    return `${match[1]} ${match[2]}`;
+  }
+  return clean.replace(/\s+/g, ' ');
+}
+
+export async function getCampaignConfig(): Promise<CampaignConfig> {
+  try {
+    const snap = await getDoc(campaignConfigDoc);
+    if (snap.exists()) {
+      return { ...DEFAULT_CAMPAIGN_CONFIG, ...snap.data() } as CampaignConfig;
+    }
+    return DEFAULT_CAMPAIGN_CONFIG;
+  } catch (err) {
+    console.warn('Failed to fetch campaign config, using default:', err);
+    return DEFAULT_CAMPAIGN_CONFIG;
+  }
+}
+
+export function subscribeToCampaignConfig(callback: (config: CampaignConfig) => void) {
+  return onSnapshot(campaignConfigDoc, (snap) => {
+    if (snap.exists()) {
+      callback({ ...DEFAULT_CAMPAIGN_CONFIG, ...snap.data() } as CampaignConfig);
+    } else {
+      callback(DEFAULT_CAMPAIGN_CONFIG);
+    }
+  });
+}
+
+export async function updateCampaignConfig(
+  updates: Partial<CampaignConfig>,
+  adminUid: string
+): Promise<void> {
+  await setDoc(
+    campaignConfigDoc,
+    {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+      updatedBy: adminUid,
+    },
+    { merge: true }
+  );
+}
+
+export function subscribeToCourseBounties(callback: (bounties: CourseBountySummary[]) => void) {
+  const q = query(courseBountiesCol, orderBy('updatedAt', 'desc'));
+  return onSnapshot(q, (snap) => {
+    const bounties = snap.docs.map(d => ({
+      courseCode: d.id,
+      ...d.data(),
+    } as CourseBountySummary));
+    callback(bounties);
+  });
+}
+
+export function subscribeToExamPapers(
+  callback: (papers: ExamPaperSubmission[]) => void,
+  statusFilter: 'all' | 'pending' | 'approved' = 'all'
+) {
+  let q;
+  if (statusFilter === 'all') {
+    q = query(examPapersCol, orderBy('createdAt', 'desc'));
+  } else {
+    q = query(examPapersCol, where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
+  }
+
+  return onSnapshot(q, (snap) => {
+    const papers = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        courseCode: data.courseCode || '',
+        courseTitle: data.courseTitle || '',
+        level: data.level || '',
+        semester: data.semester || '',
+        imageUrls: (data.imageUrls || []).map(cleanOldFirebaseUrl).filter(Boolean) as string[],
+        authorUid: data.authorUid || '',
+        displayName: data.displayName || 'Student',
+        authorPhotoURL: cleanOldFirebaseUrl(data.authorPhotoURL) || null,
+        slotNumber: data.slotNumber || 1,
+        status: data.status || 'pending',
+        rejectionReason: data.rejectionReason,
+        createdAt: tsToISO(data.createdAt),
+        reviewedAt: data.reviewedAt,
+        reviewedBy: data.reviewedBy,
+      } as ExamPaperSubmission;
+    });
+    callback(papers);
+  });
+}
+
+export function subscribeToUserExamPapers(
+  userId: string,
+  callback: (papers: ExamPaperSubmission[]) => void
+) {
+  const q = query(examPapersCol, where('authorUid', '==', userId), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snap) => {
+    const papers = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        courseCode: data.courseCode || '',
+        courseTitle: data.courseTitle || '',
+        level: data.level || '',
+        semester: data.semester || '',
+        imageUrls: (data.imageUrls || []).map(cleanOldFirebaseUrl).filter(Boolean) as string[],
+        authorUid: data.authorUid || '',
+        displayName: data.displayName || 'Student',
+        authorPhotoURL: cleanOldFirebaseUrl(data.authorPhotoURL) || null,
+        slotNumber: data.slotNumber || 1,
+        status: data.status || 'pending',
+        rejectionReason: data.rejectionReason,
+        createdAt: tsToISO(data.createdAt),
+        reviewedAt: data.reviewedAt,
+        reviewedBy: data.reviewedBy,
+      } as ExamPaperSubmission;
+    });
+    callback(papers);
+  });
+}
+
+export async function submitExamPaper(
+  data: {
+    courseCode: string;
+    courseTitle: string;
+    level: string;
+    semester: string;
+    imageUrls: string[];
+  },
+  authorUid: string,
+  displayName: string,
+  authorPhotoURL?: string | null
+): Promise<string> {
+  const normalizedCode = normalizeCourseCode(data.courseCode);
+  if (!normalizedCode) {
+    throw new Error('Please enter a valid course code (e.g. CSC 301)');
+  }
+
+  const bountyDocRef = doc(db, 'courseBounties', normalizedCode);
+
+  return await runTransaction(db, async (tx) => {
+    const bountySnap = await tx.get(bountyDocRef);
+    let currentCount = 0;
+    let submittedUserIds: string[] = [];
+
+    if (bountySnap.exists()) {
+      const bData = bountySnap.data();
+      if (bData.isCollected) {
+        throw new Error(`Submissions for ${normalizedCode} have already been collected and closed.`);
+      }
+      submittedUserIds = bData.submittedUserIds || [];
+      if (submittedUserIds.includes(authorUid)) {
+        throw new Error(`You have already submitted an exam paper for ${normalizedCode}. Only 1 upload per student is allowed.`);
+      }
+      currentCount = bData.submissionCount || 0;
+      if (currentCount >= 5) {
+        throw new Error(`All 5 submission slots for ${normalizedCode} are currently full under review.`);
+      }
+    }
+
+    const slotNumber = currentCount + 1;
+    const newPaperRef = doc(examPapersCol);
+
+    tx.set(newPaperRef, {
+      courseCode: normalizedCode,
+      courseTitle: data.courseTitle.trim(),
+      level: data.level,
+      semester: data.semester,
+      imageUrls: data.imageUrls,
+      authorUid,
+      displayName,
+      authorPhotoURL: authorPhotoURL || null,
+      slotNumber,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    });
+
+    tx.set(
+      bountyDocRef,
+      {
+        courseCode: normalizedCode,
+        courseTitle: data.courseTitle.trim(),
+        level: data.level,
+        submissionCount: slotNumber,
+        submittedUserIds: arrayUnion(authorUid),
+        isCollected: false,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    return newPaperRef.id;
+  });
+}
+
+export async function selectCoursePaperWinner(
+  paperId: string,
+  courseCode: string,
+  winnerUid: string,
+  rewardAmount = 500
+): Promise<void> {
+  const normalizedCode = normalizeCourseCode(courseCode);
+  const paperRef = doc(db, 'examPapers', paperId);
+  const bountyRef = doc(db, 'courseBounties', normalizedCode);
+  const winnerUserRef = doc(db, 'users', winnerUid);
+
+  const paperSnap = await getDoc(paperRef);
+  if (!paperSnap.exists()) throw new Error('Paper submission not found');
+
+  const batch = writeBatch(db);
+
+  // 1. Mark winning paper as approved
+  batch.update(paperRef, {
+    status: 'approved',
+    reviewedAt: new Date().toISOString(),
+  });
+
+  // 2. Award GoCoins to winner
+  batch.update(winnerUserRef, {
+    goCoins: increment(rewardAmount),
+    totalGoCoinsEarned: increment(rewardAmount),
+  });
+
+  // 3. Mark course as collected
+  batch.update(bountyRef, {
+    isCollected: true,
+    winnerUid,
+    winnerPaperId: paperId,
+    updatedAt: new Date().toISOString(),
+  });
+
+  // 4. Close all other pending submissions for this course
+  const otherPapersQuery = query(
+    examPapersCol,
+    where('courseCode', '==', normalizedCode),
+    where('status', '==', 'pending')
+  );
+  const otherPapersSnap = await getDocs(otherPapersQuery);
+
+  otherPapersSnap.docs.forEach((d) => {
+    if (d.id !== paperId) {
+      batch.update(d.ref, {
+        status: 'not_selected',
+        reviewedAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  await batch.commit();
+
+  // 5. Send notification to winner
+  await createNotification({
+    type: 'paper_approved',
+    userId: winnerUid,
+    triggerUid: 'ADMIN',
+    triggerDisplayName: 'GoBoard Campaign',
+    projectId: paperId,
+    projectTitle: `${normalizedCode} Exam Paper`,
+    message: `🎉 Your ${normalizedCode} exam paper was chosen as the winner! +${rewardAmount} GoCoins awarded to your wallet.`,
+    previewText: `Congratulations! Your submission for ${normalizedCode} was selected based on lighting and upload speed.`,
+    viewedAt: null,
+    link: { type: 'campaign', id: paperId },
+  });
+
+  // 6. Send polite notification to other submitters
+  for (const d of otherPapersSnap.docs) {
+    if (d.id !== paperId) {
+      const data = d.data();
+      if (data.authorUid && data.authorUid !== winnerUid) {
+        await createNotification({
+          type: 'paper_closed',
+          userId: data.authorUid,
+          triggerUid: 'ADMIN',
+          triggerDisplayName: 'GoBoard Campaign',
+          projectId: d.id,
+          projectTitle: `${normalizedCode} Exam Paper`,
+          message: `Another submission was chosen for ${normalizedCode} based on lighting and upload speed.`,
+          previewText: `Thank you for contributing! Keep an eye on open course bounties to snap more papers.`,
+          viewedAt: null,
+          link: { type: 'campaign', id: d.id },
+        });
+      }
+    }
+  }
+}
+
+export async function rejectCoursePaper(
+  paperId: string,
+  reason: string,
+  courseCode: string,
+  authorUid: string
+): Promise<void> {
+  const normalizedCode = normalizeCourseCode(courseCode);
+  const paperRef = doc(db, 'examPapers', paperId);
+  const bountyRef = doc(db, 'courseBounties', normalizedCode);
+
+  const batch = writeBatch(db);
+
+  batch.update(paperRef, {
+    status: 'rejected',
+    rejectionReason: reason,
+    reviewedAt: new Date().toISOString(),
+  });
+
+  // Decrement submissionCount so slot opens up for another student
+  batch.update(bountyRef, {
+    submissionCount: increment(-1),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await batch.commit();
+
+  await createNotification({
+    type: 'rejection',
+    userId: authorUid,
+    triggerUid: 'ADMIN',
+    triggerDisplayName: 'Admin',
+    projectId: paperId,
+    projectTitle: `${normalizedCode} Exam Paper`,
+    message: `Your ${normalizedCode} paper submission was not accepted`,
+    previewText: reason || 'Image was blurry or unreadable. A slot has been reopened.',
+    viewedAt: null,
+    link: { type: 'campaign', id: paperId },
+  });
+}
+
+export async function updateStudentVerification(
+  userId: string,
+  status: StudentVerificationStatus,
+  rejectionReason?: string
+): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    verificationStatus: status,
+    verificationRejectionReason: rejectionReason || null,
+  });
+
+  if (status === 'verified') {
+    await createNotification({
+      type: 'id_verified',
+      userId,
+      triggerUid: 'ADMIN',
+      triggerDisplayName: 'GoBoard Admin',
+      projectId: userId,
+      projectTitle: 'Student ID Verification',
+      message: '✅ Your Student ID has been verified! You are now qualified for Payday cashouts.',
+      previewText: 'Your Verified GoUni Student badge is now active on your profile.',
+      viewedAt: null,
+      link: { type: 'profile', id: userId },
+    });
+  } else if (status === 'rejected') {
+    await createNotification({
+      type: 'id_rejected',
+      userId,
+      triggerUid: 'ADMIN',
+      triggerDisplayName: 'GoBoard Admin',
+      projectId: userId,
+      projectTitle: 'Student ID Verification',
+      message: '❌ Your Student ID card photo could not be verified.',
+      previewText: rejectionReason || 'Please re-upload a clear photo of your student ID card.',
+      viewedAt: null,
+      link: { type: 'profile', id: userId },
+    });
+  }
+}
+
+export async function updateBankDetails(
+  userId: string,
+  bankDetails: BankDetails
+): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    bankDetails: {
+      ...bankDetails,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+export async function updateDiscordProfile(
+  userId: string,
+  profileData: {
+    bannerPreset?: string;
+    bannerUrl?: string | null;
+    bio?: string;
+    department?: string;
+    academicLevel?: string;
+    accentColor?: string;
+  }
+): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, profileData);
+}
+
+export async function markStudentAsPaid(
+  studentUid: string,
+  adminUid: string,
+  coinsToDeduct: number,
+  nairaAmount: number,
+  bankDetails: BankDetails,
+  seasonNumber = 1
+): Promise<void> {
+  const studentRef = doc(db, 'users', studentUid);
+  const payoutRef = doc(payoutsCol);
+
+  const studentSnap = await getDoc(studentRef);
+  const studentData = studentSnap.data() || {};
+  const studentName = studentData.displayName || 'Student';
+
+  const batch = writeBatch(db);
+
+  // 1. Deduct paid coins
+  batch.update(studentRef, {
+    goCoins: increment(-coinsToDeduct),
+  });
+
+  // 2. Record payout log
+  batch.set(payoutRef, {
+    userId: studentUid,
+    displayName: studentName,
+    coinsPaid: coinsToDeduct,
+    nairaAmount,
+    bankDetails,
+    seasonNumber,
+    paidAt: new Date().toISOString(),
+    paidBy: adminUid,
+  });
+
+  await batch.commit();
+
+  // 3. Notify student
+  await createNotification({
+    type: 'payday_paid',
+    userId: studentUid,
+    triggerUid: adminUid,
+    triggerDisplayName: 'GoBoard Payday',
+    projectId: payoutRef.id,
+    projectTitle: 'Payday Reward Paid',
+    message: `🎉 Payday! ₦${nairaAmount.toLocaleString()} (${coinsToDeduct} GoCoins) has been transferred to your ${bankDetails.bankName} account.`,
+    previewText: `Account: ${bankDetails.accountNumber} (${bankDetails.accountName})`,
+    viewedAt: null,
+    link: { type: 'profile', id: studentUid },
+  });
+}
+

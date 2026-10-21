@@ -14,6 +14,7 @@ import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnap
 import { auth, googleProvider, db } from '../services/firebase';
 import { uploadUserAvatar, deleteViewedNotifications, awardXP, XP_VALUES } from '../services/firestoreService';
 import { getRank, cleanOldFirebaseUrl } from '../services/utils';
+import { StudentVerificationStatus, BankDetails } from '../types';
 
 export interface UserProfile {
   uid: string;
@@ -29,6 +30,20 @@ export interface UserProfile {
   joinedAt: string;
   hasEditedDisplayName: boolean;
   displayNameEditedAt?: string;
+  // Season 1 Economy & Verification
+  goCoins: number;
+  totalGoCoinsEarned: number;
+  verificationStatus: StudentVerificationStatus;
+  studentIdCardUrl?: string | null;
+  verificationRejectionReason?: string;
+  bankDetails?: BankDetails;
+  // Discord Profile
+  bannerPreset?: string;
+  bannerUrl?: string | null;
+  bio?: string;
+  department?: string;
+  academicLevel?: string;
+  accentColor?: string;
 }
 
 interface AuthContextType {
@@ -79,6 +94,20 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       joinedAt: data.joinedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       hasEditedDisplayName: data.hasEditedDisplayName || false,
       displayNameEditedAt: data.displayNameEditedAt,
+      // Season 1 Economy & Verification
+      goCoins: data.goCoins || 0,
+      totalGoCoinsEarned: data.totalGoCoinsEarned || 0,
+      verificationStatus: data.verificationStatus || 'none',
+      studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) || null,
+      verificationRejectionReason: data.verificationRejectionReason || undefined,
+      bankDetails: data.bankDetails || undefined,
+      // Discord Profile
+      bannerPreset: data.bannerPreset || 'gradient-blue',
+      bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) || null,
+      bio: data.bio || '',
+      department: data.department || '',
+      academicLevel: data.academicLevel || '',
+      accentColor: data.accentColor || '#1e3a8a',
     };
   }
 
@@ -96,6 +125,18 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     lastCommentXpDate: '',
     isAdmin: false,
     hasEditedDisplayName: false, // NEW: Initialize to false for new users
+    // Season 1 Economy & Verification
+    goCoins: 0,
+    totalGoCoinsEarned: 0,
+    verificationStatus: 'none',
+    studentIdCardUrl: null,
+    // Discord Profile
+    bannerPreset: 'gradient-blue',
+    bannerUrl: null,
+    bio: '',
+    department: '',
+    academicLevel: '',
+    accentColor: '#1e3a8a',
     joinedAt: serverTimestamp(),
   };
   await setDoc(ref, newProfile);
@@ -112,6 +153,16 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     lastLoginDate: '',
     isAdmin: false,
     hasEditedDisplayName: false, // NEW
+    goCoins: 0,
+    totalGoCoinsEarned: 0,
+    verificationStatus: 'none',
+    studentIdCardUrl: null,
+    bannerPreset: 'gradient-blue',
+    bannerUrl: null,
+    bio: '',
+    department: '',
+    academicLevel: '',
+    accentColor: '#1e3a8a',
     joinedAt: new Date().toISOString(),
   };
 }
@@ -225,6 +276,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           seasonXp: data.seasonXp ?? prevProfile.seasonXp,
           rank: getRank(data.xp ?? prevProfile.xp ?? 0),
           streakDays: data.streakDays ?? prevProfile.streakDays,
+          // Season 1 Economy & Verification
+          goCoins: data.goCoins ?? prevProfile.goCoins ?? 0,
+          totalGoCoinsEarned: data.totalGoCoinsEarned ?? prevProfile.totalGoCoinsEarned ?? 0,
+          verificationStatus: data.verificationStatus ?? prevProfile.verificationStatus ?? 'none',
+          studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) ?? prevProfile.studentIdCardUrl ?? null,
+          verificationRejectionReason: data.verificationRejectionReason ?? prevProfile.verificationRejectionReason,
+          bankDetails: data.bankDetails ?? prevProfile.bankDetails,
+          // Discord Profile
+          bannerPreset: data.bannerPreset ?? prevProfile.bannerPreset ?? 'gradient-blue',
+          bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? prevProfile.bannerUrl ?? null,
+          bio: data.bio ?? prevProfile.bio ?? '',
+          department: data.department ?? prevProfile.department ?? '',
+          academicLevel: data.academicLevel ?? prevProfile.academicLevel ?? '',
+          accentColor: data.accentColor ?? prevProfile.accentColor ?? '#1e3a8a',
         } : prevProfile);
       }
     });

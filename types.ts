@@ -26,7 +26,7 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension';
+  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension' | 'paper_approved' | 'paper_closed' | 'id_verified' | 'id_rejected' | 'payday_paid';
   userId: string;
   triggerUid: string;
   triggerDisplayName: string;
@@ -41,7 +41,7 @@ export interface Notification {
   createdAt: string;
   expiresAt: string;
   link?: {
-    type: 'project' | 'writing' | 'profile';
+    type: 'project' | 'writing' | 'profile' | 'campaign';
     id: string;
   };
 }
@@ -128,3 +128,72 @@ export interface Writing {
   suspendedAt?: string;
   suspensionReason?: string;
 }
+
+// ─── Season 1 Campaign & Economy Types ───
+
+export interface CampaignConfig {
+  seasonNumber: number;
+  title: string;
+  description: string;
+  rewardPerPaper: number; // e.g. 500 GoCoins
+  nairaPer500Coins: number; // e.g. 500 GoCoins = ₦500 (or dynamic exchange rate)
+  paydayDate: string; // ISO string date for countdown
+  isActive: boolean;
+  maxSubmissionsPerCourse: number; // default 5
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export type ExamPaperStatus = 'pending' | 'approved' | 'not_selected' | 'rejected';
+
+export interface ExamPaperSubmission {
+  id: string;
+  courseCode: string; // Normalized: e.g. "CSC 301"
+  courseTitle: string;
+  level: string; // e.g. "300 Level"
+  semester: string; // e.g. "1st Semester"
+  imageUrls: string[]; // Multi-page photos of the exam paper
+  authorUid: string;
+  displayName: string;
+  authorPhotoURL?: string | null;
+  slotNumber: number; // 1 to 5
+  status: ExamPaperStatus;
+  rejectionReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface CourseBountySummary {
+  courseCode: string; // Document ID: e.g. "CSC 301"
+  courseTitle: string;
+  level: string;
+  submissionCount: number; // 0 to 5
+  submittedUserIds: string[]; // List of UIDs who already uploaded
+  isCollected: boolean; // True once winner is chosen or slots maxed/approved
+  winnerUid?: string;
+  winnerPaperId?: string;
+  updatedAt: string;
+}
+
+export type StudentVerificationStatus = 'none' | 'pending' | 'verified' | 'rejected';
+
+export interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  updatedAt?: string;
+}
+
+export interface PayoutRecord {
+  id: string;
+  userId: string;
+  displayName: string;
+  coinsPaid: number;
+  nairaAmount: number;
+  bankDetails: BankDetails;
+  seasonNumber: number;
+  paidAt: string;
+  paidBy: string;
+}
+
