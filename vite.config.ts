@@ -3,7 +3,8 @@ import { defineConfig, loadEnv, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-function devApiPlugin(apiKey: string): Plugin {
+function devApiPlugin(env: Record<string, string>): Plugin {
+  const apiKey = env.GEMINI_API_KEY || '';
   return {
     name: 'dev-api-server',
     configureServer(server) {
@@ -77,6 +78,73 @@ function devApiPlugin(apiKey: string): Plugin {
           }
         });
       });
+
+      server.middlewares.use('/api/award-xp', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: 'Method not allowed' }));
+          return;
+        }
+
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+          try {
+            const hasAdminCreds = Boolean(
+              env.FIREBASE_SERVICE_ACCOUNT ||
+              process.env.FIREBASE_SERVICE_ACCOUNT ||
+              (env.FIREBASE_PRIVATE_KEY && env.FIREBASE_CLIENT_EMAIL) ||
+              (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL)
+            );
+
+            if (hasAdminCreds) {
+              if (env.FIREBASE_SERVICE_ACCOUNT && !process.env.FIREBASE_SERVICE_ACCOUNT) {
+                process.env.FIREBASE_SERVICE_ACCOUNT = env.FIREBASE_SERVICE_ACCOUNT;
+              }
+              if (env.FIREBASE_PRIVATE_KEY && !process.env.FIREBASE_PRIVATE_KEY) {
+                process.env.FIREBASE_PRIVATE_KEY = env.FIREBASE_PRIVATE_KEY;
+              }
+              if (env.FIREBASE_CLIENT_EMAIL && !process.env.FIREBASE_CLIENT_EMAIL) {
+                process.env.FIREBASE_CLIENT_EMAIL = env.FIREBASE_CLIENT_EMAIL;
+              }
+              if (env.VITE_FIREBASE_PROJECT_ID && !process.env.VITE_FIREBASE_PROJECT_ID) {
+                process.env.VITE_FIREBASE_PROJECT_ID = env.VITE_FIREBASE_PROJECT_ID;
+              }
+
+              const { default: awardXpHandler } = await server.ssrLoadModule('./api/award-xp.ts');
+
+              const resWrapper = {
+                status(code: number) {
+                  res.statusCode = code;
+                  return this;
+                },
+                json(data: any) {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(data));
+                  return this;
+                }
+              };
+
+              const parsedBody = body ? JSON.parse(body) : {};
+              const reqWrapper = Object.assign(req, { body: parsedBody });
+              return await awardXpHandler(reqWrapper, resWrapper);
+            }
+
+            // In local dev without service account, signal fallback so client updates directly
+            res.statusCode = 503;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({
+              error: 'Firebase Admin not configured in local environment. Triggering client fallback.',
+              fallback: true
+            }));
+          } catch (e: any) {
+            console.error('Dev Award XP Error:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: e.message || 'Server error' }));
+          }
+        });
+      });
     }
   };
 }
@@ -91,7 +159,7 @@ export default defineConfig(({ mode }) => {
       plugins: [
         react(),
         tailwindcss(),
-        devApiPlugin(env.GEMINI_API_KEY || '')
+        devApiPlugin(env)
       ],
       resolve: {
         alias: {

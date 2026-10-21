@@ -681,7 +681,10 @@ export async function awardXP(userId: string, amount: number, action?: string) {
       });
 
       if (response.ok) {
-        return;
+        const data = await response.json().catch(() => null);
+        if (data?.success) {
+          return;
+        }
       }
     }
   } catch (err) {
