@@ -77,6 +77,8 @@ interface AuthContextType {
   connectGitHubByUsername: (username: string) => Promise<{ profile: GitHubProfileData; xpAwarded: number }>;
   syncGitHubProfile: () => Promise<{ profile: GitHubProfileData; xpAwarded: number } | null>;
   disconnectGitHub: () => Promise<void>;
+  redirectError: string | null;
+  clearRedirectError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -250,6 +252,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
+
+  const clearRedirectError = () => setRedirectError(null);
 
   // Handle redirect sign-in / account linking results on page load (same window)
   useEffect(() => {
@@ -283,8 +288,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.error('Redirect authentication error:', err);
+        if (isMounted) {
+          setRedirectError(err?.code || err?.message || 'Authentication redirect error');
+        }
       });
 
     return () => {
@@ -575,6 +583,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         connectGitHubByUsername,
         syncGitHubProfile,
         disconnectGitHub,
+        redirectError,
+        clearRedirectError,
       }}
     >
       {children}

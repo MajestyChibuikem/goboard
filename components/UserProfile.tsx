@@ -73,6 +73,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     user,
     profile,
     loading: authLoading,
+    redirectError,
+    clearRedirectError,
     updateProfilePhoto,
     connectGitHubWithOAuth,
     connectGitHubByUsername,
@@ -95,6 +97,26 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
   const [syncingGitHub, setSyncingGitHub] = useState(false);
   const [showUsernameConnect, setShowUsernameConnect] = useState(false);
   const [githubUsernameInput, setGithubUsernameInput] = useState('');
+
+  // Handle errors returning from OAuth redirects (e.g. if GitHub provider is disabled in Firebase)
+  useEffect(() => {
+    if (redirectError) {
+      if (
+        redirectError.includes('operation-not-allowed') ||
+        redirectError.includes('configuration-not-found') ||
+        redirectError.includes('provider')
+      ) {
+        toast(
+          'GitHub OAuth is not yet enabled in Firebase Console. Enter your GitHub username below to connect!',
+          'info'
+        );
+      } else {
+        toast(`GitHub redirect note: ${redirectError}`, 'info');
+      }
+      setShowUsernameConnect(true);
+      clearRedirectError();
+    }
+  }, [redirectError]);
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
