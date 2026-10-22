@@ -44,12 +44,15 @@ import {
   Unlink,
   GitCommit,
   Code2,
+  Pipette,
+  Dices,
 } from 'lucide-react';
 import { useToast } from './Toast';
 import {
   STATUS_CONFIG,
   DISCORD_BANNER_PRESETS,
   PROFILE_ACCENT_COLORS,
+  AESTHETIC_GRADIENT_PRESETS,
   ACADEMIC_LEVELS,
   GITHUB_LANGUAGE_COLORS,
 } from '../constants';
@@ -154,11 +157,95 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
   const [savingProfile, setSavingProfile] = useState(false);
   const [customForm, setCustomForm] = useState({
     bannerPreset: 'gradient-blue',
+    bannerCustomGradient: null as string | null,
     accentColor: '#1e3a8a',
     bio: '',
     department: '',
     academicLevel: '',
   });
+
+  // Custom Gradient Studio sub-state
+  const [bannerTab, setBannerTab] = useState<'presets' | 'custom'>('presets');
+  const [gradientType, setGradientType] = useState<'linear' | 'radial'>('linear');
+  const [gradientDeg, setGradientDeg] = useState('135deg');
+  const [gradientFrom, setGradientFrom] = useState('#4f46e5');
+  const [gradientVia, setGradientVia] = useState('#ec4899');
+  const [gradientTo, setGradientTo] = useState('#06b6d4');
+  const [hasGradientVia, setHasGradientVia] = useState(true);
+
+  const buildGradientString = (
+    type: 'linear' | 'radial',
+    deg: string,
+    from: string,
+    to: string,
+    hasVia: boolean,
+    via: string
+  ) => {
+    if (type === 'radial') {
+      return hasVia
+        ? `radial-gradient(circle at center, ${from} 0%, ${via} 50%, ${to} 100%)`
+        : `radial-gradient(circle at center, ${from} 0%, ${to} 100%)`;
+    }
+    return hasVia
+      ? `linear-gradient(${deg}, ${from} 0%, ${via} 50%, ${to} 100%)`
+      : `linear-gradient(${deg}, ${from} 0%, ${to} 100%)`;
+  };
+
+  const handleUpdateCustomGradient = (updates: Partial<{
+    type: 'linear' | 'radial';
+    deg: string;
+    from: string;
+    to: string;
+    hasVia: boolean;
+    via: string;
+  }>) => {
+    const nextType = updates.type ?? gradientType;
+    const nextDeg = updates.deg ?? gradientDeg;
+    const nextFrom = updates.from ?? gradientFrom;
+    const nextTo = updates.to ?? gradientTo;
+    const nextHasVia = updates.hasVia ?? hasGradientVia;
+    const nextVia = updates.via ?? gradientVia;
+
+    if (updates.type !== undefined) setGradientType(updates.type);
+    if (updates.deg !== undefined) setGradientDeg(updates.deg);
+    if (updates.from !== undefined) setGradientFrom(updates.from);
+    if (updates.to !== undefined) setGradientTo(updates.to);
+    if (updates.hasVia !== undefined) setHasGradientVia(updates.hasVia);
+    if (updates.via !== undefined) setGradientVia(updates.via);
+
+    const grad = buildGradientString(nextType, nextDeg, nextFrom, nextTo, nextHasVia, nextVia);
+    setCustomForm((prev) => ({
+      ...prev,
+      bannerPreset: 'custom',
+      bannerCustomGradient: grad,
+    }));
+  };
+
+  const handleRandomizeGradient = () => {
+    const randomPreset =
+      AESTHETIC_GRADIENT_PRESETS[
+        Math.floor(Math.random() * AESTHETIC_GRADIENT_PRESETS.length)
+      ];
+    handleUpdateCustomGradient({
+      type: 'linear',
+      deg: randomPreset.deg,
+      from: randomPreset.from,
+      via: randomPreset.via,
+      to: randomPreset.to,
+      hasVia: Boolean(randomPreset.via),
+    });
+  };
+
+  const handleApplyPalette = (p: (typeof AESTHETIC_GRADIENT_PRESETS)[0]) => {
+    handleUpdateCustomGradient({
+      type: 'linear',
+      deg: p.deg,
+      from: p.from,
+      via: p.via,
+      to: p.to,
+      hasVia: Boolean(p.via),
+    });
+  };
 
   // Student ID & Bank Details state
   const [uploadingIdCard, setUploadingIdCard] = useState(false);
@@ -195,11 +282,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     if (profile) {
       setCustomForm({
         bannerPreset: profile.bannerPreset || 'gradient-blue',
+        bannerCustomGradient: profile.bannerCustomGradient || null,
         accentColor: profile.accentColor || '#1e3a8a',
         bio: profile.bio || '',
         department: profile.department || '',
         academicLevel: profile.academicLevel || '',
       });
+      if (profile.bannerCustomGradient) {
+        setBannerTab('custom');
+      }
       if (profile.bankDetails) {
         setBankForm({
           bankName: profile.bankDetails.bankName || '',
@@ -295,6 +386,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     try {
       await updateDiscordProfile(user.uid, {
         bannerPreset: customForm.bannerPreset,
+        bannerCustomGradient: customForm.bannerCustomGradient,
         accentColor: customForm.accentColor,
         bio: customForm.bio.trim().slice(0, 160),
         department: customForm.department.trim(),
@@ -561,7 +653,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
         {/* Modular Top Banner Slot (Ready for future SDK animated banners) */}
         <div
           data-sdk-banner-slot="true"
-          className={`relative h-36 sm:h-48 w-full overflow-hidden ${!profile.bannerUrl ? bannerPresetConfig.className : 'bg-neutral-900'}`}
+          className={`relative h-36 sm:h-48 w-full overflow-hidden ${!profile.bannerUrl && !profile.bannerCustomGradient ? bannerPresetConfig.className : 'bg-neutral-900'}`}
+          style={profile.bannerCustomGradient && !profile.bannerUrl ? { background: profile.bannerCustomGradient } : undefined}
         >
           {profile.bannerUrl ? (
             <img
@@ -1578,59 +1671,465 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             </div>
 
             <form onSubmit={handleSaveCustomization} className="p-6 space-y-5">
-              {/* Banner Preset Picker */}
+              {/* ── Banner Theme & Custom Gradient Studio ── */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-neutral-700">Banner Theme</label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2.5">
+                  <div>
+                    <label className="text-xs font-bold text-neutral-900">Profile Banner Theme</label>
+                    <p className="text-[11px] text-neutral-400">Choose a designer preset or build your own custom gradient</p>
+                  </div>
                   {profile.bannerUrl && (
                     <button
                       type="button"
                       onClick={handleRemoveCustomBanner}
-                      className="text-[11px] text-red-600 hover:underline font-medium"
+                      className="text-[11px] text-red-600 hover:underline font-semibold self-start sm:self-auto"
                     >
                       Remove custom banner image
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {Object.entries(DISCORD_BANNER_PRESETS).map(([key, preset]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setCustomForm({ ...customForm, bannerPreset: key })}
-                      className={`h-14 rounded-xl overflow-hidden relative border-2 transition-all ${customForm.bannerPreset === key
-                        ? 'border-neutral-900 scale-[1.02] shadow-xs'
-                        : 'border-transparent opacity-80 hover:opacity-100'
-                        }`}
-                    >
-                      <div className={`w-full h-full ${preset.className}`} />
-                      <span className="absolute bottom-1 left-2 text-[10px] font-semibold text-white drop-shadow">
-                        {preset.label}
-                      </span>
-                    </button>
-                  ))}
+
+                {/* Sub-tabs: Presets vs Custom Gradient Studio */}
+                <div className="flex p-1 bg-neutral-100 rounded-xl mb-3 w-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerTab('presets');
+                      if (customForm.bannerPreset === 'custom') {
+                        setCustomForm((prev) => ({
+                          ...prev,
+                          bannerPreset: 'gradient-blue',
+                          bannerCustomGradient: null,
+                        }));
+                      }
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      bannerTab === 'presets'
+                        ? 'bg-white text-neutral-900 shadow-2xs'
+                        : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    Designer Presets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerTab('custom');
+                      const grad = buildGradientString(
+                        gradientType,
+                        gradientDeg,
+                        gradientFrom,
+                        gradientTo,
+                        hasGradientVia,
+                        gradientVia
+                      );
+                      setCustomForm((prev) => ({
+                        ...prev,
+                        bannerPreset: 'custom',
+                        bannerCustomGradient: grad,
+                      }));
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      bannerTab === 'custom'
+                        ? 'bg-white text-neutral-900 shadow-2xs'
+                        : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    <Palette className="w-3.5 h-3.5 text-purple-600" />
+                    Custom Gradient Studio
+                  </button>
                 </div>
+
+                {bannerTab === 'presets' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
+                    {Object.entries(DISCORD_BANNER_PRESETS).map(([key, preset]) => {
+                      const isSelected =
+                        customForm.bannerPreset === key && !customForm.bannerCustomGradient;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() =>
+                            setCustomForm({
+                              ...customForm,
+                              bannerPreset: key,
+                              bannerCustomGradient: null,
+                            })
+                          }
+                          className={`h-13 rounded-xl overflow-hidden relative border-2 transition-all text-left ${
+                            isSelected
+                              ? 'border-neutral-900 scale-[1.02] shadow-xs ring-1 ring-neutral-900'
+                              : 'border-transparent opacity-85 hover:opacity-100'
+                          }`}
+                        >
+                          <div className={`w-full h-full ${preset.className}`} />
+                          <span className="absolute bottom-1.5 left-2 text-[10px] font-bold text-white drop-shadow-sm flex items-center gap-1">
+                            {preset.label}
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-3.5 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200/80">
+                    {/* Live Gradient Preview Strip */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                          Live Banner Preview
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleRandomizeGradient}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-[11px] font-semibold text-neutral-700 transition-colors shadow-2xs cursor-pointer"
+                          title="Generate aesthetic random gradient"
+                        >
+                          <Dices className="w-3.5 h-3.5 text-purple-600" />
+                          Surprise Me
+                        </button>
+                      </div>
+                      <div
+                        className="h-16 w-full rounded-xl shadow-inner relative overflow-hidden flex items-center px-4 justify-between transition-all"
+                        style={{
+                          background:
+                            customForm.bannerCustomGradient ||
+                            buildGradientString(
+                              gradientType,
+                              gradientDeg,
+                              gradientFrom,
+                              gradientTo,
+                              hasGradientVia,
+                              gradientVia
+                            ),
+                        }}
+                      >
+                        <div
+                          className="absolute inset-0 opacity-20 pointer-events-none"
+                          style={{
+                            backgroundImage:
+                              'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.4) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.3) 0%, transparent 40%)',
+                          }}
+                        />
+                        <div className="relative z-10 flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white text-xs font-bold shadow-xs">
+                            {(profile?.displayName || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-xs font-bold text-white drop-shadow-sm">
+                            {customForm.department || 'Custom Profile Banner'}
+                          </span>
+                        </div>
+                        <span className="relative z-10 text-[10px] font-mono text-white/90 bg-black/30 px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          {gradientType === 'radial' ? 'Radial' : gradientDeg}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Direction / Type Selector */}
+                    <div>
+                      <span className="text-[11px] font-semibold text-neutral-600 block mb-1.5">
+                        Gradient Flow
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { label: '↘ 135°', deg: '135deg', type: 'linear' as const },
+                          { label: '➡ 90°', deg: '90deg', type: 'linear' as const },
+                          { label: '⬇ 180°', deg: '180deg', type: 'linear' as const },
+                          { label: '↗ 45°', deg: '45deg', type: 'linear' as const },
+                          { label: '◎ Radial', deg: '135deg', type: 'radial' as const },
+                        ].map((d) => {
+                          const isSelected =
+                            gradientType === d.type &&
+                            (d.type === 'radial' || gradientDeg === d.deg);
+                          return (
+                            <button
+                              key={d.label}
+                              type="button"
+                              onClick={() => handleUpdateCustomGradient({ type: d.type, deg: d.deg })}
+                              className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs font-semibold'
+                                  : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Gradient Color Stops */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Start Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-neutral-200">
+                        <span className="text-[11px] font-semibold text-neutral-600 block mb-1.5">
+                          Start Color
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 shadow-2xs cursor-pointer"
+                            style={{
+                              background:
+                                'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
+                            }}
+                            title="Pick start color"
+                          >
+                            <div
+                              className="absolute inset-1 rounded-md border border-white/40 shadow-xs"
+                              style={{ backgroundColor: gradientFrom }}
+                            />
+                            <input
+                              type="color"
+                              value={gradientFrom}
+                              onChange={(e) => handleUpdateCustomGradient({ from: e.target.value })}
+                              className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                              aria-label="Pick start color"
+                            />
+                          </div>
+                          <div className="relative flex-1">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 font-bold">
+                              #
+                            </span>
+                            <input
+                              type="text"
+                              value={gradientFrom.replace(/^#/, '')}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                                handleUpdateCustomGradient({ from: `#${val}` });
+                              }}
+                              placeholder="4F46E5"
+                              maxLength={6}
+                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* End Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-neutral-200">
+                        <span className="text-[11px] font-semibold text-neutral-600 block mb-1.5">
+                          End Color
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 shadow-2xs cursor-pointer"
+                            style={{
+                              background:
+                                'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
+                            }}
+                            title="Pick end color"
+                          >
+                            <div
+                              className="absolute inset-1 rounded-md border border-white/40 shadow-xs"
+                              style={{ backgroundColor: gradientTo }}
+                            />
+                            <input
+                              type="color"
+                              value={gradientTo}
+                              onChange={(e) => handleUpdateCustomGradient({ to: e.target.value })}
+                              className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                              aria-label="Pick end color"
+                            />
+                          </div>
+                          <div className="relative flex-1">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 font-bold">
+                              #
+                            </span>
+                            <input
+                              type="text"
+                              value={gradientTo.replace(/^#/, '')}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                                handleUpdateCustomGradient({ to: `#${val}` });
+                              }}
+                              placeholder="06B6D4"
+                              maxLength={6}
+                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Optional Middle Color Stop Toggle */}
+                    <div className="bg-white p-2.5 rounded-xl border border-neutral-200">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-semibold text-neutral-700 flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={hasGradientVia}
+                            onChange={(e) => handleUpdateCustomGradient({ hasVia: e.target.checked })}
+                            className="rounded text-gouni-primary focus:ring-gouni-primary"
+                          />
+                          Add Middle Color Stop (3-Color Gradient)
+                        </label>
+                      </div>
+                      {hasGradientVia && (
+                        <div className="mt-2 flex items-center gap-2 pt-2 border-t border-neutral-100">
+                          <div
+                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 shadow-2xs cursor-pointer"
+                            style={{
+                              background:
+                                'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
+                            }}
+                            title="Pick middle color stop"
+                          >
+                            <div
+                              className="absolute inset-1 rounded-md border border-white/40 shadow-xs"
+                              style={{ backgroundColor: gradientVia }}
+                            />
+                            <input
+                              type="color"
+                              value={gradientVia}
+                              onChange={(e) => handleUpdateCustomGradient({ via: e.target.value })}
+                              className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                              aria-label="Pick middle color"
+                            />
+                          </div>
+                          <div className="relative flex-1">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 font-bold">
+                              #
+                            </span>
+                            <input
+                              type="text"
+                              value={gradientVia.replace(/^#/, '')}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                                handleUpdateCustomGradient({ via: `#${val}` });
+                              }}
+                              placeholder="EC4899"
+                              maxLength={6}
+                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick Aesthetic Starter Combos */}
+                    <div>
+                      <span className="text-[11px] font-semibold text-neutral-500 block mb-1.5">
+                        Curated Aesthetic Combos
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto pr-1">
+                        {AESTHETIC_GRADIENT_PRESETS.map((p) => (
+                          <button
+                            key={p.label}
+                            type="button"
+                            onClick={() => handleApplyPalette(p)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-neutral-200 hover:border-neutral-300 text-[11px] font-medium text-neutral-700 transition-all shadow-2xs cursor-pointer"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                              style={{
+                                background: `linear-gradient(135deg, ${p.from}, ${p.via || p.to}, ${p.to})`,
+                              }}
+                            />
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Accent Color */}
+              {/* ── Profile Accent Color with Color Wheel & HEX Input ── */}
               <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-2">
-                  Profile Accent Color
-                </label>
-                <div className="flex items-center gap-3">
-                  {PROFILE_ACCENT_COLORS.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => setCustomForm({ ...customForm, accentColor: c.value })}
-                      className={`w-8 h-8 rounded-full transition-transform flex items-center justify-center ${customForm.accentColor === c.value ? 'scale-110 ring-2 ring-offset-2 ring-neutral-900' : ''
-                        }`}
-                      style={{ backgroundColor: c.value }}
-                      title={c.label}
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <label className="text-xs font-bold text-neutral-900">Profile Accent Color</label>
+                    <p className="text-[11px] text-neutral-400">Customizes your avatar outline, profile card header line, and badges</p>
+                  </div>
+                  <div
+                    className="w-5 h-5 rounded-full border border-neutral-200 shadow-2xs shrink-0"
+                    style={{ backgroundColor: customForm.accentColor }}
+                    title={`Selected accent: ${customForm.accentColor}`}
+                  />
+                </div>
+
+                <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200/80 space-y-3">
+                  {/* Wheel Picker & Hex Input Bar */}
+                  <div className="flex items-center gap-2.5">
+                    {/* Visual Color Wheel Trigger */}
+                    <div
+                      className="w-9 h-9 rounded-xl relative overflow-hidden shrink-0 shadow-xs border border-neutral-300 hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                      style={{
+                        background:
+                          'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
+                      }}
+                      title="Click to open Color Wheel"
                     >
-                      {customForm.accentColor === c.value && <Check className="w-3.5 h-3.5 text-white" />}
-                    </button>
-                  ))}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-5 h-5 rounded-full bg-black/45 backdrop-blur-xs flex items-center justify-center text-white">
+                          <Pipette className="w-3 h-3" />
+                        </div>
+                      </div>
+                      <input
+                        type="color"
+                        value={customForm.accentColor}
+                        onChange={(e) => setCustomForm({ ...customForm, accentColor: e.target.value })}
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                        aria-label="Pick accent color with color wheel"
+                      />
+                    </div>
+
+                    {/* Hex Input */}
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-neutral-400">
+                        #
+                      </span>
+                      <input
+                        type="text"
+                        value={customForm.accentColor.replace(/^#/, '')}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                          setCustomForm({ ...customForm, accentColor: `#${val}` });
+                        }}
+                        placeholder="1E3A8A"
+                        maxLength={6}
+                        className="w-full pl-7 pr-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-xl border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                      />
+                    </div>
+
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                      <Palette className="w-3 h-3 text-purple-600" />
+                      Color Wheel
+                    </span>
+                  </div>
+
+                  {/* Curated Swatches Row */}
+                  <div>
+                    <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1.5">
+                      Curated Swatches
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {PROFILE_ACCENT_COLORS.map((c) => {
+                        const isSelected =
+                          customForm.accentColor.toLowerCase() === c.value.toLowerCase();
+                        return (
+                          <button
+                            key={c.value}
+                            type="button"
+                            onClick={() => setCustomForm({ ...customForm, accentColor: c.value })}
+                            className={`w-7 h-7 rounded-xl transition-all flex items-center justify-center border border-black/10 shadow-2xs cursor-pointer ${
+                              isSelected
+                                ? 'scale-115 ring-2 ring-offset-2 ring-neutral-900'
+                                : 'hover:scale-105'
+                            }`}
+                            style={{ backgroundColor: c.value }}
+                            title={c.label}
+                          >
+                            {isSelected && (
+                              <Check className="w-3 h-3 text-white drop-shadow-sm" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 

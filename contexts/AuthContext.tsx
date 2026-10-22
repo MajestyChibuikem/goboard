@@ -54,6 +54,7 @@ export interface UserProfile {
   // Discord Profile
   bannerPreset?: string;
   bannerUrl?: string | null;
+  bannerCustomGradient?: string | null;
   bio?: string;
   department?: string;
   academicLevel?: string;
@@ -128,6 +129,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       // Discord Profile
       bannerPreset: data.bannerPreset || 'gradient-blue',
       bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) || null,
+      bannerCustomGradient: data.bannerCustomGradient || null,
       bio: data.bio || '',
       department: data.department || '',
       academicLevel: data.academicLevel || '',
@@ -160,6 +162,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     // Discord Profile
     bannerPreset: 'gradient-blue',
     bannerUrl: null,
+    bannerCustomGradient: null,
     bio: '',
     department: '',
     academicLevel: '',
@@ -188,6 +191,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     studentIdCardUrl: null,
     bannerPreset: 'gradient-blue',
     bannerUrl: null,
+    bannerCustomGradient: null,
     bio: '',
     department: '',
     academicLevel: '',
@@ -330,6 +334,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             studentIdCardUrl: null,
             bannerPreset: 'gradient-blue',
             bannerUrl: null,
+            bannerCustomGradient: null,
             bio: '',
             department: '',
             academicLevel: '',
@@ -384,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               studentIdCardUrl: null,
               bannerPreset: 'gradient-blue',
               bannerUrl: null,
+              bannerCustomGradient: null,
               bio: '',
               department: '',
               academicLevel: '',
@@ -412,6 +418,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               bankDetails: data.bankDetails ?? base.bankDetails,
               bannerPreset: data.bannerPreset ?? base.bannerPreset ?? 'gradient-blue',
               bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? base.bannerUrl ?? null,
+              bannerCustomGradient: data.bannerCustomGradient ?? base.bannerCustomGradient ?? null,
               bio: data.bio ?? base.bio ?? '',
               department: data.department ?? base.department ?? '',
               academicLevel: data.academicLevel ?? base.academicLevel ?? '',

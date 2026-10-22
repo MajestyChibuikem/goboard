@@ -37,6 +37,7 @@ interface PublicUserProfileData {
   totalGoCoinsEarned?: number;
   bannerPreset?: string;
   bannerUrl?: string | null;
+  bannerCustomGradient?: string | null;
   bio?: string;
   department?: string;
   academicLevel?: string;
@@ -83,6 +84,7 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
             totalGoCoinsEarned: d.totalGoCoinsEarned || 0,
             bannerPreset: d.bannerPreset || 'gradient-blue',
             bannerUrl: cleanOldFirebaseUrl(d.bannerUrl) || null,
+            bannerCustomGradient: d.bannerCustomGradient || null,
             bio: d.bio || '',
             department: d.department || '',
             academicLevel: d.academicLevel || '',
@@ -162,7 +164,8 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
         {/* ── Discord-Style Top Banner ── */}
         <div
           data-sdk-banner-slot="true"
-          className={`relative h-32 sm:h-36 w-full overflow-hidden ${!profile.bannerUrl ? bannerPresetConfig.className : 'bg-neutral-900'}`}
+          className={`relative h-32 sm:h-36 w-full overflow-hidden ${!profile.bannerUrl && !profile.bannerCustomGradient ? bannerPresetConfig.className : 'bg-neutral-900'}`}
+          style={profile.bannerCustomGradient && !profile.bannerUrl ? { background: profile.bannerCustomGradient } : undefined}
         >
           {profile.bannerUrl ? (
             <img

@@ -209,40 +209,94 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; dot: 
   'launched': { label: 'Launched', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
 };
 
-export const DISCORD_BANNER_PRESETS: Record<string, { label: string; className: string; pattern?: string }> = {
+export const DISCORD_BANNER_PRESETS: Record<string, { label: string; className: string; gradient?: string }> = {
   'gradient-blue': {
     label: 'GoUni Royal',
     className: 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a] to-[#3b82f6]',
+    gradient: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3b82f6 100%)',
   },
   'gradient-purple': {
     label: 'Nitro Nebula',
     className: 'bg-gradient-to-r from-[#1e1b4b] via-[#6d28d9] to-[#ec4899]',
+    gradient: 'linear-gradient(135deg, #1e1b4b 0%, #6d28d9 50%, #ec4899 100%)',
   },
   'cyberpunk': {
     label: 'Cyber Gold',
     className: 'bg-gradient-to-r from-[#090d16] via-[#1e293b] to-[#f59e0b]',
+    gradient: 'linear-gradient(135deg, #090d16 0%, #1e293b 50%, #f59e0b 100%)',
   },
   'emerald': {
     label: 'Matrix Mint',
     className: 'bg-gradient-to-r from-[#022c22] via-[#059669] to-[#34d399]',
+    gradient: 'linear-gradient(135deg, #022c22 0%, #059669 50%, #34d399 100%)',
   },
   'sunset': {
     label: 'Crimson Dusk',
     className: 'bg-gradient-to-r from-[#450a0a] via-[#e11d48] to-[#fb923c]',
+    gradient: 'linear-gradient(135deg, #450a0a 0%, #e11d48 50%, #fb923c 100%)',
   },
   'midnight': {
     label: 'Obsidian Carbon',
     className: 'bg-gradient-to-r from-[#0a0a0a] via-[#262626] to-[#404040]',
+    gradient: 'linear-gradient(135deg, #0a0a0a 0%, #262626 50%, #404040 100%)',
+  },
+  'aurora': {
+    label: 'Northern Lights',
+    className: 'bg-gradient-to-r from-[#064e3b] via-[#0284c7] to-[#a855f7]',
+    gradient: 'linear-gradient(135deg, #064e3b 0%, #0284c7 50%, #a855f7 100%)',
+  },
+  'synthwave': {
+    label: 'Neon Synthwave',
+    className: 'bg-gradient-to-r from-[#2e0854] via-[#ec4899] to-[#06b6d4]',
+    gradient: 'linear-gradient(135deg, #2e0854 0%, #ec4899 50%, #06b6d4 100%)',
+  },
+  'oceanic': {
+    label: 'Deep Oceanic',
+    className: 'bg-gradient-to-r from-[#0c4a6e] via-[#0284c7] to-[#38bdf8]',
+    gradient: 'linear-gradient(135deg, #0c4a6e 0%, #0284c7 50%, #38bdf8 100%)',
+  },
+  'solar': {
+    label: 'Solar Flare',
+    className: 'bg-gradient-to-r from-[#7c2d12] via-[#ea580c] to-[#facc15]',
+    gradient: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 50%, #facc15 100%)',
+  },
+  'tokyo': {
+    label: 'Tokyo Night',
+    className: 'bg-gradient-to-r from-[#0b0f19] via-[#1e1b4b] to-[#ec4899]',
+    gradient: 'linear-gradient(135deg, #0b0f19 0%, #1e1b4b 50%, #ec4899 100%)',
+  },
+  'cosmic-peach': {
+    label: 'Cosmic Peach',
+    className: 'bg-gradient-to-r from-[#4a044e] via-[#c026d3] to-[#fb923c]',
+    gradient: 'linear-gradient(135deg, #4a044e 0%, #c026d3 50%, #fb923c 100%)',
   },
 };
 
 export const PROFILE_ACCENT_COLORS = [
   { label: 'Royal Blue', value: '#1e3a8a' },
+  { label: 'Electric Indigo', value: '#4f46e5' },
   { label: 'Nitro Violet', value: '#7c3aed' },
-  { label: 'Emerald', value: '#059669' },
+  { label: 'Hot Pink', value: '#ec4899' },
   { label: 'Crimson', value: '#e11d48' },
-  { label: 'Gold', value: '#d97706' },
+  { label: 'Sunset Amber', value: '#f59e0b' },
+  { label: 'Cyber Emerald', value: '#059669' },
+  { label: 'Cyan Ocean', value: '#06b6d4' },
   { label: 'Obsidian', value: '#0f172a' },
+];
+
+export const AESTHETIC_GRADIENT_PRESETS = [
+  { label: 'Neon Cyber', from: '#18002e', via: '#7928ca', to: '#ff0080', deg: '135deg' },
+  { label: 'Hyper Blue', from: '#021B79', via: '#0575E6', to: '#00F260', deg: '135deg' },
+  { label: 'Sunset Glow', from: '#4a00e0', via: '#8e2de2', to: '#f953c6', deg: '135deg' },
+  { label: 'Firefly Deep', from: '#0f2027', via: '#203a43', to: '#2c5364', deg: '135deg' },
+  { label: 'Velvet Dream', from: '#240b36', via: '#8e0e00', to: '#c31432', deg: '135deg' },
+  { label: 'Electric Lime', from: '#051937', via: '#004d7a', to: '#00bf72', deg: '135deg' },
+  { label: 'Cosmic Coral', from: '#ff416c', via: '#ff4b2b', to: '#f7971e', deg: '135deg' },
+  { label: 'Dark Amethyst', from: '#140026', via: '#38006b', to: '#6200ea', deg: '135deg' },
+  { label: 'Sub-Zero Cyan', from: '#0f172a', via: '#1e293b', to: '#38bdf8', deg: '135deg' },
+  { label: 'Golden Hour', from: '#3e2723', via: '#d84315', to: '#ffb300', deg: '135deg' },
+  { label: 'Emerald Matrix', from: '#00251a', via: '#004d40', to: '#00bfa5', deg: '135deg' },
+  { label: 'Rose Gold Glow', from: '#2e0220', via: '#be185d', to: '#fbcfe8', deg: '135deg' },
 ];
 
 export const ACADEMIC_LEVELS = [

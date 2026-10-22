@@ -2124,6 +2124,7 @@ export async function updateDiscordProfile(
   profileData: {
     bannerPreset?: string;
     bannerUrl?: string | null;
+    bannerCustomGradient?: string | null;
     bio?: string;
     department?: string;
     academicLevel?: string;
