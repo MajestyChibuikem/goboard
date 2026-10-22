@@ -7,6 +7,7 @@ import { AuthModal } from './components/AuthModal';
 import { NotificationBell } from './components/NotificationBell';
 import { PublicProfileModal } from './components/PublicProfileModal';
 import { CampaignHubTab } from './components/CampaignBanner';
+import { CampaignHubModal } from './components/CampaignHubModal';
 import { Button } from './components/Button';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './components/Toast';
@@ -561,6 +562,22 @@ const App: React.FC = () => {
           userId={selectedProfileUserId}
           onClose={() => setSelectedProfileUserId(null)}
           onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
+        />
+      )}
+
+      {isCampaignHubOpen && (
+        <CampaignHubModal
+          initialTab={campaignHubInitialTab}
+          campaignConfig={campaignConfig}
+          onClose={() => setIsCampaignHubOpen(false)}
+          onOpenPaydaySetup={() => {
+            setIsCampaignHubOpen(false);
+            requireAuth(() => navigate('/profile'));
+          }}
+          onRequireAuth={() => {
+            setIsCampaignHubOpen(false);
+            setIsAuthModalOpen(true);
+          }}
         />
       )}
     </div>
