@@ -433,19 +433,19 @@ service cloud.firestore {
             (resource.data.get('hasEditedDisplayName', false) == false && request.resource.data.get('hasEditedDisplayName', false) == true)
           ) &&
           // Owner XP increase must be bounded
-          request.resource.data.xp >= resource.data.get('xp', 0) &&
-          request.resource.data.xp <= resource.data.get('xp', 0) + 100 &&
-          request.resource.data.seasonXp >= resource.data.get('seasonXp', 0) &&
-          request.resource.data.seasonXp <= resource.data.get('seasonXp', 0) + 100
+          request.resource.data.get('xp', 0) >= resource.data.get('xp', 0) &&
+          request.resource.data.get('xp', 0) <= resource.data.get('xp', 0) + 100 &&
+          request.resource.data.get('seasonXp', 0) >= resource.data.get('seasonXp', 0) &&
+          request.resource.data.get('seasonXp', 0) <= resource.data.get('seasonXp', 0) + 100
         ) ||
 
         // Non-owner awarding XP to another user (vote/comment rewards)
         (
           affectedKeys().hasOnly(['xp', 'seasonXp']) &&
-          request.resource.data.xp > resource.data.get('xp', 0) &&
-          request.resource.data.xp <= resource.data.get('xp', 0) + 100 &&
-          request.resource.data.seasonXp > resource.data.get('seasonXp', 0) &&
-          request.resource.data.seasonXp <= resource.data.get('seasonXp', 0) + 100
+          request.resource.data.get('xp', 0) > resource.data.get('xp', 0) &&
+          request.resource.data.get('xp', 0) <= resource.data.get('xp', 0) + 100 &&
+          request.resource.data.get('seasonXp', 0) > resource.data.get('seasonXp', 0) &&
+          request.resource.data.get('seasonXp', 0) <= resource.data.get('seasonXp', 0) + 100
         )
       );
 
