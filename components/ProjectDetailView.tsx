@@ -1,20 +1,32 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Project, Comment, ProjectUpdate, ProjectStatus } from '../types';
 import { generateProjectInsight } from '../services/geminiService';
-import { getProjectBadges } from '../services/utils';
-import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X } from 'lucide-react';
+import { getProjectBadges, formatDate } from '../services/utils';
+import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X, GitPullRequest, GitFork, Star, RefreshCw, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
 import { AddUpdateForm } from './AddUpdateForm';
-import { formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
-import { addComment as addCommentToFirestore, addProjectUpdate as addUpdateToFirestore, updateProjectStatus as updateStatusInFirestore, awardCommentXP, deleteProject, suspendProject, restoreProject, updateProjectDescription, updateProjectDetails, uploadProjectImage } from '../services/firestoreService';
+import {
+  addComment as addCommentToFirestore,
+  addProjectUpdate as addUpdateToFirestore,
+  updateProjectStatus as updateStatusInFirestore,
+  awardCommentXP,
+  deleteProject,
+  suspendProject,
+  restoreProject,
+  updateProjectDescription,
+  updateProjectDetails,
+  updateProjectCollaborationSettings,
+  syncAndSaveProjectGitHub,
+  uploadProjectImage,
+} from '../services/firestoreService';
 import { UserAvatar } from './UserAvatar';
 import { useResolvedUser } from '../contexts/UserCacheContext';
 import { GeminiInsight } from '../types';
-import { STATUS_CONFIG } from '../constants';
+import { STATUS_CONFIG, CONTRIBUTION_AREAS } from '../constants';
 
 interface ProjectDetailViewProps {
   project: Project;
@@ -55,9 +67,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [editedDescription, setEditedDescription] = useState(project.description);
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
   const [editedDemoUrl, setEditedDemoUrl] = useState(project.demoUrl || '');
+  const [editedRepoUrl, setEditedRepoUrl] = useState(project.repoUrl || '');
   const [editedWebsiteUrl, setEditedWebsiteUrl] = useState(project.websiteUrl || '');
+  const [editedOpenToContributions, setEditedOpenToContributions] = useState(!!project.openToContributions);
+  const [editedContributionAreas, setEditedContributionAreas] = useState<string[]>(project.contributionAreas || []);
   const [editedImageFile, setEditedImageFile] = useState<File | null>(null);
   const [editedImagePreview, setEditedImagePreview] = useState<string | null>(null);
+  const [syncingGitHub, setSyncingGitHub] = useState(false);
   const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const badges = getProjectBadges(project);
@@ -216,6 +232,40 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
+  const handleSyncGitHubRepo = async (showFeedback = true, repoUrlOverride?: string) => {
+    const targetRepoUrl = (repoUrlOverride ?? project.repoUrl)?.trim();
+    if (!targetRepoUrl) return;
+    setSyncingGitHub(true);
+    try {
+      const { githubMeta, contributorUids } = await syncAndSaveProjectGitHub(
+        project.id,
+        targetRepoUrl
+      );
+      onUpdateProject({
+        ...project,
+        repoUrl: targetRepoUrl,
+        githubMeta,
+        contributorUids,
+      });
+      if (showFeedback) {
+        toast('Synced GitHub repository & contributor list!', 'success');
+      }
+    } catch (err: any) {
+      if (showFeedback) {
+        toast(err?.message || 'Failed to sync GitHub repository', 'error');
+      }
+    } finally {
+      setSyncingGitHub(false);
+    }
+  };
+
+  useEffect(() => {
+    if (project.repoUrl && !project.githubMeta && user) {
+      handleSyncGitHubRepo(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, project.repoUrl]);
+
   const handleEditDetails = async () => {
     if (!user || user.uid !== authorUid) return;
     setIsProcessing(true);
@@ -230,8 +280,29 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         fields.imageUrl = newImageUrl;
       }
 
+      const trimmedRepoUrl = editedRepoUrl.trim();
+      const areas = editedOpenToContributions ? editedContributionAreas : [];
+
       await updateProjectDetails(project.id, user.uid, fields);
-      onUpdateProject({ ...project, ...fields });
+      await updateProjectCollaborationSettings(project.id, user.uid, {
+        repoUrl: trimmedRepoUrl,
+        openToContributions: editedOpenToContributions,
+        contributionAreas: areas,
+      });
+
+      const updatedProject: Project = {
+        ...project,
+        ...fields,
+        repoUrl: trimmedRepoUrl || undefined,
+        openToContributions: editedOpenToContributions,
+        contributionAreas: areas,
+      };
+      onUpdateProject(updatedProject);
+
+      if (trimmedRepoUrl && trimmedRepoUrl !== project.repoUrl) {
+        handleSyncGitHubRepo(true, trimmedRepoUrl);
+      }
+
       toast('Project details updated!', 'success');
       setShowEditDetailsModal(false);
       setEditedImageFile(null);
@@ -242,6 +313,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const toggleEditedArea = (area: string) => {
+    setEditedContributionAreas(prev =>
+      prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]
+    );
   };
 
   return (
@@ -266,6 +343,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[project.status].dot}`} />
             {STATUS_CONFIG[project.status].label}
           </span>
+          {project.openToContributions && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <GitPullRequest className="w-3.5 h-3.5 text-emerald-600" /> Open to Contributions
+            </span>
+          )}
           {badges.map((badge) => (
             <span
               key={badge.label}
@@ -313,6 +395,46 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <span>{project.level}</span>
           </span>
         </div>
+
+        {/* Open-Source Contribution Banner */}
+        {project.openToContributions && (
+          <div className="mt-5 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-[13px] font-bold text-emerald-900">
+                <GitPullRequest className="w-4 h-4 text-emerald-600" />
+                This project welcomes student pull requests & commits
+              </div>
+              <p className="text-[12px] text-emerald-700/90 mt-0.5">
+                No team invite required — fork or push code on GitHub, link your GitHub account on your GoBoard profile, and you&apos;ll automatically appear as a verified contributor (+40 XP).
+              </p>
+              {project.contributionAreas && project.contributionAreas.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                  <span className="text-[11px] font-semibold text-emerald-800 mr-1">Looking for help with:</span>
+                  {project.contributionAreas.map(area => (
+                    <span
+                      key={area}
+                      className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-sm"
+                    >
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {project.repoUrl && (
+              <a
+                href={project.repoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] font-semibold transition-colors shrink-0 self-start sm:self-center"
+              >
+                <Github className="w-3.5 h-3.5" />
+                Fork &amp; Open PR
+                <ExternalLink className="w-3 h-3 opacity-80" />
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -515,7 +637,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 className="w-full justify-center rounded-xl text-gouni-primary border-gouni-primary/30 hover:bg-blue-50"
                 onClick={() => {
                   setEditedDemoUrl(project.demoUrl || '');
+                  setEditedRepoUrl(project.repoUrl || '');
                   setEditedWebsiteUrl(project.websiteUrl || '');
+                  setEditedOpenToContributions(!!project.openToContributions);
+                  setEditedContributionAreas(project.contributionAreas || []);
                   setEditedImageFile(null);
                   setEditedImagePreview(null);
                   setShowEditDetailsModal(true);
@@ -550,6 +675,195 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </div>
             )}
           </div>
+
+          {/* GitHub Repository & Auto-Detected Contributors */}
+          {(project.repoUrl || project.githubMeta) && (
+            <div className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center shrink-0">
+                    <Github className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">GitHub Repo</h4>
+                    {project.githubMeta?.fullName ? (
+                      <a
+                        href={project.repoUrl || `https://github.com/${project.githubMeta.fullName}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[13px] font-semibold text-neutral-900 hover:text-gouni-primary truncate block"
+                      >
+                        {project.githubMeta.fullName}
+                      </a>
+                    ) : (
+                      <span className="text-[12px] text-neutral-600 truncate block">Repository Linked</span>
+                    )}
+                  </div>
+                </div>
+
+                {project.repoUrl && user && (
+                  <button
+                    type="button"
+                    onClick={() => handleSyncGitHubRepo(true)}
+                    disabled={syncingGitHub}
+                    title="Sync latest commits, stars, and contributors from GitHub"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-neutral-300 bg-neutral-50 hover:bg-neutral-100 text-[11px] font-semibold text-neutral-700 transition-all disabled:opacity-50 shrink-0"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${syncingGitHub ? 'animate-spin' : ''}`} />
+                    {syncingGitHub ? 'Syncing' : 'Sync'}
+                  </button>
+                )}
+              </div>
+
+              {project.githubMeta ? (
+                <>
+                  {/* Repo Stats */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-neutral-50 rounded-xl p-2.5 text-center border border-neutral-100">
+                      <div className="flex items-center justify-center gap-1 text-neutral-900 font-bold text-[14px]">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                        {project.githubMeta.stars}
+                      </div>
+                      <div className="text-[10px] font-medium text-neutral-400 mt-0.5">Stars</div>
+                    </div>
+                    <div className="bg-neutral-50 rounded-xl p-2.5 text-center border border-neutral-100">
+                      <div className="flex items-center justify-center gap-1 text-neutral-900 font-bold text-[14px]">
+                        <GitFork className="w-3.5 h-3.5 text-neutral-500" />
+                        {project.githubMeta.forks}
+                      </div>
+                      <div className="text-[10px] font-medium text-neutral-400 mt-0.5">Forks</div>
+                    </div>
+                    <div className="bg-neutral-50 rounded-xl p-2.5 text-center border border-neutral-100">
+                      <div className="text-neutral-900 font-bold text-[14px]">
+                        {project.githubMeta.openIssues}
+                      </div>
+                      <div className="text-[10px] font-medium text-neutral-400 mt-0.5">Open Issues</div>
+                    </div>
+                  </div>
+
+                  {/* Languages */}
+                  {project.githubMeta.languages && project.githubMeta.languages.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {project.githubMeta.languages.map(lang => (
+                        <span
+                          key={lang}
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-600 text-[11px] font-medium"
+                        >
+                          {lang}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Latest Commit */}
+                  {project.githubMeta.lastCommitMessage && (
+                    <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-100">
+                      <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                        Latest Commit {project.githubMeta.lastCommitDate ? `· ${formatDate(project.githubMeta.lastCommitDate).split(',')[0]}` : ''}
+                      </div>
+                      <p className="text-[12px] text-neutral-700 font-mono line-clamp-2">
+                        {project.githubMeta.lastCommitMessage}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Quick GitHub Action Links */}
+                  {project.repoUrl && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <a
+                        href={`${project.repoUrl.replace(/\/$/, '')}/pulls`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white hover:bg-neutral-50 text-[12px] font-semibold text-neutral-700 transition-colors"
+                      >
+                        <GitPullRequest className="w-3.5 h-3.5 text-emerald-600" />
+                        Pull Requests
+                      </a>
+                      <a
+                        href={`${project.repoUrl.replace(/\/$/, '')}/issues`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white hover:bg-neutral-50 text-[12px] font-semibold text-neutral-700 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                        View Issues
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Contributors List */}
+                  {project.githubMeta.contributors && project.githubMeta.contributors.length > 0 && (
+                    <div className="pt-3 border-t border-neutral-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                          Contributors ({project.githubMeta.contributors.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {project.githubMeta.contributors.map(contributor => {
+                          const isGoBoardStudent = Boolean(contributor.goboardUid);
+                          return (
+                            <div
+                              key={contributor.githubUsername}
+                              onClick={() => {
+                                if (contributor.goboardUid) {
+                                  onProfileClick?.(contributor.goboardUid);
+                                }
+                              }}
+                              className={`flex items-center justify-between gap-2 p-2 rounded-xl border transition-all ${
+                                isGoBoardStudent
+                                  ? 'border-emerald-200/80 bg-emerald-50/40 hover:bg-emerald-50 cursor-pointer'
+                                  : 'border-neutral-100 bg-neutral-50/60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <img
+                                  src={contributor.githubAvatarUrl}
+                                  alt={contributor.githubUsername}
+                                  className="w-7 h-7 rounded-full object-cover border border-neutral-200 shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[12px] font-semibold text-neutral-900 truncate">
+                                      {contributor.goboardDisplayName || `@${contributor.githubUsername}`}
+                                    </span>
+                                    {isGoBoardStudent && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 shrink-0"
+                                        title="Verified GoBoard Student"
+                                      >
+                                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                        Student
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-neutral-400 truncate">
+                                    @{contributor.githubUsername}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 text-[10px] font-semibold text-neutral-600 shrink-0">
+                                {contributor.contributions} commit{contributor.contributions !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-neutral-400 mt-3 leading-relaxed">
+                        Pushed commits or merged a PR? Connect your GitHub in Profile and click <span className="font-semibold text-neutral-600">Sync</span> to appear here.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-[12px] text-neutral-400">
+                  {syncingGitHub
+                    ? 'Fetching repository stats & contributors from GitHub...'
+                    : 'Click Sync to load live repository stats, languages, and contributors from GitHub.'}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Tech Stack */}
           <div className="bg-white rounded-2xl border border-neutral-200 p-5">
@@ -713,13 +1027,24 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       )}
 
-      {/* Edit Details Modal (URLs + Image) */}
+      {/* Edit Details Modal (URLs + Collaboration + Image) */}
       {showEditDetailsModal && user && user.uid === authorUid && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[70vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-neutral-900 mb-5">Edit Project Details</h3>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">GitHub Repository URL</label>
+                <input
+                  type="url"
+                  value={editedRepoUrl}
+                  onChange={(e) => setEditedRepoUrl(e.target.value)}
+                  placeholder="https://github.com/username/repo"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                />
+              </div>
+
               <div>
                 <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Demo URL</label>
                 <input
@@ -740,6 +1065,63 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   placeholder="https://example.com"
                   className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
                 />
+              </div>
+
+              {/* Open to Contributions Toggle */}
+              <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-semibold text-neutral-900 flex items-center gap-1.5">
+                      <GitPullRequest className="w-4 h-4 text-emerald-600" />
+                      Open to Contributions
+                    </div>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      Invite students to push commits or open PRs on GitHub
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editedOpenToContributions}
+                    onClick={() => setEditedOpenToContributions(prev => !prev)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      editedOpenToContributions ? 'bg-emerald-600' : 'bg-neutral-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        editedOpenToContributions ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {editedOpenToContributions && (
+                  <div className="mt-3 pt-3 border-t border-emerald-200/60">
+                    <label className="block text-[11px] font-semibold text-emerald-900 mb-2">
+                      Areas where contributions are welcome
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CONTRIBUTION_AREAS.map(area => {
+                        const selected = editedContributionAreas.includes(area);
+                        return (
+                          <button
+                            key={area}
+                            type="button"
+                            onClick={() => toggleEditedArea(area)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                              selected
+                                ? 'bg-emerald-600 text-white shadow-sm'
+                                : 'bg-white text-neutral-600 border border-emerald-200 hover:border-emerald-400'
+                            }`}
+                          >
+                            {area}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

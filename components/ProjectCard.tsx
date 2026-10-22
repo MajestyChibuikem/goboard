@@ -2,7 +2,7 @@ import React from 'react';
 import { Project } from '../types';
 import { formatDate, getProjectBadges } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
-import { ChevronUp, MessageCircle, Bookmark } from 'lucide-react';
+import { ChevronUp, MessageCircle, Bookmark, GitPullRequest, Star } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
 import { useResolvedUser } from '../contexts/UserCacheContext';
 
@@ -45,8 +45,16 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
         </div>
 
         {/* Badges floating top-left */}
-        {badges.length > 0 && (
-          <div className="absolute top-3 left-3 flex gap-1.5">
+        {(badges.length > 0 || project.openToContributions) && (
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+            {project.openToContributions && (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-600/95 backdrop-blur-sm text-white shadow-sm"
+                title="Open to Pull Requests & Student Contributions"
+              >
+                <GitPullRequest className="w-3 h-3" /> Open to PRs
+              </span>
+            )}
             {badges.map((badge) => (
               <span
                 key={badge.label}
@@ -124,6 +132,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           </div>
 
           <div className="flex items-center gap-3 text-[12px] text-neutral-400">
+            {project.githubMeta && (
+              <span className="flex items-center gap-1 text-neutral-500 font-medium" title={`GitHub Stars (${project.githubMeta.fullName})`}>
+                <Star className="w-3 h-3 text-amber-500 fill-amber-400" />
+                {project.githubMeta.stars}
+              </span>
+            )}
             {project.updates.length > 0 && (
               <span className="flex items-center gap-1" title={`${project.updates.length} updates`}>
                 {project.updates.length} update{project.updates.length !== 1 ? 's' : ''}
