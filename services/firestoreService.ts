@@ -1670,13 +1670,20 @@ export async function updateCampaignConfig(
 
 export function subscribeToCourseBounties(callback: (bounties: CourseBountySummary[]) => void) {
   const q = query(courseBountiesCol, orderBy('updatedAt', 'desc'));
-  return onSnapshot(q, (snap) => {
-    const bounties = snap.docs.map(d => ({
-      courseCode: d.id,
-      ...d.data(),
-    } as CourseBountySummary));
-    callback(bounties);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const bounties = snap.docs.map(d => ({
+        courseCode: d.id,
+        ...d.data(),
+      } as CourseBountySummary));
+      callback(bounties);
+    },
+    (err) => {
+      console.warn('subscribeToCourseBounties error:', err);
+      callback([]);
+    }
+  );
 }
 
 function examPaperFromDoc(d: any): ExamPaperSubmission {
@@ -1708,12 +1715,19 @@ export function subscribeToExamPapers(
     ? query(examPapersCol, orderBy('createdAt', 'desc'))
     : query(examPapersCol, where('status', '==', statusFilter));
 
-  return onSnapshot(q, (snap) => {
-    const papers = snap.docs
-      .map(examPaperFromDoc)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    callback(papers);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const papers = snap.docs
+        .map(examPaperFromDoc)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(papers);
+    },
+    (err) => {
+      console.warn('subscribeToExamPapers error:', err);
+      callback([]);
+    }
+  );
 }
 
 export function subscribeToUserExamPapers(
@@ -1721,12 +1735,19 @@ export function subscribeToUserExamPapers(
   callback: (papers: ExamPaperSubmission[]) => void
 ) {
   const q = query(examPapersCol, where('authorUid', '==', userId));
-  return onSnapshot(q, (snap) => {
-    const papers = snap.docs
-      .map(examPaperFromDoc)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    callback(papers);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const papers = snap.docs
+        .map(examPaperFromDoc)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(papers);
+    },
+    (err) => {
+      console.warn('subscribeToUserExamPapers error:', err);
+      callback([]);
+    }
+  );
 }
 
 export async function submitExamPaper(
@@ -1859,24 +1880,24 @@ export async function selectCoursePaperWinner(
     );
   });
 
-  // 4. Close all other pending submissions for this course
-  const otherPapersQuery = query(
+  // 4. Close all other pending submissions for this course (single-field query to avoid composite index)
+  const coursePapersQuery = query(
     examPapersCol,
-    where('courseCode', '==', normalizedCode),
-    where('status', '==', 'pending')
+    where('courseCode', '==', normalizedCode)
   );
-  const otherPapersSnap = await getDocs(otherPapersQuery);
+  const coursePapersSnap = await getDocs(coursePapersQuery);
+  const otherPendingDocs = coursePapersSnap.docs.filter(
+    (d) => d.id !== paperId && d.data().status === 'pending'
+  );
 
-  if (!otherPapersSnap.empty) {
+  if (otherPendingDocs.length > 0) {
     const batch = writeBatch(db);
     const nowIso = new Date().toISOString();
-    otherPapersSnap.docs.forEach((d) => {
-      if (d.id !== paperId) {
-        batch.update(d.ref, {
-          status: 'not_selected',
-          reviewedAt: nowIso,
-        });
-      }
+    otherPendingDocs.forEach((d) => {
+      batch.update(d.ref, {
+        status: 'not_selected',
+        reviewedAt: nowIso,
+      });
     });
     await batch.commit();
   }
@@ -1896,23 +1917,21 @@ export async function selectCoursePaperWinner(
   });
 
   // 6. Send polite notification to other submitters
-  for (const d of otherPapersSnap.docs) {
-    if (d.id !== paperId) {
-      const data = d.data();
-      if (data.authorUid && data.authorUid !== winnerUid) {
-        await createNotification({
-          type: 'paper_closed',
-          userId: data.authorUid,
-          triggerUid: 'ADMIN',
-          triggerDisplayName: 'GoBoard Campaign',
-          projectId: d.id,
-          projectTitle: `${normalizedCode} Exam Paper`,
-          message: `Another submission was chosen for ${normalizedCode} based on lighting and upload speed.`,
-          previewText: `Thank you for contributing! Keep an eye on open course bounties to snap more papers.`,
-          viewedAt: null,
-          link: { type: 'campaign', id: d.id },
-        });
-      }
+  for (const d of otherPendingDocs) {
+    const data = d.data();
+    if (data.authorUid && data.authorUid !== winnerUid) {
+      await createNotification({
+        type: 'paper_closed',
+        userId: data.authorUid,
+        triggerUid: 'ADMIN',
+        triggerDisplayName: 'GoBoard Campaign',
+        projectId: d.id,
+        projectTitle: `${normalizedCode} Exam Paper`,
+        message: `Another submission was chosen for ${normalizedCode} based on lighting and upload speed.`,
+        previewText: `Thank you for contributing! Keep an eye on open course bounties to snap more papers.`,
+        viewedAt: null,
+        link: { type: 'campaign', id: d.id },
+      });
     }
   }
 }
@@ -1973,25 +1992,10 @@ export async function rejectCoursePaper(
 
 export function subscribeToPendingVerifications(callback: (users: any[]) => void) {
   const q = query(usersCol, where('verificationStatus', '==', 'pending'));
-  return onSnapshot(q, (snap) => {
-    const users = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        uid: d.id,
-        ...data,
-        photoURL: cleanOldFirebaseUrl(data.photoURL),
-        studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl),
-      };
-    });
-    callback(users);
-  });
-}
-
-export function subscribeToUsersWithGoCoins(callback: (users: any[]) => void) {
-  const q = query(usersCol, where('goCoins', '>', 0));
-  return onSnapshot(q, (snap) => {
-    const users = snap.docs
-      .map(d => {
+  return onSnapshot(
+    q,
+    (snap) => {
+      const users = snap.docs.map(d => {
         const data = d.data();
         return {
           uid: d.id,
@@ -1999,21 +2003,57 @@ export function subscribeToUsersWithGoCoins(callback: (users: any[]) => void) {
           photoURL: cleanOldFirebaseUrl(data.photoURL),
           studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl),
         };
-      })
-      .sort((a: any, b: any) => (b.goCoins || 0) - (a.goCoins || 0));
-    callback(users);
-  });
+      });
+      callback(users);
+    },
+    (err) => {
+      console.warn('subscribeToPendingVerifications error:', err);
+      callback([]);
+    }
+  );
+}
+
+export function subscribeToUsersWithGoCoins(callback: (users: any[]) => void) {
+  const q = query(usersCol, where('goCoins', '>', 0));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const users = snap.docs
+        .map(d => {
+          const data = d.data();
+          return {
+            uid: d.id,
+            ...data,
+            photoURL: cleanOldFirebaseUrl(data.photoURL),
+            studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl),
+          };
+        })
+        .sort((a: any, b: any) => (b.goCoins || 0) - (a.goCoins || 0));
+      callback(users);
+    },
+    (err) => {
+      console.warn('subscribeToUsersWithGoCoins error:', err);
+      callback([]);
+    }
+  );
 }
 
 export function subscribeToPayoutHistory(callback: (payouts: PayoutRecord[]) => void) {
   const q = query(payoutsCol, orderBy('paidAt', 'desc'), limit(50));
-  return onSnapshot(q, (snap) => {
-    const records = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-    } as PayoutRecord));
-    callback(records);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const records = snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+      } as PayoutRecord));
+      callback(records);
+    },
+    (err) => {
+      console.warn('subscribeToPayoutHistory error:', err);
+      callback([]);
+    }
+  );
 }
 
 export async function updateStudentVerification(
