@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Project, Category, BoardNotice } from '../types';
+import { Project, Category, BoardNotice, CampaignConfig } from '../types';
 import { ProjectCard } from '../components/ProjectCard';
 import { ProjectGridSkeleton } from '../components/Skeleton';
 import { PublicProfileModal } from '../components/PublicProfileModal';
+import { CampaignBanner, CampaignHubTab } from '../components/CampaignBanner';
 import { Button } from '../components/Button';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -32,6 +33,7 @@ import {
   ChevronUp,
   X,
   Bookmark,
+  Sparkles,
 } from 'lucide-react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 
@@ -62,6 +64,8 @@ export interface HomeContext {
   setIsSubmitModalOpen: (open: boolean) => void;
   userFavorites: Set<string>;
   handleToggleFavorite: (e: React.MouseEvent, projectId: string) => void;
+  campaignConfig: CampaignConfig;
+  openCampaignHub: (tab?: CampaignHubTab) => void;
 }
 
 const HomePage: React.FC = () => {
@@ -75,6 +79,8 @@ const HomePage: React.FC = () => {
     setIsSubmitModalOpen,
     userFavorites,
     handleToggleFavorite,
+    campaignConfig,
+    openCampaignHub,
   } = useOutletContext<HomeContext>();
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -180,6 +186,21 @@ const HomePage: React.FC = () => {
             Lit Club
           </button>
 
+          {campaignConfig?.isActive && (
+            <button
+              onClick={() => openCampaignHub('upload')}
+              className="flex items-center justify-between w-full px-3.5 py-2.5 text-[13px] font-semibold rounded-xl transition-all bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 border border-amber-200/70 hover:from-amber-100 hover:to-orange-100"
+            >
+              <span className="flex items-center gap-2 truncate">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="truncate">Paper Bounty</span>
+              </span>
+              <span className="text-[10px] font-extrabold text-amber-700 bg-amber-200/50 px-1.5 py-0.5 rounded-md shrink-0">
+                +{campaignConfig.rewardPerPaper}
+              </span>
+            </button>
+          )}
+
           {user && (
             <button
               onClick={() => { setShowFavorites(true); setSelectedCategory('All'); }}
@@ -217,6 +238,15 @@ const HomePage: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-grow min-w-0">
+        {/* Gacha-Style Season 1 Campaign Banner */}
+        {campaignConfig && (
+          <CampaignBanner
+            campaignConfig={campaignConfig}
+            onOpenCampaignHub={openCampaignHub}
+            onOpenPaydaySetup={() => requireAuth(() => navigate('/profile'))}
+          />
+        )}
+
         {/* Header row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>

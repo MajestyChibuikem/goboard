@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { Project, Category } from './types';
+import { Project, Category, CampaignConfig } from './types';
 import { INITIAL_PROJECTS, CATEGORIES } from './constants';
 import { SubmitProjectModal } from './components/SubmitProjectModal';
 import { AuthModal } from './components/AuthModal';
 import { NotificationBell } from './components/NotificationBell';
 import { PublicProfileModal } from './components/PublicProfileModal';
+import { CampaignHubTab } from './components/CampaignBanner';
 import { Button } from './components/Button';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './components/Toast';
@@ -18,8 +19,9 @@ import {
   subscribeToUserVotes,
   toggleFavorite,
   subscribeToUserFavorites,
+  subscribeToCampaignConfig,
 } from './services/firestoreService';
-import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen } from 'lucide-react';
+import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen, Coins, Sparkles } from 'lucide-react';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   [Category.WEB]: <Layers className="w-4 h-4" />,
@@ -52,6 +54,19 @@ const App: React.FC = () => {
   const [votingPending, setVotingPending] = useState<Set<string>>(new Set());
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
   const [userFavorites, setUserFavorites] = useState<Set<string>>(new Set());
+  const [campaignConfig, setCampaignConfig] = useState<CampaignConfig>({
+    seasonNumber: 1,
+    title: 'Season 1: Exam Question Paper Bounty',
+    description: 'Snap & upload clear photos of your exam question papers. Up to 5 submissions per course — the fastest & clearest upload wins 500 GoCoins!',
+    isActive: true,
+    rewardPerPaper: 500,
+    maxSubmissionsPerCourse: 5,
+    nairaPer500Coins: 1000,
+    paydayDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const [isCampaignHubOpen, setIsCampaignHubOpen] = useState(false);
+  const [campaignHubInitialTab, setCampaignHubInitialTab] = useState<CampaignHubTab>('upload');
 
   // Determine current page from URL for sidebar highlighting
   const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : location.pathname.startsWith('/lit-club') || location.pathname.startsWith('/writing/') ? 'lit-club' : 'home';
@@ -113,6 +128,17 @@ const App: React.FC = () => {
     return () => unsub?.();
   }, [user]);
 
+  // Subscribe to live Season 1 Campaign Config
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = subscribeToCampaignConfig(setCampaignConfig);
+    } catch (err) {
+      console.warn('Failed to subscribe to campaign config:', err);
+    }
+    return () => unsub?.();
+  }, []);
+
   const handleToggleFavorite = useCallback(async (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
     if (!user) {
@@ -151,6 +177,15 @@ const App: React.FC = () => {
       return;
     }
     action();
+  }, [user]);
+
+  const openCampaignHub = useCallback((tab: CampaignHubTab = 'upload') => {
+    if ((tab === 'upload' || tab === 'submissions') && !user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setCampaignHubInitialTab(tab);
+    setIsCampaignHubOpen(true);
   }, [user]);
 
   const handleAddProject = async (newProjectData: Omit<Project, 'id' | 'likes' | 'datePosted' | 'comments' | 'screenshots'>) => {
@@ -238,6 +273,11 @@ const App: React.FC = () => {
     setIsSubmitModalOpen,
     userFavorites,
     handleToggleFavorite,
+    campaignConfig,
+    openCampaignHub,
+    isCampaignHubOpen,
+    setIsCampaignHubOpen,
+    campaignHubInitialTab,
   };
 
   return (
@@ -277,14 +317,32 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+             {/* Live GoCoins HUD Pill */}
+             {user && (
+               <button
+                 type="button"
+                 onClick={() => openCampaignHub('upload')}
+                 title="Open Exam Paper Bounty Hub"
+                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 border border-amber-200/80 text-amber-900 transition-all shadow-2xs cursor-pointer"
+               >
+                 <Coins className="w-4 h-4 text-amber-500 shrink-0" />
+                 <span className="text-xs font-extrabold tabular-nums">
+                   {(profile?.goCoins ?? 0).toLocaleString()}
+                 </span>
+                 <span className="text-[10px] font-bold text-amber-600 uppercase">
+                   GC
+                 </span>
+               </button>
+             )}
+
              <Button
                variant="primary"
-               className="text-sm h-9 rounded-xl px-5"
+               className="text-sm h-9 rounded-xl px-4 sm:px-5"
                onClick={() => requireAuth(() => setIsSubmitModalOpen(true))}
              >
-               <Plus className="w-4 h-4 mr-1.5" />
-               Submit
+               <Plus className="w-4 h-4 sm:mr-1.5" />
+               <span className="hidden sm:inline">Submit</span>
              </Button>
 
              {user && (
@@ -294,6 +352,12 @@ const App: React.FC = () => {
                  }}
                  onWritingClick={(writingId) => {
                    navigate(`/writing/${writingId}`);
+                 }}
+                 onProfileClick={() => {
+                   navigate('/profile');
+                 }}
+                 onCampaignClick={() => {
+                   openCampaignHub('submissions');
                  }}
                />
              )}
@@ -319,23 +383,33 @@ const App: React.FC = () => {
                  {showUserMenu && (
                    <>
                      <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                     <div className="absolute right-0 top-12 z-50 w-56 bg-white rounded-xl border border-neutral-200 shadow-float overflow-hidden animate-fade-up">
+                     <div className="absolute right-0 top-12 z-50 w-60 bg-white rounded-xl border border-neutral-200 shadow-float overflow-hidden animate-fade-up">
                        <div className="p-4 border-b border-neutral-100">
-                         <div className="text-[13px] font-semibold text-neutral-900 truncate">{user.displayName || 'Student'}</div>
+                         <div className="text-[13px] font-semibold text-neutral-900 truncate">{profile?.displayName || user.displayName || 'Student'}</div>
                          <div className="text-[11px] text-neutral-400 truncate">{user.email}</div>
                          {profile && (
-                           <div className="mt-2 flex items-center gap-2">
+                           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">
+                               <Coins className="w-3 h-3 text-amber-500" />
+                               {(profile.goCoins || 0).toLocaleString()} GC
+                             </span>
                              <span className="text-[11px] font-medium text-gouni-primary bg-blue-50 px-2 py-0.5 rounded-md">{profile.xp} XP</span>
-                             <span className="text-[11px] text-neutral-400">{profile.rank}</span>
+                             <span className="text-[11px] text-neutral-400 truncate">{profile.rank}</span>
                            </div>
                          )}
                        </div>
                        <div className="p-1">
                          <button
+                           onClick={() => { setShowUserMenu(false); openCampaignHub('upload'); }}
+                           className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-amber-700 font-medium hover:bg-amber-50 rounded-lg transition-colors"
+                         >
+                           <Sparkles className="w-4 h-4 text-amber-500" /> Exam Paper Bounty
+                         </button>
+                         <button
                            onClick={() => { setShowUserMenu(false); navigate('/profile'); }}
                            className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-neutral-600 hover:bg-neutral-50 rounded-lg transition-colors"
                          >
-                           <User className="w-4 h-4" /> My Profile
+                           <User className="w-4 h-4" /> My Profile & Wallet
                          </button>
                          {profile?.isAdmin && (
                            <button
@@ -406,6 +480,18 @@ const App: React.FC = () => {
                 >
                   <BookOpen className="w-4 h-4" /> Lit Club
                 </button>
+                {campaignConfig.isActive && (
+                  <button
+                    onClick={() => { setIsMobileMenuOpen(false); openCampaignHub('upload'); }}
+                    className="flex items-center justify-between w-full text-left px-3.5 py-2.5 font-semibold rounded-xl text-sm bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 border border-amber-200/70"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      Season {campaignConfig.seasonNumber} Bounty
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-700">+{campaignConfig.rewardPerPaper} GC</span>
+                  </button>
+                )}
                 <div className="pt-4 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Categories</div>
                 {CATEGORIES.map(cat => (
                   <button
@@ -422,11 +508,19 @@ const App: React.FC = () => {
                     <div className="pt-4 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Account</div>
                     <button
                       onClick={() => { navigate('/profile'); setIsMobileMenuOpen(false); }}
-                      className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm rounded-xl ${
+                      className={`flex items-center justify-between w-full text-left px-3.5 py-2.5 text-sm rounded-xl ${
                         currentPage === 'profile' ? 'text-neutral-900 bg-neutral-100 font-medium' : 'text-neutral-500 hover:bg-neutral-50'
                       }`}
                     >
-                      <User className="w-4 h-4" /> My Profile
+                      <span className="flex items-center gap-2.5">
+                        <User className="w-4 h-4" /> My Profile
+                      </span>
+                      {profile && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                          <Coins className="w-3 h-3 text-amber-500" />
+                          {(profile.goCoins || 0).toLocaleString()} GC
+                        </span>
+                      )}
                     </button>
                     {profile?.isAdmin && (
                       <button
