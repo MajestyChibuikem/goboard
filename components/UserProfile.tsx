@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { RANK_EMOJIS, formatDate } from '../services/utils';
 import {
@@ -60,11 +61,32 @@ const RANK_PROGRESS = [
 export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick }) => {
   const { user, profile, updateProfilePhoto } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'wallet'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'wallet'>(() =>
+    searchParams.get('tab') === 'wallet' ? 'wallet' : 'overview'
+  );
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [campaignConfig, setCampaignConfig] = useState<CampaignConfig>(DEFAULT_CAMPAIGN_CONFIG);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'wallet') {
+      setActiveTab('wallet');
+    } else if (tabParam === 'overview') {
+      setActiveTab('overview');
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'overview' | 'wallet') => {
+    setActiveTab(tab);
+    if (tab === 'wallet') {
+      setSearchParams({ tab: 'wallet' }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
 
   // Avatar & Banner upload state
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -469,7 +491,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <div className="flex items-center gap-2.5 self-start sm:self-end">
               <button
                 type="button"
-                onClick={() => setActiveTab('wallet')}
+                onClick={() => handleTabChange('wallet')}
                 className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200/80 hover:border-amber-300 transition-all text-left"
               >
                 <div className="w-7 h-7 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-700">
@@ -557,7 +579,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           <div className="flex items-center gap-2 mt-7 pt-6 border-t border-neutral-100">
             <button
               type="button"
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabChange('overview')}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
                 activeTab === 'overview'
                   ? 'bg-neutral-900 text-white shadow-xs'
@@ -569,7 +591,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('wallet')}
+              onClick={() => handleTabChange('wallet')}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
                 activeTab === 'wallet'
                   ? 'bg-neutral-900 text-white shadow-xs'

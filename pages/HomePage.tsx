@@ -243,7 +243,7 @@ const HomePage: React.FC = () => {
           <CampaignBanner
             campaignConfig={campaignConfig}
             onOpenCampaignHub={openCampaignHub}
-            onOpenPaydaySetup={() => requireAuth(() => navigate('/profile'))}
+            onOpenPaydaySetup={() => requireAuth(() => navigate('/profile?tab=wallet'))}
           />
         )}
 

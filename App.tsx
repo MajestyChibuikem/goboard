@@ -346,7 +346,7 @@ const App: React.FC = () => {
                    navigate(`/writing/${writingId}`);
                  }}
                  onProfileClick={() => {
-                   navigate('/profile');
+                   navigate('/profile?tab=wallet');
                  }}
                  onCampaignClick={() => {
                    openCampaignHub('submissions');
@@ -563,7 +563,7 @@ const App: React.FC = () => {
           onClose={() => setIsCampaignHubOpen(false)}
           onOpenPaydaySetup={() => {
             setIsCampaignHubOpen(false);
-            requireAuth(() => navigate('/profile'));
+            requireAuth(() => navigate('/profile?tab=wallet'));
           }}
           onRequireAuth={() => {
             setIsCampaignHubOpen(false);
