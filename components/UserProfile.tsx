@@ -580,11 +580,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <button
               type="button"
               onClick={() => handleTabChange('overview')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-                activeTab === 'overview'
-                  ? 'bg-neutral-900 text-white shadow-xs'
-                  : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${activeTab === 'overview'
+                ? 'bg-neutral-900 text-white shadow-xs'
+                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                }`}
             >
               <Layers className="w-3.5 h-3.5" />
               Overview & Projects
@@ -592,22 +591,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <button
               type="button"
               onClick={() => handleTabChange('wallet')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-                activeTab === 'wallet'
-                  ? 'bg-neutral-900 text-white shadow-xs'
-                  : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${activeTab === 'wallet'
+                ? 'bg-neutral-900 text-white shadow-xs'
+                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                }`}
             >
               <Coins className="w-3.5 h-3.5 text-amber-500" />
               GoCoins Wallet & Payday Setup
               <span
-                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  isFullyQualifiedForPayday
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : activeTab === 'wallet'
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isFullyQualifiedForPayday
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : activeTab === 'wallet'
                     ? 'bg-white/20 text-white'
                     : 'bg-amber-100 text-amber-800'
-                }`}
+                  }`}
               >
                 {isFullyQualifiedForPayday ? 'Qualified' : `${completedStepsCount}/3`}
               </span>
@@ -771,7 +768,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
               <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-5 shrink-0">
                 <div className="text-xs text-blue-200 uppercase tracking-wider font-semibold mb-1">
-                  Next Automatic Payday
+                  Next Payday
                 </div>
                 <div className="text-lg font-bold text-white">
                   {formatDate(campaignConfig.paydayDate).split(',')[0]}
@@ -785,11 +782,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
           {/* Overall Qualification Banner */}
           <div
-            className={`rounded-2xl border p-5 flex items-start gap-3.5 ${
-              isFullyQualifiedForPayday
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : 'bg-amber-50 border-amber-200 text-amber-900'
-            }`}
+            className={`rounded-2xl border p-5 flex items-start gap-3.5 ${isFullyQualifiedForPayday
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}
           >
             {isFullyQualifiedForPayday ? (
               <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
@@ -799,12 +795,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <div>
               <h3 className="text-sm font-bold">
                 {isFullyQualifiedForPayday
-                  ? 'You are Qualified for Automatic Payday Payout!'
+                  ? 'You are Qualified for Payday Payout!'
                   : `Payday Readiness Checklist (${completedStepsCount} of 3 Completed)`}
               </h3>
               <p className="text-xs mt-1 leading-relaxed opacity-85">
                 {isFullyQualifiedForPayday
-                  ? 'Everything is set. On Payday, the admin will automatically transfer your GoCoins reward to your saved bank account.'
+                  ? 'Everything is set. On Payday, the admin will transfer your GoCoins reward to your saved bank account.'
                   : 'There is no manual withdrawal queue—complete all 3 steps below before Payday so you are automatically included on the admin payout roster.'}
               </p>
             </div>
@@ -815,11 +811,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                    hasCoins
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-neutral-100 text-neutral-600'
-                  }`}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${hasCoins
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-neutral-100 text-neutral-600'
+                    }`}
                 >
                   {hasCoins ? <Check className="w-4 h-4" /> : '1'}
                 </div>
@@ -833,11 +828,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 </div>
               </div>
               <span
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${
-                  hasCoins
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-neutral-100 text-neutral-500'
-                }`}
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${hasCoins
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-neutral-100 text-neutral-500'
+                  }`}
               >
                 {hasCoins ? `${profile.goCoins} GC Ready` : '0 GC'}
               </span>
@@ -849,13 +843,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
               <div className="flex items-start gap-3.5">
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isIdVerified
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : profile.verificationStatus === 'pending'
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${isIdVerified
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : profile.verificationStatus === 'pending'
                       ? 'bg-amber-100 text-amber-700'
                       : 'bg-neutral-100 text-neutral-600'
-                  }`}
+                    }`}
                 >
                   {isIdVerified ? <Check className="w-4 h-4" /> : '2'}
                 </div>
@@ -923,8 +916,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   {uploadingIdCard
                     ? 'Uploading ID Card...'
                     : profile.studentIdCardUrl
-                    ? 'Replace Student ID Photo'
-                    : 'Upload Student ID Card'}
+                      ? 'Replace Student ID Photo'
+                      : 'Upload Student ID Card'}
                 </button>
               )}
             </div>
@@ -935,11 +928,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-start gap-3.5">
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                    hasBankInfo
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-neutral-100 text-neutral-600'
-                  }`}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${hasBankInfo
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-neutral-100 text-neutral-600'
+                    }`}
                 >
                   {hasBankInfo ? <Check className="w-4 h-4" /> : '3'}
                 </div>
@@ -953,11 +945,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 </div>
               </div>
               <span
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${
-                  hasBankInfo
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-neutral-100 text-neutral-500'
-                }`}
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${hasBankInfo
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-neutral-100 text-neutral-500'
+                  }`}
               >
                 {hasBankInfo ? 'Saved' : 'Required'}
               </span>
@@ -1073,11 +1064,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                       key={key}
                       type="button"
                       onClick={() => setCustomForm({ ...customForm, bannerPreset: key })}
-                      className={`h-14 rounded-xl overflow-hidden relative border-2 transition-all ${
-                        customForm.bannerPreset === key
-                          ? 'border-neutral-900 scale-[1.02] shadow-xs'
-                          : 'border-transparent opacity-80 hover:opacity-100'
-                      }`}
+                      className={`h-14 rounded-xl overflow-hidden relative border-2 transition-all ${customForm.bannerPreset === key
+                        ? 'border-neutral-900 scale-[1.02] shadow-xs'
+                        : 'border-transparent opacity-80 hover:opacity-100'
+                        }`}
                     >
                       <div className={`w-full h-full ${preset.className}`} />
                       <span className="absolute bottom-1 left-2 text-[10px] font-semibold text-white drop-shadow">
@@ -1099,9 +1089,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                       key={c.value}
                       type="button"
                       onClick={() => setCustomForm({ ...customForm, accentColor: c.value })}
-                      className={`w-8 h-8 rounded-full transition-transform flex items-center justify-center ${
-                        customForm.accentColor === c.value ? 'scale-110 ring-2 ring-offset-2 ring-neutral-900' : ''
-                      }`}
+                      className={`w-8 h-8 rounded-full transition-transform flex items-center justify-center ${customForm.accentColor === c.value ? 'scale-110 ring-2 ring-offset-2 ring-neutral-900' : ''
+                        }`}
                       style={{ backgroundColor: c.value }}
                       title={c.label}
                     >
