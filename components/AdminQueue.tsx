@@ -126,6 +126,14 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
   const [savingConfig, setSavingConfig] = useState(false);
 
   // Editable Campaign Config form state
+  const isoToDatetimeLocal = (iso: string) => {
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return '';
+    const tzOffset = dt.getTimezoneOffset() * 60000;
+    return new Date(dt.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const [isConfigDirty, setIsConfigDirty] = useState(false);
   const [editTitle, setEditTitle] = useState(DEFAULT_CAMPAIGN_CONFIG.title);
   const [editDescription, setEditDescription] = useState(
     DEFAULT_CAMPAIGN_CONFIG.description
@@ -136,7 +144,9 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
   const [editRewardPerPaper, setEditRewardPerPaper] = useState(
     String(DEFAULT_CAMPAIGN_CONFIG.rewardPerPaper)
   );
-  const [editPaydayDate, setEditPaydayDate] = useState('');
+  const [editPaydayDate, setEditPaydayDate] = useState(() =>
+    isoToDatetimeLocal(DEFAULT_CAMPAIGN_CONFIG.paydayDate)
+  );
   const [editIsActive, setEditIsActive] = useState(true);
 
   // Lightbox inspector state (for multi-page exam papers & ID cards)
@@ -157,25 +167,20 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
   useEffect(() => {
     const unsub = subscribeToCampaignConfig((cfg) => {
       setCampaignConfig(cfg);
-      setEditTitle(cfg.title);
-      setEditDescription(cfg.description);
-      setEditNairaRate(String(cfg.nairaPer500Coins));
-      setEditRewardPerPaper(String(cfg.rewardPerPaper));
-      setEditIsActive(cfg.isActive);
-      if (cfg.paydayDate) {
-        const dt = new Date(cfg.paydayDate);
-        if (!Number.isNaN(dt.getTime())) {
-          // Format as YYYY-MM-DDThh:mm for datetime-local input
-          const tzOffset = dt.getTimezoneOffset() * 60000;
-          const localISOTime = new Date(dt.getTime() - tzOffset)
-            .toISOString()
-            .slice(0, 16);
-          setEditPaydayDate(localISOTime);
+      if (!isConfigDirty) {
+        setEditTitle(cfg.title);
+        setEditDescription(cfg.description);
+        setEditNairaRate(String(cfg.nairaPer500Coins));
+        setEditRewardPerPaper(String(cfg.rewardPerPaper));
+        setEditIsActive(cfg.isActive);
+        if (cfg.paydayDate) {
+          const formatted = isoToDatetimeLocal(cfg.paydayDate);
+          if (formatted) setEditPaydayDate(formatted);
         }
       }
     });
     return () => unsub();
-  }, []);
+  }, [isConfigDirty]);
 
   useEffect(() => {
     const unsub = subscribeToExamPapers(setExamPapers, 'all');
@@ -419,25 +424,32 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
       return;
     }
 
+    const parsedPayday = editPaydayDate ? new Date(editPaydayDate) : null;
+    if (parsedPayday && Number.isNaN(parsedPayday.getTime())) {
+      toast('Please enter a valid Payday date and time.', 'error');
+      return;
+    }
+
     setSavingConfig(true);
     try {
-      const paydayIso = editPaydayDate
-        ? new Date(editPaydayDate).toISOString()
+      const paydayIso = parsedPayday
+        ? parsedPayday.toISOString()
         : campaignConfig.paydayDate;
 
-      await updateCampaignConfig(
-        {
-          title: editTitle.trim() || DEFAULT_CAMPAIGN_CONFIG.title,
-          description:
-            editDescription.trim() || DEFAULT_CAMPAIGN_CONFIG.description,
-          nairaPer500Coins: parsedRate,
-          rewardPerPaper: parsedReward,
-          paydayDate: paydayIso,
-          isActive: editIsActive,
-        },
-        profile.uid
-      );
-      toast('Campaign settings & exchange rate updated!', 'success');
+      const updates = {
+        title: editTitle.trim() || DEFAULT_CAMPAIGN_CONFIG.title,
+        description:
+          editDescription.trim() || DEFAULT_CAMPAIGN_CONFIG.description,
+        nairaPer500Coins: parsedRate,
+        rewardPerPaper: parsedReward,
+        paydayDate: paydayIso,
+        isActive: editIsActive,
+      };
+
+      await updateCampaignConfig(updates, profile.uid);
+      setCampaignConfig((prev) => ({ ...prev, ...updates }));
+      setIsConfigDirty(false);
+      toast('Campaign settings & Payday countdown updated!', 'success');
     } catch (err) {
       console.error('Failed to update campaign config:', err);
       toast('Failed to save campaign settings.', 'error');
@@ -1248,7 +1260,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                 <input
                   type="checkbox"
                   checked={editIsActive}
-                  onChange={(e) => setEditIsActive(e.target.checked)}
+                  onChange={(e) => {
+                    setEditIsActive(e.target.checked);
+                    setIsConfigDirty(true);
+                  }}
                   className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="text-xs font-bold text-neutral-700">
@@ -1270,7 +1285,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     type="number"
                     min={1}
                     value={editNairaRate}
-                    onChange={(e) => setEditNairaRate(e.target.value)}
+                    onChange={(e) => {
+                      setEditNairaRate(e.target.value);
+                      setIsConfigDirty(true);
+                    }}
                     className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-neutral-200 text-sm font-bold"
                     required
                   />
@@ -1286,20 +1304,46 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                   min={50}
                   step={50}
                   value={editRewardPerPaper}
-                  onChange={(e) => setEditRewardPerPaper(e.target.value)}
+                  onChange={(e) => {
+                    setEditRewardPerPaper(e.target.value);
+                    setIsConfigDirty(true);
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm font-bold"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
-                  Payday Date & Time
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                    Payday Date & Time
+                  </label>
+                  <div className="flex items-center gap-1">
+                    {[3, 7, 14].map((days) => (
+                      <button
+                        type="button"
+                        key={days}
+                        onClick={() => {
+                          const target = new Date(
+                            Date.now() + days * 24 * 60 * 60 * 1000
+                          ).toISOString();
+                          setEditPaydayDate(isoToDatetimeLocal(target));
+                          setIsConfigDirty(true);
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 text-[10px] font-bold text-neutral-600 cursor-pointer"
+                      >
+                        +{days}d
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <input
                   type="datetime-local"
                   value={editPaydayDate}
-                  onChange={(e) => setEditPaydayDate(e.target.value)}
+                  onChange={(e) => {
+                    setEditPaydayDate(e.target.value);
+                    setIsConfigDirty(true);
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm font-medium"
                   required
                 />
@@ -1314,7 +1358,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                 <input
                   type="text"
                   value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  onChange={(e) => {
+                    setEditTitle(e.target.value);
+                    setIsConfigDirty(true);
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm"
                   required
                 />
@@ -1326,7 +1373,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                 <input
                   type="text"
                   value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
+                  onChange={(e) => {
+                    setEditDescription(e.target.value);
+                    setIsConfigDirty(true);
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm"
                   required
                 />

@@ -1509,16 +1509,90 @@ export async function addWritingComment(writingId: string, comment: Comment) {
 
 // ─── Season 1 Campaign & Economy ───
 
+const CAMPAIGN_CONFIG_CACHE_KEY = 'goboard_campaign_config_v1';
+const DEFAULT_PAYDAY_STORAGE_KEY = 'goboard_default_payday_iso_v1';
+
+function getPersistentDefaultPaydayIso(): string {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const existing = window.localStorage.getItem(DEFAULT_PAYDAY_STORAGE_KEY);
+      if (existing && !Number.isNaN(new Date(existing).getTime())) {
+        return existing;
+      }
+      const created = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      window.localStorage.setItem(DEFAULT_PAYDAY_STORAGE_KEY, created);
+      return created;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return '2026-11-05T18:00:00.000Z';
+}
+
 export const DEFAULT_CAMPAIGN_CONFIG: CampaignConfig = {
   seasonNumber: 1,
   title: 'Season 1: Exam Question Paper Bounty',
   description: 'Collect exam question papers, earn 500 GoCoins per approved course, and get paid automatically on Payday!',
   rewardPerPaper: 500,
   nairaPer500Coins: 500,
-  paydayDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+  paydayDate: getPersistentDefaultPaydayIso(),
   isActive: true,
   maxSubmissionsPerCourse: 5,
 };
+
+function readCachedCampaignConfig(): CampaignConfig {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(CAMPAIGN_CONFIG_CACHE_KEY);
+      if (raw) {
+        return normalizeCampaignConfig(JSON.parse(raw));
+      }
+    }
+  } catch {
+    // Ignore parse/storage errors
+  }
+  return DEFAULT_CAMPAIGN_CONFIG;
+}
+
+function writeCachedCampaignConfig(config: CampaignConfig): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(CAMPAIGN_CONFIG_CACHE_KEY, JSON.stringify(config));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function normalizeCampaignConfig(raw?: Record<string, any> | null): CampaignConfig {
+  if (!raw) return DEFAULT_CAMPAIGN_CONFIG;
+
+  let paydayDate = DEFAULT_CAMPAIGN_CONFIG.paydayDate;
+  const rawDate = raw.paydayDate;
+  if (rawDate) {
+    if (typeof rawDate?.toDate === 'function') {
+      paydayDate = rawDate.toDate().toISOString();
+    } else if (typeof rawDate?.seconds === 'number') {
+      paydayDate = new Date(rawDate.seconds * 1000).toISOString();
+    } else {
+      const parsed = new Date(rawDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        paydayDate = parsed.toISOString();
+      }
+    }
+  }
+
+  return {
+    ...DEFAULT_CAMPAIGN_CONFIG,
+    ...raw,
+    seasonNumber: Number(raw.seasonNumber ?? DEFAULT_CAMPAIGN_CONFIG.seasonNumber),
+    rewardPerPaper: Number(raw.rewardPerPaper ?? DEFAULT_CAMPAIGN_CONFIG.rewardPerPaper),
+    nairaPer500Coins: Number(raw.nairaPer500Coins ?? DEFAULT_CAMPAIGN_CONFIG.nairaPer500Coins),
+    maxSubmissionsPerCourse: Number(raw.maxSubmissionsPerCourse ?? DEFAULT_CAMPAIGN_CONFIG.maxSubmissionsPerCourse),
+    isActive: raw.isActive ?? DEFAULT_CAMPAIGN_CONFIG.isActive,
+    paydayDate,
+  };
+}
 
 export function normalizeCourseCode(code: string): string {
   if (!code) return '';
@@ -1540,36 +1614,56 @@ export async function getCampaignConfig(): Promise<CampaignConfig> {
   try {
     const snap = await getDoc(campaignConfigDoc);
     if (snap.exists()) {
-      return { ...DEFAULT_CAMPAIGN_CONFIG, ...snap.data() } as CampaignConfig;
+      const normalized = normalizeCampaignConfig(snap.data());
+      writeCachedCampaignConfig(normalized);
+      return normalized;
     }
-    return DEFAULT_CAMPAIGN_CONFIG;
+    return readCachedCampaignConfig();
   } catch (err) {
-    console.warn('Failed to fetch campaign config, using default:', err);
-    return DEFAULT_CAMPAIGN_CONFIG;
+    console.warn('Failed to fetch campaign config, using cached/default:', err);
+    return readCachedCampaignConfig();
   }
 }
 
 export function subscribeToCampaignConfig(callback: (config: CampaignConfig) => void) {
-  return onSnapshot(campaignConfigDoc, (snap) => {
-    if (snap.exists()) {
-      callback({ ...DEFAULT_CAMPAIGN_CONFIG, ...snap.data() } as CampaignConfig);
-    } else {
-      callback(DEFAULT_CAMPAIGN_CONFIG);
+  // Emit cached/default immediately so UI has a stable date before network roundtrip
+  callback(readCachedCampaignConfig());
+
+  return onSnapshot(
+    campaignConfigDoc,
+    (snap) => {
+      if (snap.exists()) {
+        const normalized = normalizeCampaignConfig(snap.data());
+        writeCachedCampaignConfig(normalized);
+        callback(normalized);
+      } else {
+        callback(readCachedCampaignConfig());
+      }
+    },
+    (err) => {
+      console.warn('Campaign config listener fallback:', err);
+      callback(readCachedCampaignConfig());
     }
-  });
+  );
 }
 
 export async function updateCampaignConfig(
   updates: Partial<CampaignConfig>,
   adminUid: string
 ): Promise<void> {
+  const current = readCachedCampaignConfig();
+  const nextConfig = normalizeCampaignConfig({
+    ...current,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+    updatedBy: adminUid,
+  });
+
+  writeCachedCampaignConfig(nextConfig);
+
   await setDoc(
     campaignConfigDoc,
-    {
-      ...updates,
-      updatedAt: new Date().toISOString(),
-      updatedBy: adminUid,
-    },
+    nextConfig,
     { merge: true }
   );
 }

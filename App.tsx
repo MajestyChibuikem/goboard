@@ -21,6 +21,7 @@ import {
   toggleFavorite,
   subscribeToUserFavorites,
   subscribeToCampaignConfig,
+  DEFAULT_CAMPAIGN_CONFIG,
 } from './services/firestoreService';
 import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen, Coins, Sparkles } from 'lucide-react';
 
@@ -55,17 +56,7 @@ const App: React.FC = () => {
   const [votingPending, setVotingPending] = useState<Set<string>>(new Set());
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
   const [userFavorites, setUserFavorites] = useState<Set<string>>(new Set());
-  const [campaignConfig, setCampaignConfig] = useState<CampaignConfig>({
-    seasonNumber: 1,
-    title: 'Season 1: Exam Question Paper Bounty',
-    description: 'Snap & upload clear photos of your exam question papers. Up to 5 submissions per course — the fastest & clearest upload wins 500 GoCoins!',
-    isActive: true,
-    rewardPerPaper: 500,
-    maxSubmissionsPerCourse: 5,
-    nairaPer500Coins: 1000,
-    paydayDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+  const [campaignConfig, setCampaignConfig] = useState<CampaignConfig>(DEFAULT_CAMPAIGN_CONFIG);
   const [isCampaignHubOpen, setIsCampaignHubOpen] = useState(false);
   const [campaignHubInitialTab, setCampaignHubInitialTab] = useState<CampaignHubTab>('upload');
 
