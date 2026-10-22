@@ -26,6 +26,11 @@ rules_version = '2';
 //   - suspendedBy: string (optional)
 //   - suspendedAt: string (optional)
 //   - suspensionReason: string (optional)
+//   - repoUrl: string (optional)
+//   - openToContributions: bool (optional)
+//   - contributionAreas: list of strings (optional)
+//   - githubMeta: map (optional)
+//   - contributorUids: list of strings (optional)
 //
 // Collection: /votes/{voteId} (document ID format: {userId}_{projectId})
 // Fields:
@@ -81,6 +86,8 @@ rules_version = '2';
 //   - department: string (optional)
 //   - academicLevel: string (optional)
 //   - accentColor: string (optional)
+//   - githubProfile: map or null (optional)
+//   - githubUsernameLower: string or null (optional)
 //
 // Subcollection: /users/{userId}/notifications/{notifId}
 // Fields:
@@ -193,7 +200,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         isAdmin() ||
 
-        // Author editing their own project content
+        // Author editing their own project content (including collaboration settings & GitHub metadata)
         (
           resource.data.authorUid == request.auth.uid &&
           !affectedKeys().hasAny([
@@ -206,6 +213,13 @@ service cloud.firestore {
             'likes',
             'xpMilestonesAwarded'
           ])
+        ) ||
+
+        // Any signed-in user syncing live GitHub repository metadata & contributors
+        (
+          affectedKeys().hasOnly(['githubMeta', 'contributorUids']) &&
+          request.resource.data.contributorUids is list &&
+          request.resource.data.contributorUids.size() <= 50
         ) ||
 
         // Any signed-in user toggling vote (likes ±1, atomized with vote document)

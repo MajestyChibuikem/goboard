@@ -10,6 +10,7 @@ import {
   getTopUsersByXP,
   getBoardNotice,
   updateBoardNotice,
+  subscribeToTopGitHubBuilders,
 } from '../services/firestoreService';
 import { useToast } from '../components/Toast';
 import { CATEGORIES } from '../constants';
@@ -34,6 +35,8 @@ import {
   X,
   Bookmark,
   Sparkles,
+  GitPullRequest,
+  Github,
 } from 'lucide-react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 
@@ -93,6 +96,8 @@ const HomePage: React.FC = () => {
 
   // Sidebar state
   const [topUsersByXP, setTopUsersByXP] = useState<any[]>([]);
+  const [topGitHubBuilders, setTopGitHubBuilders] = useState<any[]>([]);
+  const [leaderboardTab, setLeaderboardTab] = useState<'xp' | 'builders'>('xp');
   const [boardNotice, setBoardNotice] = useState<BoardNotice>({
     id: 'boardNotice',
     title: 'Board Notice',
@@ -103,6 +108,12 @@ const HomePage: React.FC = () => {
   const [noticeEditText, setNoticeEditText] = useState(boardNotice.content);
   const [showMobileRightPanel, setShowMobileRightPanel] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showOpenToContributions, setShowOpenToContributions] = useState(false);
+
+  const openToContributionsCount = useMemo(
+    () => projects.filter(p => p.openToContributions && !p.isSuspended).length,
+    [projects]
+  );
 
   const trendingTechs = useMemo(() => {
     const techCounts: Record<string, number> = {};
@@ -123,9 +134,14 @@ const HomePage: React.FC = () => {
   }, [projects]);
 
   useEffect(() => {
-    getTopUsersByXP(3)
+    getTopUsersByXP(5)
       .then(setTopUsersByXP)
       .catch(err => console.warn('Failed to fetch top users:', err));
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeToTopGitHubBuilders(setTopGitHubBuilders, 5);
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -137,6 +153,7 @@ const HomePage: React.FC = () => {
   const filteredProjects = useMemo(() => {
     let filtered = projects.filter(project => {
       if (showFavorites && !userFavorites.has(project.id)) return false;
+      if (showOpenToContributions && !project.openToContributions) return false;
       const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             project.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             project.techStack.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -155,7 +172,7 @@ const HomePage: React.FC = () => {
           return new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime();
       }
     });
-  }, [projects, searchQuery, selectedCategory, sortBy, showFavorites, userFavorites]);
+  }, [projects, searchQuery, selectedCategory, sortBy, showFavorites, showOpenToContributions, userFavorites]);
 
   const handleShowProfile = (userId: string) => {
     setSelectedProfileUserId(userId);
@@ -167,15 +184,37 @@ const HomePage: React.FC = () => {
       <nav className="hidden lg:block w-52 shrink-0 sticky top-24 h-fit">
         <div className="space-y-1">
           <button
-            onClick={() => { setSelectedCategory('All'); setShowFavorites(false); }}
+            onClick={() => { setSelectedCategory('All'); setShowFavorites(false); setShowOpenToContributions(false); }}
             className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
-              selectedCategory === 'All' && !showFavorites
+              selectedCategory === 'All' && !showFavorites && !showOpenToContributions
                 ? 'bg-neutral-900 text-white shadow-sm'
                 : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
             }`}
           >
             <Home className="w-4 h-4" />
             All Projects
+          </button>
+
+          <button
+            onClick={() => {
+              setShowOpenToContributions(prev => !prev);
+              setShowFavorites(false);
+            }}
+            className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
+              showOpenToContributions
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/60'
+            }`}
+          >
+            <GitPullRequest className="w-4 h-4 shrink-0" />
+            <span className="truncate">Open to PRs</span>
+            {openToContributionsCount > 0 && (
+              <span className={`ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-md ${
+                showOpenToContributions ? 'bg-white/20 text-white' : 'bg-emerald-200/60 text-emerald-800'
+              }`}>
+                {openToContributionsCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -203,7 +242,7 @@ const HomePage: React.FC = () => {
 
           {user && (
             <button
-              onClick={() => { setShowFavorites(true); setSelectedCategory('All'); }}
+              onClick={() => { setShowFavorites(true); setShowOpenToContributions(false); setSelectedCategory('All'); }}
               className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
                 showFavorites
                   ? 'bg-neutral-900 text-white shadow-sm'
@@ -251,39 +290,62 @@ const HomePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
-              {showFavorites ? 'Favorites' : selectedCategory === 'All' ? 'Discover Projects' : selectedCategory}
+              {showFavorites
+                ? 'Favorites'
+                : showOpenToContributions
+                ? 'Open to Contributions'
+                : selectedCategory === 'All'
+                ? 'Discover Projects'
+                : selectedCategory}
             </h1>
             <p className="text-sm text-neutral-400 mt-1">
-              {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} from GoUni students
+              {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} {showOpenToContributions ? 'welcoming student pull requests & commits' : 'from GoUni students'}
             </p>
           </div>
 
-          {/* Sort pills */}
-          <div className="flex items-center gap-1 bg-white border border-neutral-200 p-1 rounded-xl">
+          {/* Sort & Filter pills */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setSortBy('newest')}
-              className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
-                sortBy === 'newest' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+              onClick={() => {
+                setShowOpenToContributions(prev => !prev);
+                setShowFavorites(false);
+              }}
+              className={`lg:hidden px-3 py-1.5 text-[12px] font-semibold rounded-xl flex items-center gap-1.5 border transition-all ${
+                showOpenToContributions
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" /> New
+              <GitPullRequest className="w-3.5 h-3.5" />
+              Open to PRs
             </button>
-            <button
-              onClick={() => setSortBy('votes')}
-              className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
-                sortBy === 'votes' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
-              }`}
-            >
-              <TrendingUp className="w-3.5 h-3.5" /> Top
-            </button>
-            <button
-              onClick={() => setSortBy('comments')}
-              className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
-                sortBy === 'comments' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
-              }`}
-            >
-              <MessageCircle className="w-3.5 h-3.5" /> Discussed
-            </button>
+
+            <div className="flex items-center gap-1 bg-white border border-neutral-200 p-1 rounded-xl">
+              <button
+                onClick={() => setSortBy('newest')}
+                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
+                  sortBy === 'newest' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" /> New
+              </button>
+              <button
+                onClick={() => setSortBy('votes')}
+                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
+                  sortBy === 'votes' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" /> Top
+              </button>
+              <button
+                onClick={() => setSortBy('comments')}
+                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
+                  sortBy === 'comments' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                }`}
+              >
+                <MessageCircle className="w-3.5 h-3.5" /> Discussed
+              </button>
+            </div>
           </div>
         </div>
 
@@ -355,40 +417,118 @@ const HomePage: React.FC = () => {
         <div className="sticky top-24 space-y-6 max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-hide">
           {/* Leaderboard */}
           <div className="bg-white rounded-2xl border border-neutral-200/60 overflow-hidden">
-            <div className="px-5 py-4 flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-amber-500" />
-              <span className="text-[13px] font-bold text-neutral-900">Top Contributors</span>
-            </div>
-            <div className="px-2 pb-2">
-              {topUsersByXP.map((u, idx) => (
+            <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                <span className="text-[13px] font-bold text-neutral-900">Leaderboard</span>
+              </div>
+              <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg">
                 <button
                   type="button"
-                  key={u.uid}
-                  onClick={() => handleShowProfile(u.uid)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                  onClick={() => setLeaderboardTab('xp')}
+                  className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                    leaderboardTab === 'xp'
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'text-neutral-500 hover:text-neutral-800'
+                  }`}
                 >
-                  <div className="relative">
-                    {u.photoURL ? (
-                      <img src={u.photoURL || undefined} alt="" className="w-8 h-8 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
-                        {(u.displayName || 'A').charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
-                      idx === 0 ? 'bg-amber-400 text-amber-900'
-                      : idx === 1 ? 'bg-neutral-300 text-neutral-700'
-                      : 'bg-orange-300 text-orange-800'
-                    }`}>
-                      {idx + 1}
-                    </span>
-                  </div>
-                  <div className="flex-grow min-w-0">
-                    <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
-                    <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
-                  </div>
+                  Top XP
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setLeaderboardTab('builders')}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                    leaderboardTab === 'builders'
+                      ? 'bg-neutral-900 text-white shadow-sm'
+                      : 'text-neutral-500 hover:text-neutral-800'
+                  }`}
+                >
+                  <Github className="w-2.5 h-2.5" />
+                  Builders
+                </button>
+              </div>
+            </div>
+            <div className="px-2 pb-2">
+              {leaderboardTab === 'xp' ? (
+                topUsersByXP.map((u, idx) => (
+                  <button
+                    type="button"
+                    key={u.uid}
+                    onClick={() => handleShowProfile(u.uid)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                  >
+                    <div className="relative">
+                      {u.photoURL ? (
+                        <img src={u.photoURL || undefined} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
+                          {(u.displayName || 'A').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                        idx === 0 ? 'bg-amber-400 text-amber-900'
+                        : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                        : idx === 2 ? 'bg-orange-300 text-orange-800'
+                        : 'bg-neutral-100 text-neutral-600'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                    </div>
+                    <div className="flex-grow min-w-0">
+                      <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
+                      <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
+                    </div>
+                  </button>
+                ))
+              ) : topGitHubBuilders.length > 0 ? (
+                topGitHubBuilders.map((b, idx) => (
+                  <button
+                    type="button"
+                    key={b.uid}
+                    onClick={() => handleShowProfile(b.uid)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                  >
+                    <div className="relative">
+                      {b.photoURL || b.githubProfile?.avatarUrl ? (
+                        <img
+                          src={b.photoURL || b.githubProfile?.avatarUrl || undefined}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center text-[11px] font-bold text-white">
+                          {(b.displayName || 'A').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                        idx === 0 ? 'bg-emerald-500 text-white'
+                        : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                        : idx === 2 ? 'bg-orange-300 text-orange-800'
+                        : 'bg-neutral-100 text-neutral-600'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                    </div>
+                    <div className="flex-grow min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[13px] font-medium text-neutral-900 truncate">{b.displayName || 'Student'}</span>
+                        <span className="text-[10px] text-neutral-400 truncate">@{b.githubProfile.username}</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-600 font-medium">
+                        {b.githubProfile.activeCodingDays30d || 0}d active · {b.githubProfile.recentCommits30d || 0} commits (30d)
+                      </div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-6 text-center">
+                  <Github className="w-6 h-6 text-neutral-300 mx-auto mb-1.5" />
+                  <p className="text-[12px] font-medium text-neutral-600">No GitHub builders synced yet</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    Connect your GitHub in Profile to track coding activity &amp; earn XP!
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -464,40 +604,118 @@ const HomePage: React.FC = () => {
 
             {/* Leaderboard */}
             <div className="bg-white rounded-2xl border border-neutral-200/60 overflow-hidden">
-              <div className="px-5 py-4 flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-500" />
-                <span className="text-[13px] font-bold text-neutral-900">Top Contributors</span>
-              </div>
-              <div className="px-2 pb-2">
-                {topUsersByXP.map((u, idx) => (
+              <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span className="text-[13px] font-bold text-neutral-900">Leaderboard</span>
+                </div>
+                <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg">
                   <button
                     type="button"
-                    key={u.uid}
-                    onClick={() => { handleShowProfile(u.uid); setShowMobileRightPanel(false); }}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                    onClick={() => setLeaderboardTab('xp')}
+                    className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                      leaderboardTab === 'xp'
+                        ? 'bg-white text-neutral-900 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
                   >
-                    <div className="relative">
-                      {u.photoURL ? (
-                        <img src={u.photoURL || undefined} alt="" className="w-8 h-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
-                          {(u.displayName || 'A').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
-                        idx === 0 ? 'bg-amber-400 text-amber-900'
-                        : idx === 1 ? 'bg-neutral-300 text-neutral-700'
-                        : 'bg-orange-300 text-orange-800'
-                      }`}>
-                        {idx + 1}
-                      </span>
-                    </div>
-                    <div className="flex-grow min-w-0">
-                      <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
-                      <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
-                    </div>
+                    Top XP
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardTab('builders')}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                      leaderboardTab === 'builders'
+                        ? 'bg-neutral-900 text-white shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    <Github className="w-2.5 h-2.5" />
+                    Builders
+                  </button>
+                </div>
+              </div>
+              <div className="px-2 pb-2">
+                {leaderboardTab === 'xp' ? (
+                  topUsersByXP.map((u, idx) => (
+                    <button
+                      type="button"
+                      key={u.uid}
+                      onClick={() => { handleShowProfile(u.uid); setShowMobileRightPanel(false); }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                    >
+                      <div className="relative">
+                        {u.photoURL ? (
+                          <img src={u.photoURL || undefined} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gouni-secondary flex items-center justify-center text-[11px] font-bold text-gouni-dark">
+                            {(u.displayName || 'A').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                          idx === 0 ? 'bg-amber-400 text-amber-900'
+                          : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                          : idx === 2 ? 'bg-orange-300 text-orange-800'
+                          : 'bg-neutral-100 text-neutral-600'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                      </div>
+                      <div className="flex-grow min-w-0">
+                        <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
+                        <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
+                      </div>
+                    </button>
+                  ))
+                ) : topGitHubBuilders.length > 0 ? (
+                  topGitHubBuilders.map((b, idx) => (
+                    <button
+                      type="button"
+                      key={b.uid}
+                      onClick={() => { handleShowProfile(b.uid); setShowMobileRightPanel(false); }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer w-full text-left"
+                    >
+                      <div className="relative">
+                        {b.photoURL || b.githubProfile?.avatarUrl ? (
+                          <img
+                            src={b.photoURL || b.githubProfile?.avatarUrl || undefined}
+                            alt=""
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center text-[11px] font-bold text-white">
+                            {(b.displayName || 'A').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+                          idx === 0 ? 'bg-emerald-500 text-white'
+                          : idx === 1 ? 'bg-neutral-300 text-neutral-700'
+                          : idx === 2 ? 'bg-orange-300 text-orange-800'
+                          : 'bg-neutral-100 text-neutral-600'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                      </div>
+                      <div className="flex-grow min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[13px] font-medium text-neutral-900 truncate">{b.displayName || 'Student'}</span>
+                          <span className="text-[10px] text-neutral-400 truncate">@{b.githubProfile.username}</span>
+                        </div>
+                        <div className="text-[11px] text-emerald-600 font-medium">
+                          {b.githubProfile.activeCodingDays30d || 0}d active · {b.githubProfile.recentCommits30d || 0} commits (30d)
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-6 text-center">
+                    <Github className="w-6 h-6 text-neutral-300 mx-auto mb-1.5" />
+                    <p className="text-[12px] font-medium text-neutral-600">No GitHub builders synced yet</p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      Connect your GitHub in Profile to track coding activity &amp; earn XP!
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
