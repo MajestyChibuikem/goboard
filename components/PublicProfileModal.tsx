@@ -1,16 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Trophy, Code2, Zap } from 'lucide-react';
+import {
+  X,
+  Trophy,
+  Code2,
+  Zap,
+  ShieldCheck,
+  Flame,
+  Sparkles,
+  GraduationCap,
+  Calendar,
+} from 'lucide-react';
 import { getUserProfile, getUserApprovedProjects } from '../services/firestoreService';
-import { Project } from '../types';
+import { getRank, RANK_EMOJIS, cleanOldFirebaseUrl } from '../services/utils';
+import { Project, StudentVerificationStatus } from '../types';
+import { DISCORD_BANNER_PRESETS } from '../constants';
 
-interface UserProfile {
+interface PublicUserProfileData {
   uid: string;
   displayName: string;
-  email?: string;
   photoURL: string | null;
   xp: number;
-  rank?: string;
-  joinedAt: string | any; // Can be Firestore timestamp or string
+  rank: string;
+  streakDays: number;
+  joinedAt: any;
+  verificationStatus?: StudentVerificationStatus;
+  totalGoCoinsEarned?: number;
+  bannerPreset?: string;
+  bannerUrl?: string | null;
+  bio?: string;
+  department?: string;
+  academicLevel?: string;
+  accentColor?: string;
 }
 
 interface PublicProfileModalProps {
@@ -19,8 +39,12 @@ interface PublicProfileModalProps {
   onProjectClick?: (project: Project) => void;
 }
 
-export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose, onProjectClick }) => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
+  userId,
+  onClose,
+  onProjectClick,
+}) => {
+  const [profile, setProfile] = useState<PublicUserProfileData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,14 +53,24 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
       try {
         const userProfile = await getUserProfile(userId);
         if (userProfile) {
+          const d = userProfile as any;
+          const xp = d.xp || 0;
           setProfile({
             uid: userId,
-            displayName: (userProfile as any).displayName || 'Student',
-            email: (userProfile as any).email,
-            photoURL: (userProfile as any).photoURL || null,
-            xp: (userProfile as any).xp || 0,
-            rank: (userProfile as any).rank,
-            joinedAt: (userProfile as any).joinedAt,
+            displayName: d.displayName || 'Student',
+            photoURL: cleanOldFirebaseUrl(d.photoURL) || null,
+            xp,
+            rank: d.rank || getRank(xp),
+            streakDays: d.streakDays || 0,
+            joinedAt: d.joinedAt,
+            verificationStatus: d.verificationStatus || 'none',
+            totalGoCoinsEarned: d.totalGoCoinsEarned || 0,
+            bannerPreset: d.bannerPreset || 'gradient-blue',
+            bannerUrl: cleanOldFirebaseUrl(d.bannerUrl) || null,
+            bio: d.bio || '',
+            department: d.department || '',
+            academicLevel: d.academicLevel || '',
+            accentColor: d.accentColor || '#1e3a8a',
           });
         }
         const userProjects = await getUserApprovedProjects(userId);
@@ -51,11 +85,31 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
     loadProfile();
   }, [userId]);
 
+  const formatJoinDate = (joinedAt: any) => {
+    try {
+      let date: Date;
+      if (joinedAt && typeof joinedAt === 'object' && 'toDate' in joinedAt) {
+        date = joinedAt.toDate();
+      } else if (joinedAt && typeof joinedAt === 'object' && 'seconds' in joinedAt) {
+        date = new Date(joinedAt.seconds * 1000);
+      } else if (typeof joinedAt === 'string') {
+        date = new Date(joinedAt);
+      } else {
+        return 'Unknown';
+      }
+      if (isNaN(date.getTime())) return 'Unknown';
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } catch {
+      return 'Unknown';
+    }
+  };
+
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96">
-          <div className="text-center text-neutral-400">Loading...</div>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-3xl border border-neutral-200 shadow-float p-8 w-full max-w-md text-center" onClick={e => e.stopPropagation()}>
+          <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin mx-auto mb-3" />
+          <div className="text-sm text-neutral-400">Loading profile...</div>
         </div>
       </div>
     );
@@ -63,152 +117,203 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, 
 
   if (!profile) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96">
-          <div className="text-center text-neutral-400">User not found</div>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-3xl border border-neutral-200 shadow-float p-8 w-full max-w-md text-center" onClick={e => e.stopPropagation()}>
+          <div className="text-sm text-neutral-400 mb-4">User not found</div>
+          <button onClick={onClose} className="px-4 py-2 bg-neutral-900 text-white text-xs font-semibold rounded-xl">
+            Close
+          </button>
         </div>
       </div>
     );
   }
 
-  // Handle both Firestore timestamps and string dates
-  const formatJoinDate = (joinedAt: any) => {
-    try {
-      let date: Date;
-
-      // Check if it's a Firestore timestamp object
-      if (joinedAt && typeof joinedAt === 'object' && 'toDate' in joinedAt) {
-        date = joinedAt.toDate();
-      } else if (joinedAt && typeof joinedAt === 'object' && 'seconds' in joinedAt) {
-        // Firestore timestamp format: { seconds: number, nanoseconds: number }
-        date = new Date(joinedAt.seconds * 1000);
-      } else if (typeof joinedAt === 'string') {
-        date = new Date(joinedAt);
-      } else {
-        return 'Unknown';
-      }
-
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return 'Unknown';
-      }
-
-      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    } catch (err) {
-      console.error('Error formatting date:', err);
-      return 'Unknown';
-    }
-  };
-
   const memberSince = formatJoinDate(profile.joinedAt);
+  const bannerPresetKey = profile.bannerPreset || 'gradient-blue';
+  const bannerPresetConfig = DISCORD_BANNER_PRESETS[bannerPresetKey] || DISCORD_BANNER_PRESETS['gradient-blue'];
+  const accentColor = profile.accentColor || '#1e3a8a';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-neutral-200 shadow-float w-full max-w-sm md:max-w-xl overflow-hidden animate-fade-up max-h-[90vh] overflow-y-auto">
-        {/* Header with back button */}
-        <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between sticky top-0 bg-white z-10">
+    <div
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl border border-neutral-200 shadow-float w-full max-w-lg overflow-hidden animate-fade-up max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Discord-Style Top Banner ── */}
+        <div
+          data-sdk-banner-slot="true"
+          className={`relative h-32 sm:h-36 w-full overflow-hidden ${!profile.bannerUrl ? bannerPresetConfig.className : 'bg-neutral-900'}`}
+        >
+          {profile.bannerUrl ? (
+            <img
+              src={profile.bannerUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 opacity-20"
+              style={{
+                backgroundImage:
+                  'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.35) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.25) 0%, transparent 40%)',
+              }}
+            />
+          )}
+
+          {/* Close button floating on banner */}
           <button
             onClick={onClose}
-            className="flex items-center gap-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+            className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-black/45 hover:bg-black/65 text-white flex items-center justify-center transition-colors backdrop-blur-md"
+            aria-label="Close profile"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+            <X className="w-4 h-4" />
           </button>
-          <span className="text-sm text-neutral-400">Profile</span>
         </div>
 
-        {/* Profile content */}
-        <div className="p-6 md:p-8">
-          {/* User info section */}
-          <div className="text-center mb-8 md:mb-10">
-            {profile.photoURL ? (
-              <img
-                src={profile.photoURL || undefined}
-                alt={profile.displayName}
-                className="w-20 h-20 md:w-24 md:h-24 rounded-full mx-auto mb-4 object-cover border-2 border-neutral-200"
-              />
-            ) : (
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full mx-auto mb-4 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-3xl md:text-4xl">
-                {profile.displayName[0]?.toUpperCase()}
+        {/* ── Profile Body ── */}
+        <div className="px-6 pb-6">
+          {/* Overlapping Avatar + Badges */}
+          <div className="flex items-end justify-between gap-3 -mt-11 mb-4 relative z-10">
+            <div className="relative shrink-0">
+              <div
+                className="w-22 h-22 rounded-2xl p-1 bg-white shadow-md"
+                style={{ boxShadow: `0 0 0 2px ${accentColor}25` }}
+              >
+                {profile.photoURL ? (
+                  <img
+                    src={profile.photoURL}
+                    alt={profile.displayName}
+                    className="w-20 h-20 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-20 h-20 rounded-xl flex items-center justify-center text-white font-bold text-2xl"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    {profile.displayName[0]?.toUpperCase() || 'S'}
+                  </div>
+                )}
+              </div>
+              <div
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-white shadow-xs border border-neutral-200 flex items-center justify-center text-sm"
+                title={profile.rank}
+              >
+                {RANK_EMOJIS[profile.rank] || '🎓'}
+              </div>
+            </div>
+
+            {/* Badge Tray */}
+            <div className="flex flex-wrap items-center justify-end gap-1.5 pb-1">
+              {profile.verificationStatus === 'verified' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Verified Student
+                </span>
+              )}
+              {profile.streakDays > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200">
+                  <Flame className="w-3.5 h-3.5 text-orange-500" />
+                  {profile.streakDays}d
+                </span>
+              )}
+              {(profile.totalGoCoinsEarned || 0) > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  Season 1
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Identity Info */}
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-neutral-900">{profile.displayName}</h2>
+            <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-neutral-500">
+              {(profile.department || profile.academicLevel) && (
+                <span className="inline-flex items-center gap-1 font-medium text-neutral-700">
+                  <GraduationCap className="w-3.5 h-3.5 text-neutral-400" />
+                  {[profile.department, profile.academicLevel].filter(Boolean).join(' • ')}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 text-neutral-400">
+                <Calendar className="w-3.5 h-3.5" />
+                Member since {memberSince}
+              </span>
+            </div>
+
+            {profile.bio && (
+              <div className="mt-3 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100 text-xs text-neutral-600 leading-relaxed">
+                {profile.bio}
               </div>
             )}
-            <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2">{profile.displayName}</h2>
-            <p className="text-sm md:text-base text-neutral-500">Member since {memberSince}</p>
           </div>
 
-          {/* Stats section */}
-          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8 md:mb-10">
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 md:p-5 border border-amber-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-medium text-amber-700">XP</span>
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="bg-neutral-50 rounded-2xl p-3.5 border border-neutral-100">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">XP</span>
               </div>
-              <div className="text-2xl md:text-3xl font-bold text-amber-900">{profile.xp || 0}</div>
+              <div className="text-xl font-bold text-neutral-900">{profile.xp.toLocaleString()}</div>
             </div>
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 md:p-5 border border-blue-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Trophy className="w-4 h-4 text-blue-600" />
-                <span className="text-xs font-medium text-blue-700">Rank</span>
+            <div className="bg-neutral-50 rounded-2xl p-3.5 border border-neutral-100">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Trophy className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Rank</span>
               </div>
-              <div className="text-2xl md:text-3xl font-bold text-blue-900">{profile.rank || 'Freshman Coder'}</div>
+              <div className="text-base font-bold text-neutral-900 truncate">{profile.rank}</div>
             </div>
           </div>
 
-          {/* Projects section */}
-          {projects.length > 0 && (
-            <div>
-              <h3 className="text-sm md:text-base font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-                <Code2 className="w-4 h-4 text-neutral-600" />
-                Projects ({projects.length})
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                {projects.map(project => (
+          {/* Projects Section */}
+          <div>
+            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Code2 className="w-3.5 h-3.5" />
+              Projects ({projects.length})
+            </h3>
+            {projects.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {projects.map((project) => (
                   <button
                     key={project.id}
                     onClick={() => {
                       onProjectClick?.(project);
                       onClose();
                     }}
-                    className="text-left p-4 md:p-5 bg-neutral-50 rounded-lg border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-100 transition-all group"
+                    className="text-left p-3 bg-neutral-50 rounded-2xl border border-neutral-200/80 hover:border-neutral-300 hover:bg-neutral-100/70 transition-all group flex items-center gap-3"
                   >
-                    <div className="flex gap-3">
-                      {/* Project image thumbnail */}
-                      {project.imageUrl && (
-                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden flex-shrink-0 border border-neutral-200">
-                          <img
-                            src={project.imageUrl || undefined}
-                            alt={project.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                        </div>
-                      )}
-                      {!project.imageUrl && (
-                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-lg bg-gradient-to-br from-neutral-300 to-neutral-400 flex-shrink-0 flex items-center justify-center">
-                          <Code2 className="w-6 h-6 text-neutral-600" />
-                        </div>
-                      )}
-
-                      {/* Project info */}
-                      <div className="flex-grow min-w-0">
-                        <p className="text-sm md:text-base font-medium text-neutral-900 line-clamp-2 group-hover:text-gouni-primary transition-colors">
-                          {project.title}
-                        </p>
-                        <p className="text-xs md:text-sm text-neutral-500 mt-1">
-                          {project.category}
-                        </p>
+                    {project.imageUrl ? (
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
+                        <img
+                          src={project.imageUrl}
+                          alt={project.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
                       </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-neutral-200 shrink-0 flex items-center justify-center">
+                        <Code2 className="w-5 h-5 text-neutral-500" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-neutral-900 truncate group-hover:text-gouni-primary transition-colors">
+                        {project.title}
+                      </p>
+                      <p className="text-[11px] text-neutral-400 truncate mt-0.5">{project.category}</p>
                     </div>
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {projects.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-sm text-neutral-400">No projects yet</p>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-6 bg-neutral-50 rounded-2xl border border-neutral-100">
+                <p className="text-xs text-neutral-400">No approved projects yet</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

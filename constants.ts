@@ -208,3 +208,48 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; dot: 
   'beta': { label: 'Beta', color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
   'launched': { label: 'Launched', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
 };
+
+export const DISCORD_BANNER_PRESETS: Record<string, { label: string; className: string; pattern?: string }> = {
+  'gradient-blue': {
+    label: 'GoUni Royal',
+    className: 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a] to-[#3b82f6]',
+  },
+  'gradient-purple': {
+    label: 'Nitro Nebula',
+    className: 'bg-gradient-to-r from-[#1e1b4b] via-[#6d28d9] to-[#ec4899]',
+  },
+  'cyberpunk': {
+    label: 'Cyber Gold',
+    className: 'bg-gradient-to-r from-[#090d16] via-[#1e293b] to-[#f59e0b]',
+  },
+  'emerald': {
+    label: 'Matrix Mint',
+    className: 'bg-gradient-to-r from-[#022c22] via-[#059669] to-[#34d399]',
+  },
+  'sunset': {
+    label: 'Crimson Dusk',
+    className: 'bg-gradient-to-r from-[#450a0a] via-[#e11d48] to-[#fb923c]',
+  },
+  'midnight': {
+    label: 'Obsidian Carbon',
+    className: 'bg-gradient-to-r from-[#0a0a0a] via-[#262626] to-[#404040]',
+  },
+};
+
+export const PROFILE_ACCENT_COLORS = [
+  { label: 'Royal Blue', value: '#1e3a8a' },
+  { label: 'Nitro Violet', value: '#7c3aed' },
+  { label: 'Emerald', value: '#059669' },
+  { label: 'Crimson', value: '#e11d48' },
+  { label: 'Gold', value: '#d97706' },
+  { label: 'Obsidian', value: '#0f172a' },
+];
+
+export const ACADEMIC_LEVELS = [
+  '100 Level',
+  '200 Level',
+  '300 Level',
+  '400 Level',
+  '500 Level',
+];
+
