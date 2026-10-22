@@ -77,7 +77,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
   onBack,
   onProjectClick,
 }) => {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('exam-papers');
@@ -306,6 +306,15 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
         totalQualifiedCoins: coinSum,
       };
     }, [usersWithCoins, campaignConfig.nairaPer500Coins]);
+
+  if (authLoading) {
+    return (
+      <div className="animate-fade-up text-center py-20 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-3 border-gouni-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-neutral-500 font-medium">Verifying administrator access...</p>
+      </div>
+    );
+  }
 
   if (!profile?.isAdmin) {
     return (

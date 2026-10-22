@@ -63,6 +63,13 @@ const App: React.FC = () => {
   // Determine current page from URL for sidebar highlighting
   const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : location.pathname.startsWith('/lit-club') || location.pathname.startsWith('/writing/') ? 'lit-club' : 'home';
 
+  // Scroll to top and close open menus on navigation
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setShowUserMenu(false);
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
   // Subscribe to Firestore projects
   useEffect(() => {
     let unsub: (() => void) | undefined;

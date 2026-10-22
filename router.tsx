@@ -1,82 +1,47 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App';
-
-const LandingPage = React.lazy(() => import('./pages/LandingPage'));
-const HomePage = React.lazy(() => import('./pages/HomePage'));
-const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
-const AdminPage = React.lazy(() => import('./pages/AdminPage'));
-const ProjectPage = React.lazy(() => import('./pages/ProjectPage'));
-const LitClubPage = React.lazy(() => import('./pages/LitClubPage'));
-const WritingPage = React.lazy(() => import('./pages/WritingPage'));
-
-const PageFallback = () => (
-  <div className="flex items-center justify-center py-24">
-    <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-600 rounded-full animate-spin" />
-  </div>
-);
+import LandingPage from './pages/LandingPage';
+import HomePage from './pages/HomePage';
+import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
+import ProjectPage from './pages/ProjectPage';
+import LitClubPage from './pages/LitClubPage';
+import WritingPage from './pages/WritingPage';
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: (
-      <Suspense fallback={<PageFallback />}>
-        <LandingPage />
-      </Suspense>
-    ),
+    element: <LandingPage />,
   },
   {
-    path: '/',
     element: <App />,
     children: [
       {
         path: 'browse',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <HomePage />
-          </Suspense>
-        ),
+        element: <HomePage />,
       },
       {
         path: 'profile',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <ProfilePage />
-          </Suspense>
-        ),
+        element: <ProfilePage />,
       },
       {
         path: 'admin',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <AdminPage />
-          </Suspense>
-        ),
+        element: <AdminPage />,
       },
       {
         path: 'project/:id',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <ProjectPage />
-          </Suspense>
-        ),
+        element: <ProjectPage />,
       },
       {
         path: 'lit-club',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <LitClubPage />
-          </Suspense>
-        ),
+        element: <LitClubPage />,
       },
       {
         path: 'writing/:id',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <WritingPage />
-          </Suspense>
-        ),
+        element: <WritingPage />,
       },
     ],
   },
 ]);
+

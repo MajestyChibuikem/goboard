@@ -9,6 +9,8 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
+  linkWithRedirect,
+  reauthenticateWithRedirect,
   linkWithPopup,
   reauthenticateWithPopup,
   unlink,
@@ -66,6 +68,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithGitHub: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -248,11 +251,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Handle Google redirect result on page load
+  // Handle redirect sign-in / account linking results on page load (same window)
   useEffect(() => {
-    getRedirectResult(auth).catch((err) => {
-      console.error('Google redirect sign-in error:', err);
-    });
+    let isMounted = true;
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result || !isMounted) return;
+        const credential = GithubAuthProvider.credentialFromResult(result);
+        const accessToken = credential?.accessToken;
+        const currentUser = result.user;
+        if (currentUser) {
+          const hasGitHub = currentUser.providerData.some((p) => p.providerId === 'github.com');
+          if (hasGitHub || accessToken) {
+            try {
+              const ghData = await fetchGitHubUserBundle({ accessToken }, true);
+              const { updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+              if (isMounted) {
+                setProfile((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        githubProfile: updatedProfile,
+                        githubUsernameLower: updatedProfile.username.toLowerCase(),
+                      }
+                    : prev
+                );
+              }
+            } catch (ghErr) {
+              console.warn('Auto-sync GitHub on redirect failed:', ghErr);
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Redirect authentication error:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Handle auth state changes
@@ -263,18 +300,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const p = await ensureUserProfile(firebaseUser);
           setProfile(p);
-
-          // Login streak tracking
-          await trackLoginStreak(firebaseUser.uid);
-
-          // Clean up expired notifications
-          await deleteViewedNotifications(firebaseUser.uid).catch(err =>
-            console.error('Failed to cleanup notifications:', err)
-          );
         } catch (err) {
-          console.error('Failed to load user profile:', err);
-          setProfile(null);
+          console.error('Failed to load user profile, using safe fallback:', err);
+          // Safe fallback profile so the user is never left with null profile when logged in
+          setProfile((prev) => prev || {
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName || 'Student',
+            email: firebaseUser.email || '',
+            photoURL: cleanOldFirebaseUrl(firebaseUser.photoURL),
+            xp: 0,
+            seasonXp: 0,
+            rank: 'Freshman Coder',
+            streakDays: 0,
+            lastLoginDate: '',
+            isAdmin: false,
+            joinedAt: new Date().toISOString(),
+            hasEditedDisplayName: false,
+            goCoins: 0,
+            totalGoCoinsEarned: 0,
+            verificationStatus: 'none',
+            studentIdCardUrl: null,
+            bannerPreset: 'gradient-blue',
+            bannerUrl: null,
+            bio: '',
+            department: '',
+            academicLevel: '',
+            accentColor: '#1e3a8a',
+            githubProfile: null,
+            githubUsernameLower: null,
+          });
         }
+
+        // Background tasks that must NOT block or fail the auth session
+        trackLoginStreak(firebaseUser.uid).catch((err) =>
+          console.warn('Failed to track login streak:', err)
+        );
+        deleteViewedNotifications(firebaseUser.uid).catch((err) =>
+          console.warn('Failed to cleanup notifications:', err)
+        );
       } else {
         setProfile(null);
       }
@@ -288,68 +351,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     const userDocRef = doc(db, 'users', user.uid);
-    const unsubProfile = onSnapshot(userDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setProfile(prevProfile => prevProfile ? {
-          ...prevProfile,
-          displayName: data.displayName || prevProfile.displayName,
-          hasEditedDisplayName: data.hasEditedDisplayName ?? prevProfile.hasEditedDisplayName,
-          displayNameEditedAt: data.displayNameEditedAt || prevProfile.displayNameEditedAt,
-          photoURL: cleanOldFirebaseUrl(data.photoURL) ?? prevProfile.photoURL,
-          isAdmin: data.isAdmin ?? prevProfile.isAdmin,
-          xp: data.xp ?? prevProfile.xp,
-          seasonXp: data.seasonXp ?? prevProfile.seasonXp,
-          rank: getRank(data.xp ?? prevProfile.xp ?? 0),
-          streakDays: data.streakDays ?? prevProfile.streakDays,
-          // Season 1 Economy & Verification
-          goCoins: data.goCoins ?? prevProfile.goCoins ?? 0,
-          totalGoCoinsEarned: data.totalGoCoinsEarned ?? prevProfile.totalGoCoinsEarned ?? 0,
-          verificationStatus: data.verificationStatus ?? prevProfile.verificationStatus ?? 'none',
-          studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) ?? prevProfile.studentIdCardUrl ?? null,
-          verificationRejectionReason: data.verificationRejectionReason ?? prevProfile.verificationRejectionReason,
-          bankDetails: data.bankDetails ?? prevProfile.bankDetails,
-          // Discord Profile
-          bannerPreset: data.bannerPreset ?? prevProfile.bannerPreset ?? 'gradient-blue',
-          bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? prevProfile.bannerUrl ?? null,
-          bio: data.bio ?? prevProfile.bio ?? '',
-          department: data.department ?? prevProfile.department ?? '',
-          academicLevel: data.academicLevel ?? prevProfile.academicLevel ?? '',
-          accentColor: data.accentColor ?? prevProfile.accentColor ?? '#1e3a8a',
-          // GitHub Integration
-          githubProfile: 'githubProfile' in data ? data.githubProfile : prevProfile.githubProfile ?? null,
-          githubUsernameLower:
-            'githubUsernameLower' in data
-              ? data.githubUsernameLower
-              : prevProfile.githubUsernameLower ?? null,
-        } : prevProfile);
+    const unsubProfile = onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setProfile((prevProfile) => {
+            const base = prevProfile || {
+              uid: user.uid,
+              displayName: user.displayName || 'Student',
+              email: user.email || '',
+              photoURL: cleanOldFirebaseUrl(user.photoURL),
+              xp: 0,
+              seasonXp: 0,
+              rank: 'Freshman Coder',
+              streakDays: 0,
+              lastLoginDate: '',
+              isAdmin: false,
+              joinedAt: new Date().toISOString(),
+              hasEditedDisplayName: false,
+              goCoins: 0,
+              totalGoCoinsEarned: 0,
+              verificationStatus: 'none',
+              studentIdCardUrl: null,
+              bannerPreset: 'gradient-blue',
+              bannerUrl: null,
+              bio: '',
+              department: '',
+              academicLevel: '',
+              accentColor: '#1e3a8a',
+              githubProfile: null,
+              githubUsernameLower: null,
+            };
+
+            return {
+              ...base,
+              displayName: data.displayName || base.displayName,
+              hasEditedDisplayName: data.hasEditedDisplayName ?? base.hasEditedDisplayName,
+              displayNameEditedAt: data.displayNameEditedAt || base.displayNameEditedAt,
+              photoURL: cleanOldFirebaseUrl(data.photoURL) ?? base.photoURL,
+              isAdmin: data.isAdmin ?? base.isAdmin,
+              xp: data.xp ?? base.xp,
+              seasonXp: data.seasonXp ?? base.seasonXp,
+              rank: getRank(data.xp ?? base.xp ?? 0),
+              streakDays: data.streakDays ?? base.streakDays,
+              lastLoginDate: data.lastLoginDate || base.lastLoginDate,
+              goCoins: data.goCoins ?? base.goCoins ?? 0,
+              totalGoCoinsEarned: data.totalGoCoinsEarned ?? base.totalGoCoinsEarned ?? 0,
+              verificationStatus: data.verificationStatus ?? base.verificationStatus ?? 'none',
+              studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) ?? base.studentIdCardUrl ?? null,
+              verificationRejectionReason: data.verificationRejectionReason ?? base.verificationRejectionReason,
+              bankDetails: data.bankDetails ?? base.bankDetails,
+              bannerPreset: data.bannerPreset ?? base.bannerPreset ?? 'gradient-blue',
+              bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? base.bannerUrl ?? null,
+              bio: data.bio ?? base.bio ?? '',
+              department: data.department ?? base.department ?? '',
+              academicLevel: data.academicLevel ?? base.academicLevel ?? '',
+              accentColor: data.accentColor ?? base.accentColor ?? '#1e3a8a',
+              githubProfile: 'githubProfile' in data ? data.githubProfile : base.githubProfile ?? null,
+              githubUsernameLower:
+                'githubUsernameLower' in data
+                  ? data.githubUsernameLower
+                  : base.githubUsernameLower ?? null,
+            };
+          });
+        }
+      },
+      (err) => {
+        console.warn('Realtime profile listener error:', err);
       }
-    });
+    );
 
     return unsubProfile;
   }, [user]);
 
+  // Sign in with Google using same-window redirect (no popup window)
   const signInWithGoogle = async () => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      // Mobile browsers have storage partitioning issues with popups — use redirect
-      await signInWithRedirect(auth, googleProvider);
-      return;
-    }
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
-      if (
-        err.code === 'auth/popup-blocked' ||
-        err.code === 'auth/popup-closed-by-user' ||
-        err.code === 'auth/cancelled-popup-request' ||
-        err.code === 'auth/internal-error'
-      ) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        throw err;
-      }
-    }
+    await signInWithRedirect(auth, googleProvider);
+  };
+
+  // Sign in with GitHub using same-window redirect (no popup window)
+  const signInWithGitHub = async () => {
+    await signInWithRedirect(auth, githubProvider);
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -370,13 +453,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await updateProfile(currentUser, { photoURL });
       await updateDoc(doc(db, 'users', currentUser.uid), { photoURL });
 
-      setProfile(prev => (prev ? { ...prev, photoURL } : prev));
+      setProfile((prev) => (prev ? { ...prev, photoURL } : prev));
     } catch (err) {
       console.error('Failed to update profile photo:', err);
       throw err;
     }
   };
 
+  // Connect GitHub in the same window via redirect (or reauthenticate)
   const connectGitHubWithOAuth = async (): Promise<{ profile: GitHubProfileData; xpAwarded: number }> => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -384,31 +468,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const alreadyLinked = currentUser.providerData.some((p) => p.providerId === 'github.com');
-    const result = alreadyLinked
-      ? await reauthenticateWithPopup(currentUser, githubProvider)
-      : await linkWithPopup(currentUser, githubProvider);
+    if (alreadyLinked) {
+      await reauthenticateWithRedirect(currentUser, githubProvider);
+    } else {
+      await linkWithRedirect(currentUser, githubProvider);
+    }
 
-    const credential = GithubAuthProvider.credentialFromResult(result);
-    const accessToken = credential?.accessToken;
-
-    const ghData = await fetchGitHubUserBundle(
-      { accessToken },
-      true,
-      profile?.githubProfile?.lastRewardedCodingDate
-    );
-
-    const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
-    setProfile((prev) =>
-      prev
-        ? {
-            ...prev,
-            githubProfile: updatedProfile,
-            githubUsernameLower: updatedProfile.username.toLowerCase(),
-          }
-        : prev
-    );
-
-    return { profile: updatedProfile, xpAwarded };
+    // Since the browser redirects in the same window to GitHub,
+    // execution pauses until page returns with getRedirectResult
+    return { profile: profile?.githubProfile!, xpAwarded: 0 };
   };
 
   const connectGitHubByUsername = async (
@@ -498,6 +566,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         signInWithGoogle,
+        signInWithGitHub,
         signInWithEmail,
         signUpWithEmail,
         signOut,

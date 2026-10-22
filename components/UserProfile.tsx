@@ -72,6 +72,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
   const {
     user,
     profile,
+    loading: authLoading,
     updateProfilePhoto,
     connectGitHubWithOAuth,
     connectGitHubByUsername,
@@ -338,31 +339,34 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
   const handleConnectGitHubOAuth = async () => {
     setConnectingGitHub(true);
     try {
-      const { profile: ghProfile, xpAwarded } = await connectGitHubWithOAuth();
-      toast(
-        xpAwarded > 0
-          ? `Connected @${ghProfile.displayUsername} & earned +${xpAwarded} Active Coding XP!`
-          : `Connected GitHub account @${ghProfile.displayUsername}!`,
-        'success'
-      );
-      if (user) {
-        getUserContributedProjects(user.uid).then(setContributedProjects).catch(() => {});
+      const res = await connectGitHubWithOAuth();
+      if (res?.profile) {
+        toast(
+          res.xpAwarded > 0
+            ? `Connected @${res.profile.displayUsername} & earned +${res.xpAwarded} Active Coding XP!`
+            : `Connected GitHub account @${res.profile.displayUsername}!`,
+          'success'
+        );
+        if (user) {
+          getUserContributedProjects(user.uid).then(setContributedProjects).catch(() => {});
+        }
       }
     } catch (err: any) {
       console.error('GitHub OAuth connection error:', err);
-      if (
+      if (err?.code === 'auth/redirect-cancelled-by-user') {
+        // User cancelled, no error toast
+      } else if (
         err?.code === 'auth/operation-not-allowed' ||
-        err?.code === 'auth/unauthorized-domain' ||
-        err?.code === 'auth/popup-blocked'
+        err?.code === 'auth/unauthorized-domain'
       ) {
         setShowUsernameConnect(true);
         toast(
-          'GitHub OAuth popup unavailable — enter your GitHub username below to connect.',
+          'GitHub OAuth is not configured in Firebase Console. Enter your username below to connect!',
           'info'
         );
       } else if (err?.code === 'auth/credential-already-in-use') {
         toast('This GitHub account is already linked to another GoBoard profile.', 'error');
-      } else if (err?.code !== 'auth/popup-closed-by-user') {
+      } else {
         toast(err?.message || 'Could not connect GitHub via OAuth. Try connecting by username.', 'error');
         setShowUsernameConnect(true);
       }
@@ -429,7 +433,44 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     }
   };
 
-  if (!user || !profile) return null;
+  if (authLoading) {
+    return (
+      <div className="max-w-4xl mx-auto py-24 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-3 border-gouni-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-neutral-500 font-medium">Loading profile...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto py-24 text-center space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-400">
+          <GraduationCap className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-neutral-900">Sign in to view your profile</h2>
+        <p className="text-sm text-neutral-500">
+          Sign in to track your submissions, manage your wallet, view your rank, and connect your GitHub profile.
+        </p>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Projects
+        </button>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="max-w-4xl mx-auto py-24 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-3 border-gouni-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-neutral-500 font-medium">Setting up your student profile...</p>
+      </div>
+    );
+  }
 
   const currentTier = RANK_PROGRESS.find(t => profile.xp >= t.min && profile.xp <= t.max) || RANK_PROGRESS[0];
   const progressInTier = currentTier.max === Infinity
