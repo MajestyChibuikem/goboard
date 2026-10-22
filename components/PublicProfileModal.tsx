@@ -9,11 +9,21 @@ import {
   Sparkles,
   GraduationCap,
   Calendar,
+  Github,
+  GitFork,
+  GitCommit,
+  Star,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
-import { getUserProfile, getUserApprovedProjects } from '../services/firestoreService';
+import {
+  getUserProfile,
+  getUserApprovedProjects,
+  getUserContributedProjects,
+} from '../services/firestoreService';
 import { getRank, RANK_EMOJIS, cleanOldFirebaseUrl } from '../services/utils';
-import { Project, StudentVerificationStatus } from '../types';
-import { DISCORD_BANNER_PRESETS } from '../constants';
+import { Project, StudentVerificationStatus, GitHubProfileData } from '../types';
+import { DISCORD_BANNER_PRESETS, GITHUB_LANGUAGE_COLORS } from '../constants';
 
 interface PublicUserProfileData {
   uid: string;
@@ -31,6 +41,7 @@ interface PublicUserProfileData {
   department?: string;
   academicLevel?: string;
   accentColor?: string;
+  githubProfile?: GitHubProfileData | null;
 }
 
 interface PublicProfileModalProps {
@@ -46,12 +57,17 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
 }) => {
   const [profile, setProfile] = useState<PublicUserProfileData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [contributedProjects, setContributedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const userProfile = await getUserProfile(userId);
+        const [userProfile, userProjects, userContributed] = await Promise.all([
+          getUserProfile(userId),
+          getUserApprovedProjects(userId),
+          getUserContributedProjects(userId),
+        ]);
         if (userProfile) {
           const d = userProfile as any;
           const xp = d.xp || 0;
@@ -71,10 +87,11 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
             department: d.department || '',
             academicLevel: d.academicLevel || '',
             accentColor: d.accentColor || '#1e3a8a',
+            githubProfile: d.githubProfile || null,
           });
         }
-        const userProjects = await getUserApprovedProjects(userId);
         setProjects(userProjects.slice(0, 4));
+        setContributedProjects(userContributed.slice(0, 4));
       } catch (err) {
         console.error('Failed to load user profile:', err);
       } finally {
@@ -213,6 +230,20 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
                   Verified Student
                 </span>
               )}
+              {profile.githubProfile?.username && (
+                <a
+                  href={profile.githubProfile.profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors"
+                >
+                  <Github className="w-3 h-3" />
+                  @{profile.githubProfile.displayUsername || profile.githubProfile.username}
+                  {profile.githubProfile.isVerifiedOAuth && (
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                  )}
+                </a>
+              )}
               {profile.streakDays > 0 && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200">
                   <Flame className="w-3.5 h-3.5 text-orange-500" />
@@ -252,7 +283,7 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
           </div>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="bg-neutral-50 rounded-2xl p-3.5 border border-neutral-100">
               <div className="flex items-center gap-1.5 mb-1">
                 <Zap className="w-3.5 h-3.5 text-amber-500" />
@@ -268,6 +299,79 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
               <div className="text-base font-bold text-neutral-900 truncate">{profile.rank}</div>
             </div>
           </div>
+
+          {/* Compact GitHub Developer Card */}
+          {profile.githubProfile && (
+            <div className="mb-5 p-4 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <a
+                  href={profile.githubProfile.profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-white hover:text-emerald-300 transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                  @{profile.githubProfile.displayUsername || profile.githubProfile.username}
+                  <ExternalLink className="w-3 h-3 text-neutral-400" />
+                </a>
+                <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                  {profile.githubProfile.activeCodingDays30d || 0}d Active (30d)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white/10 rounded-xl py-2 px-2">
+                  <div className="text-sm font-extrabold text-white flex items-center justify-center gap-1">
+                    <GitCommit className="w-3.5 h-3.5 text-emerald-400" />
+                    {profile.githubProfile.recentCommits30d || 0}
+                  </div>
+                  <div className="text-[10px] text-neutral-300">30d Commits</div>
+                </div>
+                <div className="bg-white/10 rounded-xl py-2 px-2">
+                  <div className="text-sm font-extrabold text-white">
+                    {profile.githubProfile.publicRepos || 0}
+                  </div>
+                  <div className="text-[10px] text-neutral-300">Repos</div>
+                </div>
+                <div className="bg-white/10 rounded-xl py-2 px-2">
+                  <div className="text-sm font-extrabold text-white flex items-center justify-center gap-1">
+                    <Star className="w-3 h-3 text-amber-400" />
+                    {profile.githubProfile.totalStars || 0}
+                  </div>
+                  <div className="text-[10px] text-neutral-300">Stars</div>
+                </div>
+              </div>
+
+              {profile.githubProfile.topLanguages && profile.githubProfile.topLanguages.length > 0 && (
+                <div>
+                  <div className="w-full h-1.5 rounded-full overflow-hidden flex bg-white/10 mb-1.5">
+                    {profile.githubProfile.topLanguages.map((lang) => (
+                      <div
+                        key={lang.name}
+                        style={{
+                          width: `${Math.max(lang.percentage, 8)}%`,
+                          backgroundColor: GITHUB_LANGUAGE_COLORS[lang.name] || '#94a3b8',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2.5 text-[10px] text-neutral-300">
+                    {profile.githubProfile.topLanguages.slice(0, 4).map((lang) => (
+                      <span key={lang.name} className="inline-flex items-center gap-1">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{
+                            backgroundColor: GITHUB_LANGUAGE_COLORS[lang.name] || '#94a3b8',
+                          }}
+                        />
+                        {lang.name} {lang.percentage}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Projects Section */}
           <div>
@@ -314,6 +418,50 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Open-Source Contributions Section */}
+          {contributedProjects.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <GitFork className="w-3.5 h-3.5" />
+                Open-Source Contributions ({contributedProjects.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {contributedProjects.map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => {
+                      onProjectClick?.(project);
+                      onClose();
+                    }}
+                    className="text-left p-3 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 hover:border-emerald-300 transition-all group flex items-center gap-3"
+                  >
+                    {project.imageUrl ? (
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-emerald-200">
+                        <img
+                          src={project.imageUrl}
+                          alt={project.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-emerald-100 shrink-0 flex items-center justify-center">
+                        <GitFork className="w-5 h-5 text-emerald-700" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-neutral-900 truncate group-hover:text-emerald-700 transition-colors">
+                        {project.title}
+                      </p>
+                      <p className="text-[11px] text-emerald-700 truncate mt-0.5">
+                        By {project.displayName || project.studentName}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
