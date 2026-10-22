@@ -75,6 +75,11 @@ export interface Project {
   suspendedBy?: string;
   suspendedAt?: string;
   suspensionReason?: string;
+  // GitHub Open-Source Collaboration fields
+  openToContributions?: boolean;
+  contributionAreas?: string[];
+  githubMeta?: ProjectGitHubMeta;
+  contributorUids?: string[];
 }
 
 export type ProjectStatus = 'idea' | 'in-progress' | 'beta' | 'launched';
@@ -195,5 +200,74 @@ export interface PayoutRecord {
   seasonNumber: number;
   paidAt: string;
   paidBy: string;
+}
+
+// ─── GitHub Integration, Collaboration & Activity Types ───
+
+export interface GitHubRepoSummary {
+  id: number;
+  name: string;
+  fullName: string; // e.g. "chidi/shuttle-tracker"
+  htmlUrl: string;
+  description: string | null;
+  language: string | null;
+  stargazersCount: number;
+  forksCount: number;
+  openIssuesCount: number;
+  topics: string[];
+  updatedAt: string;
+}
+
+export interface GitHubLanguageStat {
+  name: string;
+  count: number;
+  percentage: number;
+}
+
+export interface GitHubProfileData {
+  username: string; // Lowercase-normalized for matching
+  displayUsername: string; // Original casing from GitHub
+  githubId?: number;
+  avatarUrl: string;
+  profileUrl: string;
+  bio?: string | null;
+  publicRepos: number;
+  followers: number;
+  totalStars: number;
+  topLanguages: GitHubLanguageStat[];
+  recentCommits30d: number;
+  activeCodingDays30d: number;
+  lastActiveDate?: string | null;
+  lastRewardedCodingDate?: string | null;
+  isVerifiedOAuth: boolean;
+  topRepos: GitHubRepoSummary[];
+  lastSyncedAt: string;
+}
+
+export interface ProjectContributor {
+  githubUsername: string;
+  githubAvatarUrl: string;
+  githubProfileUrl: string;
+  contributions: number; // Commit count on this repository
+  goboardUid?: string;
+  goboardDisplayName?: string;
+  goboardPhotoURL?: string | null;
+  goboardRank?: string;
+}
+
+export interface ProjectGitHubMeta {
+  owner: string;
+  repo: string;
+  fullName: string;
+  htmlUrl: string;
+  stars: number;
+  forks: number;
+  openIssues: number;
+  language: string | null;
+  languages: string[];
+  lastCommitDate?: string | null;
+  lastCommitMessage?: string | null;
+  contributors: ProjectContributor[];
+  lastSyncedAt: string;
 }
 

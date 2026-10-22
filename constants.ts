@@ -253,3 +253,34 @@ export const ACADEMIC_LEVELS = [
   '500 Level',
 ];
 
+export const CONTRIBUTION_AREAS = [
+  'Frontend',
+  'Backend',
+  'Mobile',
+  'UI / UX',
+  'AI / ML',
+  'Bug Fixes',
+  'Testing',
+  'Docs',
+];
+
+export const GITHUB_LANGUAGE_COLORS: Record<string, string> = {
+  TypeScript: '#3178c6',
+  JavaScript: '#f1e05a',
+  Python: '#3572A5',
+  Dart: '#00B4AB',
+  Java: '#b07219',
+  Kotlin: '#A97BFF',
+  Swift: '#F05138',
+  Go: '#00ADD8',
+  Rust: '#dea584',
+  'C++': '#f34b7d',
+  'C#': '#178600',
+  PHP: '#4F5D95',
+  HTML: '#e34c26',
+  CSS: '#563d7c',
+  Solidity: '#AA6746',
+  Vue: '#41b883',
+  Shell: '#89e051',
+};
+

@@ -9,12 +9,24 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
+  linkWithPopup,
+  reauthenticateWithPopup,
+  unlink,
+  GithubAuthProvider,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnapshot } from 'firebase/firestore';
-import { auth, googleProvider, db } from '../services/firebase';
-import { uploadUserAvatar, deleteViewedNotifications, awardXP, XP_VALUES } from '../services/firestoreService';
+import { auth, googleProvider, githubProvider, db } from '../services/firebase';
+import {
+  uploadUserAvatar,
+  deleteViewedNotifications,
+  awardXP,
+  XP_VALUES,
+  saveUserGitHubProfile,
+  disconnectUserGitHubProfile,
+} from '../services/firestoreService';
+import { fetchGitHubUserBundle } from '../services/githubService';
 import { getRank, cleanOldFirebaseUrl } from '../services/utils';
-import { StudentVerificationStatus, BankDetails } from '../types';
+import { StudentVerificationStatus, BankDetails, GitHubProfileData } from '../types';
 
 export interface UserProfile {
   uid: string;
@@ -44,6 +56,9 @@ export interface UserProfile {
   department?: string;
   academicLevel?: string;
   accentColor?: string;
+  // GitHub Integration
+  githubProfile?: GitHubProfileData | null;
+  githubUsernameLower?: string | null;
 }
 
 interface AuthContextType {
@@ -55,6 +70,10 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfilePhoto: (file: File) => Promise<void>;
+  connectGitHubWithOAuth: () => Promise<{ profile: GitHubProfileData; xpAwarded: number }>;
+  connectGitHubByUsername: (username: string) => Promise<{ profile: GitHubProfileData; xpAwarded: number }>;
+  syncGitHubProfile: () => Promise<{ profile: GitHubProfileData; xpAwarded: number } | null>;
+  disconnectGitHub: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -108,6 +127,9 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       department: data.department || '',
       academicLevel: data.academicLevel || '',
       accentColor: data.accentColor || '#1e3a8a',
+      // GitHub Integration
+      githubProfile: data.githubProfile || null,
+      githubUsernameLower: data.githubUsernameLower || null,
     };
   }
 
@@ -137,6 +159,8 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     department: '',
     academicLevel: '',
     accentColor: '#1e3a8a',
+    githubProfile: null,
+    githubUsernameLower: null,
     joinedAt: serverTimestamp(),
   };
   await setDoc(ref, newProfile);
@@ -163,6 +187,8 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     department: '',
     academicLevel: '',
     accentColor: '#1e3a8a',
+    githubProfile: null,
+    githubUsernameLower: null,
     joinedAt: new Date().toISOString(),
   };
 }
@@ -290,6 +316,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           department: data.department ?? prevProfile.department ?? '',
           academicLevel: data.academicLevel ?? prevProfile.academicLevel ?? '',
           accentColor: data.accentColor ?? prevProfile.accentColor ?? '#1e3a8a',
+          // GitHub Integration
+          githubProfile: 'githubProfile' in data ? data.githubProfile : prevProfile.githubProfile ?? null,
+          githubUsernameLower:
+            'githubUsernameLower' in data
+              ? data.githubUsernameLower
+              : prevProfile.githubUsernameLower ?? null,
         } : prevProfile);
       }
     });
@@ -345,6 +377,115 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const connectGitHubWithOAuth = async (): Promise<{ profile: GitHubProfileData; xpAwarded: number }> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('You must be signed in to connect your GitHub account.');
+    }
+
+    const alreadyLinked = currentUser.providerData.some((p) => p.providerId === 'github.com');
+    const result = alreadyLinked
+      ? await reauthenticateWithPopup(currentUser, githubProvider)
+      : await linkWithPopup(currentUser, githubProvider);
+
+    const credential = GithubAuthProvider.credentialFromResult(result);
+    const accessToken = credential?.accessToken;
+
+    const ghData = await fetchGitHubUserBundle(
+      { accessToken },
+      true,
+      profile?.githubProfile?.lastRewardedCodingDate
+    );
+
+    const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            githubProfile: updatedProfile,
+            githubUsernameLower: updatedProfile.username.toLowerCase(),
+          }
+        : prev
+    );
+
+    return { profile: updatedProfile, xpAwarded };
+  };
+
+  const connectGitHubByUsername = async (
+    username: string
+  ): Promise<{ profile: GitHubProfileData; xpAwarded: number }> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('You must be signed in to connect your GitHub account.');
+    }
+
+    const cleanUsername = username.trim().replace(/^@/, '');
+    if (!cleanUsername) {
+      throw new Error('Please enter a valid GitHub username.');
+    }
+
+    const ghData = await fetchGitHubUserBundle(
+      { username: cleanUsername },
+      Boolean(profile?.githubProfile?.isVerifiedOAuth && profile.githubProfile.username === cleanUsername.toLowerCase()),
+      profile?.githubProfile?.lastRewardedCodingDate
+    );
+
+    const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            githubProfile: updatedProfile,
+            githubUsernameLower: updatedProfile.username.toLowerCase(),
+          }
+        : prev
+    );
+
+    return { profile: updatedProfile, xpAwarded };
+  };
+
+  const syncGitHubProfile = async (): Promise<{ profile: GitHubProfileData; xpAwarded: number } | null> => {
+    const currentUser = auth.currentUser;
+    const existingGh = profile?.githubProfile;
+    if (!currentUser || !existingGh?.username) return null;
+
+    const ghData = await fetchGitHubUserBundle(
+      { username: existingGh.displayUsername || existingGh.username },
+      existingGh.isVerifiedOAuth,
+      existingGh.lastRewardedCodingDate
+    );
+
+    const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            githubProfile: updatedProfile,
+            githubUsernameLower: updatedProfile.username.toLowerCase(),
+          }
+        : prev
+    );
+
+    return { profile: updatedProfile, xpAwarded };
+  };
+
+  const disconnectGitHub = async (): Promise<void> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const isLinked = currentUser.providerData.some((p) => p.providerId === 'github.com');
+    if (isLinked && currentUser.providerData.length > 1) {
+      await unlink(currentUser, 'github.com').catch((err) => {
+        console.warn('Failed to unlink GitHub provider from Firebase Auth:', err);
+      });
+    }
+
+    await disconnectUserGitHubProfile(currentUser.uid);
+    setProfile((prev) =>
+      prev ? { ...prev, githubProfile: null, githubUsernameLower: null } : prev
+    );
+  };
+
   const signOut = async () => {
     await firebaseSignOut(auth);
     setProfile(null);
@@ -361,9 +502,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUpWithEmail,
         signOut,
         updateProfilePhoto,
+        connectGitHubWithOAuth,
+        connectGitHubByUsername,
+        syncGitHubProfile,
+        disconnectGitHub,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
+

@@ -37,8 +37,12 @@ import {
   StudentVerificationStatus,
   BankDetails,
   PayoutRecord,
+  GitHubProfileData,
+  ProjectGitHubMeta,
+  ProjectContributor,
 } from '../types';
-import { generateSlug, cleanOldFirebaseUrl } from './utils';
+import { generateSlug, cleanOldFirebaseUrl, getRank } from './utils';
+import { fetchGitHubRepoMetadata, parseGitHubRepoUrl } from './githubService';
 
 // ─── Collection refs ───
 
@@ -87,6 +91,10 @@ function projectFromDoc(docSnap: any): Project {
     ...(d.suspendedBy && { suspendedBy: d.suspendedBy }),
     ...(d.suspendedAt && { suspendedAt: d.suspendedAt }),
     ...(d.suspensionReason && { suspensionReason: d.suspensionReason }),
+    ...(d.openToContributions !== undefined && { openToContributions: Boolean(d.openToContributions) }),
+    ...(Array.isArray(d.contributionAreas) && { contributionAreas: d.contributionAreas }),
+    ...(d.githubMeta && { githubMeta: d.githubMeta }),
+    ...(Array.isArray(d.contributorUids) && { contributorUids: d.contributorUids }),
   } as Project & { authorUid?: string; approvalStatus?: string };
 }
 
@@ -677,6 +685,8 @@ export const XP_VALUES = {
   VOTE_MILESTONE_10: 25,
   VOTE_MILESTONE_50: 75,
   LOGIN_STREAK: 10,
+  GITHUB_ACTIVE_DAY: 15,
+  GITHUB_REPO_CONTRIBUTION: 30,
   COMMENT_XP_DAILY_CAP: 25,
   MIN_VOTES_FOR_XP: 3,
   MIN_ACCOUNT_AGE_DAYS: 7,
@@ -2185,4 +2195,281 @@ export async function markStudentAsPaid(
     link: { type: 'profile', id: studentUid },
   });
 }
+
+// ─── GitHub Integration, Open-Source Collaboration & Activity Tracking ───
+
+export async function saveUserGitHubProfile(
+  userId: string,
+  githubProfile: GitHubProfileData
+): Promise<{ xpAwarded: number; updatedProfile: GitHubProfileData }> {
+  const userRef = doc(db, 'users', userId);
+  const snap = await getDoc(userRef);
+  const existingData = snap.exists() ? snap.data() : {};
+  const previousRewardedDate: string | null =
+    existingData?.githubProfile?.lastRewardedCodingDate || null;
+
+  let xpAwarded = 0;
+  let nextRewardedDate = previousRewardedDate;
+
+  // Award daily active coding XP (+15 XP) if the student has a verified active GitHub coding date
+  // that hasn't been rewarded yet and is within the last 7 days
+  if (githubProfile.lastActiveDate) {
+    const activeMs = new Date(githubProfile.lastActiveDate).getTime();
+    const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    if (
+      activeMs >= sevenDaysAgoMs &&
+      (!previousRewardedDate || githubProfile.lastActiveDate > previousRewardedDate)
+    ) {
+      xpAwarded = XP_VALUES.GITHUB_ACTIVE_DAY;
+      nextRewardedDate = githubProfile.lastActiveDate;
+    }
+  }
+
+  const updatedProfile: GitHubProfileData = {
+    ...githubProfile,
+    lastRewardedCodingDate: nextRewardedDate,
+  };
+
+  await updateDoc(userRef, {
+    githubProfile: updatedProfile,
+    githubUsernameLower: updatedProfile.username.toLowerCase(),
+  });
+
+  if (xpAwarded > 0) {
+    await awardXP(userId, xpAwarded, 'GITHUB_ACTIVE_DAY').catch((err) => {
+      console.warn('Failed to award GitHub coding activity XP:', err);
+    });
+  }
+
+  return { xpAwarded, updatedProfile };
+}
+
+export async function disconnectUserGitHubProfile(userId: string): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    githubProfile: null,
+    githubUsernameLower: null,
+  });
+}
+
+/**
+ * Matches a list of GitHub repository contributors against GoBoard users who have connected their GitHub accounts.
+ */
+export async function matchGitHubContributorsToUsers(
+  contributors: ProjectContributor[]
+): Promise<{ matchedContributors: ProjectContributor[]; contributorUids: string[] }> {
+  if (!contributors || contributors.length === 0) {
+    return { matchedContributors: [], contributorUids: [] };
+  }
+
+  const lowerNames = Array.from(
+    new Set(contributors.map((c) => c.githubUsername.toLowerCase()).filter(Boolean))
+  ).slice(0, 30);
+
+  const userMap = new Map<
+    string,
+    { uid: string; displayName: string; photoURL: string | null; rank: string }
+  >();
+
+  // Firestore 'in' queries support up to 30 items
+  try {
+    if (lowerNames.length > 0) {
+      const q = query(usersCol, where('githubUsernameLower', 'in', lowerNames));
+      const snap = await getDocs(q);
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const ghLower = String(
+          data.githubUsernameLower || data.githubProfile?.username || ''
+        ).toLowerCase();
+        if (ghLower) {
+          userMap.set(ghLower, {
+            uid: d.id,
+            displayName: data.displayName || 'Student',
+            photoURL: cleanOldFirebaseUrl(data.photoURL) || null,
+            rank: getRank(data.xp || 0),
+          });
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('matchGitHubContributorsToUsers lookup error:', err);
+  }
+
+  const contributorUidsSet = new Set<string>();
+  const matchedContributors: ProjectContributor[] = contributors.map((c) => {
+    const match = userMap.get(c.githubUsername.toLowerCase());
+    if (match) {
+      contributorUidsSet.add(match.uid);
+      return {
+        ...c,
+        goboardUid: match.uid,
+        goboardDisplayName: match.displayName,
+        goboardPhotoURL: match.photoURL,
+        goboardRank: match.rank,
+      };
+    }
+    return c;
+  });
+
+  return {
+    matchedContributors,
+    contributorUids: Array.from(contributorUidsSet),
+  };
+}
+
+/**
+ * Fetches live repository metadata + contributors from GitHub, matches contributors to GoBoard students,
+ * and saves the snapshot on the project document in Firestore.
+ */
+export async function syncAndSaveProjectGitHub(
+  projectId: string,
+  repoUrl: string,
+  options?: {
+    openToContributions?: boolean;
+    contributionAreas?: string[];
+    accessToken?: string;
+  }
+): Promise<{ githubMeta: ProjectGitHubMeta; contributorUids: string[] }> {
+  const parsed = parseGitHubRepoUrl(repoUrl);
+  if (!parsed) {
+    throw new Error('Please provide a valid GitHub repository URL.');
+  }
+
+  const { meta } = await fetchGitHubRepoMetadata(repoUrl, options?.accessToken);
+  const { matchedContributors, contributorUids } = await matchGitHubContributorsToUsers(
+    meta.contributors
+  );
+
+  const enrichedMeta: ProjectGitHubMeta = {
+    ...meta,
+    contributors: matchedContributors,
+  };
+
+  const updates: Record<string, any> = {
+    githubMeta: enrichedMeta,
+    contributorUids,
+  };
+
+  if (options?.openToContributions !== undefined) {
+    updates.openToContributions = options.openToContributions;
+  }
+  if (options?.contributionAreas !== undefined) {
+    updates.contributionAreas = options.contributionAreas;
+  }
+
+  const projectRef = doc(db, 'projects', projectId);
+  await updateDoc(projectRef, updates);
+
+  return { githubMeta: enrichedMeta, contributorUids };
+}
+
+export async function updateProjectCollaborationSettings(
+  projectId: string,
+  userId: string,
+  settings: {
+    openToContributions: boolean;
+    contributionAreas: string[];
+    repoUrl?: string;
+  }
+): Promise<void> {
+  const projectRef = doc(db, 'projects', projectId);
+  const snap = await getDoc(projectRef);
+  if (!snap.exists()) throw new Error('Project not found');
+  const data = snap.data();
+  if (data.authorUid !== userId) {
+    throw new Error('Only the project author can update collaboration settings');
+  }
+
+  const updates: Record<string, any> = {
+    openToContributions: settings.openToContributions,
+    contributionAreas: settings.contributionAreas,
+  };
+  if (settings.repoUrl !== undefined) {
+    updates.repoUrl = settings.repoUrl.trim() || null;
+  }
+
+  await updateDoc(projectRef, updates);
+}
+
+/**
+ * Returns approved GoBoard projects where the user is a verified GitHub contributor
+ * (excluding projects authored by the user themselves, so their own projects and open-source contributions stay distinct).
+ */
+export async function getUserContributedProjects(userId: string): Promise<Project[]> {
+  try {
+    const q = query(projectsCol, where('contributorUids', 'array-contains', userId));
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(projectFromDoc)
+      .filter((p) => p.authorUid !== userId && !p.isSuspended && p.approvalStatus === 'approved');
+  } catch (err) {
+    console.warn('getUserContributedProjects error:', err);
+    return [];
+  }
+}
+
+/**
+ * Real-time listener for top active GitHub student builders on GoBoard.
+ */
+export function subscribeToTopGitHubBuilders(
+  callback: (
+    users: {
+      uid: string;
+      displayName: string;
+      photoURL: string | null;
+      xp: number;
+      rank: string;
+      githubProfile: GitHubProfileData;
+    }[]
+  ) => void,
+  count = 10
+) {
+  const q = query(usersCol, orderBy('xp', 'desc'), limit(50));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const builders = snapshot.docs
+        .map((d) => {
+          const data = d.data();
+          if (!data.githubProfile || !data.githubProfile.username) return null;
+          return {
+            uid: d.id,
+            displayName: data.displayName || 'Student',
+            photoURL: cleanOldFirebaseUrl(data.photoURL) || null,
+            xp: data.xp || 0,
+            rank: getRank(data.xp || 0),
+            githubProfile: data.githubProfile as GitHubProfileData,
+          };
+        })
+        .filter(Boolean) as {
+        uid: string;
+        displayName: string;
+        photoURL: string | null;
+        xp: number;
+        rank: string;
+        githubProfile: GitHubProfileData;
+      }[];
+
+      // Sort by 30-day active coding days, then 30-day commits, then total stars
+      builders.sort((a, b) => {
+        const daysDiff =
+          (b.githubProfile.activeCodingDays30d || 0) -
+          (a.githubProfile.activeCodingDays30d || 0);
+        if (daysDiff !== 0) return daysDiff;
+        const commitsDiff =
+          (b.githubProfile.recentCommits30d || 0) -
+          (a.githubProfile.recentCommits30d || 0);
+        if (commitsDiff !== 0) return commitsDiff;
+        return (b.githubProfile.totalStars || 0) - (a.githubProfile.totalStars || 0);
+      });
+
+      callback(builders.slice(0, count));
+    },
+    (err) => {
+      console.warn('subscribeToTopGitHubBuilders error:', err);
+      callback([]);
+    }
+  );
+}
+
 
