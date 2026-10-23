@@ -15,13 +15,15 @@ import {
   Star,
   ExternalLink,
   CheckCircle2,
+  Pin,
+  Clock,
 } from 'lucide-react';
 import {
   getUserProfile,
   getUserApprovedProjects,
   getUserContributedProjects,
 } from '../services/firestoreService';
-import { getRank, RANK_EMOJIS, cleanOldFirebaseUrl } from '../services/utils';
+import { getRank, RANK_EMOJIS, cleanOldFirebaseUrl, formatTimeAgo } from '../services/utils';
 import { Project, StudentVerificationStatus, GitHubProfileData } from '../types';
 import { DISCORD_BANNER_PRESETS, GITHUB_LANGUAGE_COLORS } from '../constants';
 
@@ -369,6 +371,102 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
                         />
                         {lang.name} {lang.percentage}%
                       </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pinned & Active Repositories */}
+              {profile.githubProfile.topRepos && profile.githubProfile.topRepos.length > 0 && (
+                <div className="pt-2.5 border-t border-white/10">
+                  <div className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Pin className="w-3 h-3 text-indigo-400" />
+                    Pinned & Active Repositories
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {profile.githubProfile.topRepos.slice(0, 4).map((repo) => (
+                      <a
+                        key={repo.id}
+                        href={repo.htmlUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors block text-left group"
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-bold text-white group-hover:text-emerald-300 truncate">
+                            {repo.name}
+                          </span>
+                          {repo.isPinned && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 shrink-0">
+                              <Pin className="w-2 h-2 fill-indigo-400" /> Pinned
+                            </span>
+                          )}
+                        </div>
+                        {repo.description && (
+                          <p className="text-[10px] text-neutral-300 line-clamp-1 mb-1.5">
+                            {repo.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2.5 text-[10px] text-neutral-400">
+                          {repo.language && (
+                            <span className="inline-flex items-center gap-1 text-neutral-300">
+                              <span
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    GITHUB_LANGUAGE_COLORS[repo.language] || '#94a3b8',
+                                }}
+                              />
+                              {repo.language}
+                            </span>
+                          )}
+                          {repo.pushedAt && (
+                            <span className="inline-flex items-center gap-0.5 text-neutral-400">
+                              <Clock className="w-2.5 h-2.5" />
+                              {formatTimeAgo(repo.pushedAt)}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 text-amber-400" /> {repo.stargazersCount}
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Commits */}
+              {profile.githubProfile.recentCommitsList && profile.githubProfile.recentCommitsList.length > 0 && (
+                <div className="pt-2.5 border-t border-white/10">
+                  <div className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <GitCommit className="w-3 h-3 text-emerald-400" />
+                    Recent Commits
+                  </div>
+                  <div className="space-y-1.5">
+                    {profile.githubProfile.recentCommitsList.slice(0, 4).map((c, idx) => (
+                      <a
+                        key={`${c.repoName}-${c.sha}-${idx}`}
+                        href={c.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-between gap-2 group"
+                      >
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span className="font-mono text-[9px] text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded font-semibold shrink-0">
+                            {c.repoName}
+                          </span>
+                          <span className="text-[11px] text-neutral-200 group-hover:text-white truncate">
+                            {c.message}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-neutral-400">
+                          <span>{formatTimeAgo(c.date)}</span>
+                          <span className="font-mono text-[10px] bg-white/10 px-1 py-0.2 rounded text-neutral-300">
+                            {c.sha}
+                          </span>
+                        </div>
+                      </a>
                     ))}
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { RANK_EMOJIS, formatDate } from '../services/utils';
+import { RANK_EMOJIS, formatDate, formatTimeAgo } from '../services/utils';
 import {
   getUserProjects,
   getUserContributedProjects,
@@ -46,6 +46,7 @@ import {
   Code2,
   Pipette,
   Dices,
+  Pin,
 } from 'lucide-react';
 import { useToast } from './Toast';
 import {
@@ -83,6 +84,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     connectGitHubByUsername,
     syncGitHubProfile,
     disconnectGitHub,
+    togglePinnedRepo,
   } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -544,6 +546,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     } catch (err) {
       console.error('Failed to disconnect GitHub:', err);
       toast('Failed to disconnect GitHub account.', 'error');
+    }
+  };
+
+  const handleTogglePin = async (repoName: string) => {
+    try {
+      await togglePinnedRepo(repoName);
+      toast(`Updated pinned repositories`, 'info');
+    } catch (err: any) {
+      console.error('Failed to toggle pin:', err);
+      toast('Failed to update pinned status.', 'error');
     }
   };
 
@@ -1212,35 +1224,80 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   </div>
                 )}
 
-                {/* Top Repositories Strip */}
+                {/* Pinned & Active Repositories Strip */}
                 {profile.githubProfile.topRepos && profile.githubProfile.topRepos.length > 0 && (
                   <div>
-                    <div className="text-xs font-bold text-neutral-700 mb-2.5">
-                      Recent & Highlighted Repositories
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
+                        <Pin className="w-3.5 h-3.5 text-indigo-600" />
+                        Pinned & Active Repositories
+                      </div>
+                      <span className="text-[11px] text-neutral-400">
+                        Click pin to feature any repo
+                      </span>
                     </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {profile.githubProfile.topRepos.slice(0, 4).map((repo) => (
-                        <a
+                        <div
                           key={repo.id}
-                          href={repo.htmlUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-3.5 rounded-2xl border border-neutral-200/80 hover:border-neutral-300 bg-neutral-50/50 hover:bg-neutral-50 transition-all group flex flex-col justify-between"
+                          className="p-3.5 rounded-2xl border border-neutral-200/80 hover:border-neutral-300 bg-neutral-50/50 hover:bg-neutral-50 transition-all group flex flex-col justify-between relative"
                         >
                           <div>
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-neutral-900 group-hover:text-gouni-primary truncate">
-                                {repo.name}
-                              </span>
-                              <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <a
+                                  href={repo.htmlUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-bold text-neutral-900 group-hover:text-gouni-primary truncate hover:underline"
+                                >
+                                  {repo.name}
+                                </a>
+                                {repo.isPinned && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                                    <Pin className="w-2.5 h-2.5 fill-indigo-500" /> Pinned
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleTogglePin(repo.name);
+                                  }}
+                                  title={repo.isPinned ? 'Unpin repository' : 'Pin to top of profile'}
+                                  className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                                    repo.isPinned
+                                      ? 'text-indigo-600 hover:bg-indigo-100 bg-indigo-50'
+                                      : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/60'
+                                  }`}
+                                >
+                                  <Pin className={`w-3 h-3 ${repo.isPinned ? 'fill-indigo-600' : ''}`} />
+                                </button>
+                                <a
+                                  href={repo.htmlUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/60 transition-colors"
+                                  title="View on GitHub"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
                             </div>
+
                             {repo.description && (
                               <p className="text-[11px] text-neutral-500 line-clamp-1 mt-1">
                                 {repo.description}
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 mt-2.5 text-[11px] text-neutral-400">
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2.5 text-[11px] text-neutral-400">
                             {repo.language && (
                               <span className="inline-flex items-center gap-1 text-neutral-600 font-medium">
                                 <span
@@ -1253,11 +1310,69 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                                 {repo.language}
                               </span>
                             )}
+                            {repo.pushedAt && (
+                              <span className="inline-flex items-center gap-1 text-neutral-500 font-medium">
+                                <Clock className="w-3 h-3 text-neutral-400" />
+                                Pushed {formatTimeAgo(repo.pushedAt)}
+                              </span>
+                            )}
                             <span className="inline-flex items-center gap-0.5">
                               <Star className="w-3 h-3 text-amber-500" /> {repo.stargazersCount}
                             </span>
                             <span className="inline-flex items-center gap-0.5">
                               <GitFork className="w-3 h-3 text-neutral-400" /> {repo.forksCount}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Commits Feed */}
+                {profile.githubProfile.recentCommitsList && profile.githubProfile.recentCommitsList.length > 0 && (
+                  <div className="pt-2 border-t border-neutral-100">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
+                        <GitCommit className="w-3.5 h-3.5 text-emerald-600" />
+                        Recent Commits across Active Repositories
+                      </div>
+                      <span className="text-[11px] text-neutral-400">
+                        Direct GitHub commit log
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {profile.githubProfile.recentCommitsList.map((c, idx) => (
+                        <a
+                          key={`${c.repoName}-${c.sha}-${idx}`}
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 rounded-2xl border border-neutral-200/70 hover:border-neutral-300 bg-neutral-50/50 hover:bg-neutral-50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 group"
+                        >
+                          <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                            <span className="shrink-0 p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 mt-0.5 sm:mt-0">
+                              <GitCommit className="w-3.5 h-3.5" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-neutral-900 group-hover:text-gouni-primary transition-colors truncate">
+                                {c.message}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
+                                <span className="font-mono text-[10px] text-neutral-700 bg-neutral-200/60 px-1.5 py-0.5 rounded font-semibold">
+                                  {c.repoName}
+                                </span>
+                                <span>•</span>
+                                <span>{formatTimeAgo(c.date)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <span className="font-mono text-[11px] font-semibold text-neutral-600 group-hover:text-emerald-700 bg-white border border-neutral-200 px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                              {c.sha}
+                              <ExternalLink className="w-2.5 h-2.5 text-neutral-400" />
                             </span>
                           </div>
                         </a>

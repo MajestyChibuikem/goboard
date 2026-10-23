@@ -22,6 +22,26 @@ export const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-US', options);
 };
 
+export const formatTimeAgo = (dateString?: string | null): string => {
+  if (!dateString) return '';
+  const past = new Date(dateString).getTime();
+  if (isNaN(past)) return '';
+  const now = Date.now();
+  const diffSec = Math.floor((now - past) / 1000);
+
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay === 1) return 'yesterday';
+  if (diffDay < 30) return `${diffDay}d ago`;
+  const diffMonth = Math.floor(diffDay / 30);
+  if (diffMonth < 12) return `${diffMonth}mo ago`;
+  return `${Math.floor(diffMonth / 12)}y ago`;
+};
+
 export const getProjectBadges = (project: Project): Badge[] => {
   const badges: Badge[] = [];
 

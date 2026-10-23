@@ -78,6 +78,7 @@ interface AuthContextType {
   connectGitHubByUsername: (username: string) => Promise<{ profile: GitHubProfileData; xpAwarded: number }>;
   syncGitHubProfile: () => Promise<{ profile: GitHubProfileData; xpAwarded: number } | null>;
   disconnectGitHub: () => Promise<void>;
+  togglePinnedRepo: (repoName: string) => Promise<void>;
   redirectError: string | null;
   clearRedirectError: () => void;
 }
@@ -508,7 +509,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const ghData = await fetchGitHubUserBundle(
-      { username: cleanUsername },
+      {
+        username: cleanUsername,
+        customPinnedRepoNames: profile?.githubProfile?.customPinnedRepoNames,
+      },
       Boolean(profile?.githubProfile?.isVerifiedOAuth && profile.githubProfile.username === cleanUsername.toLowerCase()),
       profile?.githubProfile?.lastRewardedCodingDate
     );
@@ -533,7 +537,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser || !existingGh?.username) return null;
 
     const ghData = await fetchGitHubUserBundle(
-      { username: existingGh.displayUsername || existingGh.username },
+      {
+        username: existingGh.displayUsername || existingGh.username,
+        customPinnedRepoNames: existingGh.customPinnedRepoNames,
+      },
       existingGh.isVerifiedOAuth,
       existingGh.lastRewardedCodingDate
     );
@@ -550,6 +557,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     return { profile: updatedProfile, xpAwarded };
+  };
+
+  const togglePinnedRepo = async (repoName: string): Promise<void> => {
+    const currentUser = auth.currentUser;
+    const currentGh = profile?.githubProfile;
+    if (!currentUser || !currentGh) return;
+
+    const repoLower = repoName.toLowerCase().trim();
+    const currentPinned = new Set(
+      (currentGh.customPinnedRepoNames || []).map((n) => n.toLowerCase().trim())
+    );
+
+    if (currentPinned.has(repoLower)) {
+      currentPinned.delete(repoLower);
+    } else {
+      currentPinned.add(repoLower);
+    }
+
+    const updatedPinnedList = Array.from(currentPinned);
+
+    // Re-sort topRepos
+    const updatedTopRepos = (currentGh.topRepos || [])
+      .map((r) => ({
+        ...r,
+        isPinned: currentPinned.has(r.name.toLowerCase().trim()),
+      }))
+      .sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        const timeA = new Date(a.pushedAt || a.updatedAt).getTime();
+        const timeB = new Date(b.pushedAt || b.updatedAt).getTime();
+        return timeB - timeA;
+      });
+
+    const updatedProfile: GitHubProfileData = {
+      ...currentGh,
+      customPinnedRepoNames: updatedPinnedList,
+      topRepos: updatedTopRepos,
+    };
+
+    await updateDoc(doc(db, 'users', currentUser.uid), {
+      githubProfile: updatedProfile,
+    });
+
+    setProfile((prev) => (prev ? { ...prev, githubProfile: updatedProfile } : prev));
   };
 
   const disconnectGitHub = async (): Promise<void> => {
@@ -590,6 +642,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         connectGitHubByUsername,
         syncGitHubProfile,
         disconnectGitHub,
+        togglePinnedRepo,
         redirectError,
         clearRedirectError,
       }}

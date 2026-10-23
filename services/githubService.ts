@@ -1,6 +1,7 @@
 import {
   GitHubProfileData,
   GitHubRepoSummary,
+  GitHubRecentCommit,
   GitHubLanguageStat,
   ProjectGitHubMeta,
   ProjectContributor,
@@ -45,7 +46,7 @@ export function parseGitHubRepoUrl(input: string): { owner: string; repo: string
  * and 30-day coding activity (commits & active coding days).
  */
 export async function fetchGitHubUserBundle(
-  params: { username?: string; accessToken?: string },
+  params: { username?: string; accessToken?: string; customPinnedRepoNames?: string[] },
   isVerifiedOAuth = false,
   previousRewardedDate?: string | null
 ): Promise<GitHubProfileData> {
@@ -71,11 +72,13 @@ export async function fetchGitHubUserBundle(
   const userData = await userRes.json();
   const login: string = userData.login;
 
-  // 2. Fetch public repositories (up to 60 most recently updated) and recent public events in parallel
+  // 2. Fetch public repositories sorted strictly by latest push date (so active work is always prioritized)
+  // and recent public events in parallel
   const [reposRes, eventsRes] = await Promise.all([
-    fetch(`${GITHUB_API_BASE}/users/${encodeURIComponent(login)}/repos?sort=updated&per_page=60&type=owner`, {
-      headers,
-    }),
+    fetch(
+      `${GITHUB_API_BASE}/users/${encodeURIComponent(login)}/repos?sort=pushed&direction=desc&per_page=60&type=owner`,
+      { headers }
+    ),
     fetch(`${GITHUB_API_BASE}/users/${encodeURIComponent(login)}/events/public?per_page=100`, {
       headers,
     }),
@@ -84,7 +87,55 @@ export async function fetchGitHubUserBundle(
   const rawRepos: any[] = reposRes.ok ? await reposRes.json() : [];
   const rawEvents: any[] = eventsRes.ok ? await eventsRes.json() : [];
 
-  // 3. Compute total stars, language breakdown, and top repositories
+  // 3. Detect pinned repositories
+  const pinnedNamesSet = new Set<string>();
+
+  // If user previously pinned repos manually or passed them in params
+  if (Array.isArray(params.customPinnedRepoNames)) {
+    params.customPinnedRepoNames.forEach((n) => {
+      if (n) pinnedNamesSet.add(n.toLowerCase().trim());
+    });
+  }
+
+  // If an OAuth access token is available, query GitHub GraphQL for user's official pinned repositories
+  if (params.accessToken) {
+    try {
+      const gqlRes = await fetch(`${GITHUB_API_BASE}/graphql`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `query($login: String!) {
+            user(login: $login) {
+              pinnedItems(first: 6, types: REPOSITORY) {
+                nodes {
+                  ... on Repository {
+                    name
+                  }
+                }
+              }
+            }
+          }`,
+          variables: { login },
+        }),
+      });
+      if (gqlRes.ok) {
+        const gqlData = await gqlRes.json();
+        const nodes = gqlData?.data?.user?.pinnedItems?.nodes;
+        if (Array.isArray(nodes)) {
+          nodes.forEach((n: any) => {
+            if (n?.name) pinnedNamesSet.add(String(n.name).toLowerCase().trim());
+          });
+        }
+      }
+    } catch (gqlErr) {
+      console.warn('Could not query pinned repositories via GraphQL:', gqlErr);
+    }
+  }
+
+  // 4. Compute total stars, language breakdown, and map repositories
   let totalStars = 0;
   const langCountMap: Record<string, number> = {};
 
@@ -96,6 +147,10 @@ export async function fetchGitHubUserBundle(
       if (r.language) {
         langCountMap[r.language] = (langCountMap[r.language] || 0) + 1;
       }
+      const repoNameLower = String(r.name || '').toLowerCase().trim();
+      const isPinned = pinnedNamesSet.has(repoNameLower);
+      const pushedAt = r.pushed_at || r.updated_at || new Date().toISOString();
+
       return {
         id: r.id,
         name: r.name,
@@ -108,6 +163,8 @@ export async function fetchGitHubUserBundle(
         openIssuesCount: Number(r.open_issues_count) || 0,
         topics: Array.isArray(r.topics) ? r.topics.slice(0, 6) : [],
         updatedAt: r.updated_at || new Date().toISOString(),
+        pushedAt,
+        isPinned,
       };
     });
 
@@ -121,17 +178,74 @@ export async function fetchGitHubUserBundle(
       percentage: Math.round((count / totalLangRepos) * 100),
     }));
 
-  // Sort repos by stars then recency, keep up to 8 for quick import & profile display
+  // Sort repos: Pinned repositories ALWAYS come first, then sort by most recent push date!
+  // No older star-heavy repositories can push actively developed repos off the display.
   const topRepos = [...mappedRepos]
     .sort((a, b) => {
-      if (b.stargazersCount !== a.stargazersCount) {
-        return b.stargazersCount - a.stargazersCount;
-      }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      const timeA = new Date(a.pushedAt || a.updatedAt).getTime();
+      const timeB = new Date(b.pushedAt || b.updatedAt).getTime();
+      return timeB - timeA;
     })
     .slice(0, 8);
 
-  // 4. Calculate 30-day coding activity from public events
+  // 5. Fetch recent commits across the top active repositories
+  const recentCommitsList: GitHubRecentCommit[] = [];
+  const reposToInspect = mappedRepos.slice(0, 4);
+
+  if (reposToInspect.length > 0) {
+    try {
+      const commitPromises = reposToInspect.map(async (repo) => {
+        try {
+          const commitRes = await fetch(
+            `${GITHUB_API_BASE}/repos/${encodeURIComponent(login)}/${encodeURIComponent(
+              repo.name
+            )}/commits?author=${encodeURIComponent(login)}&per_page=4`,
+            { headers }
+          );
+          if (commitRes.ok) {
+            const commitData: any[] = await commitRes.json();
+            if (Array.isArray(commitData)) {
+              return commitData.map((c) => ({
+                repoName: repo.name,
+                sha: c.sha ? String(c.sha).slice(0, 7) : '',
+                message: c.commit?.message
+                  ? String(c.commit.message).split('\n')[0].slice(0, 100)
+                  : 'Update',
+                date:
+                  c.commit?.author?.date ||
+                  c.commit?.committer?.date ||
+                  new Date().toISOString(),
+                url:
+                  c.html_url ||
+                  `https://github.com/${login}/${repo.name}/commit/${c.sha}`,
+              }));
+            }
+          }
+        } catch (e) {
+          // Ignore individual repo commit fetch errors
+        }
+        return [];
+      });
+
+      const commitResults = await Promise.allSettled(commitPromises);
+      for (const res of commitResults) {
+        if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+          recentCommitsList.push(...res.value);
+        }
+      }
+
+      // Sort commits descending by date and keep up to 6
+      recentCommitsList.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    } catch (err) {
+      console.warn('Error aggregating recent commits:', err);
+    }
+  }
+
+  // 6. Calculate 30-day coding activity from public events
   const thirtyDaysAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
   let recentCommits30d = 0;
   const activeDaySet = new Set<string>();
@@ -186,6 +300,8 @@ export async function fetchGitHubUserBundle(
     lastRewardedCodingDate: previousRewardedDate || null,
     isVerifiedOAuth,
     topRepos,
+    recentCommitsList: recentCommitsList.slice(0, 6),
+    customPinnedRepoNames: Array.from(pinnedNamesSet),
     lastSyncedAt: new Date().toISOString(),
   };
 }

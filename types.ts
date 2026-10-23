@@ -216,6 +216,16 @@ export interface GitHubRepoSummary {
   openIssuesCount: number;
   topics: string[];
   updatedAt: string;
+  pushedAt?: string;
+  isPinned?: boolean;
+}
+
+export interface GitHubRecentCommit {
+  repoName: string;
+  sha: string;
+  message: string;
+  date: string;
+  url: string;
 }
 
 export interface GitHubLanguageStat {
@@ -241,6 +251,8 @@ export interface GitHubProfileData {
   lastRewardedCodingDate?: string | null;
   isVerifiedOAuth: boolean;
   topRepos: GitHubRepoSummary[];
+  recentCommitsList?: GitHubRecentCommit[];
+  customPinnedRepoNames?: string[];
   lastSyncedAt: string;
 }
 
