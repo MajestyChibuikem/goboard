@@ -134,6 +134,69 @@ export interface Writing {
   suspensionReason?: string;
 }
 
+// ─── Genesis Quests & Builder Milestones ───
+
+export interface QuestDefinition {
+  id: string;
+  title: string;
+  shortDesc: string;
+  category: 'identity' | 'shipping' | 'community' | 'collaboration';
+  icon: string;
+  xpReward: number;
+  coinReward?: number;
+  badgeName?: string;
+  actionLabel: string;
+  completedLabel: string;
+}
+
+export const GENESIS_QUESTS: QuestDefinition[] = [
+  {
+    id: 'connect_forge',
+    title: 'Connect Your Forge',
+    shortDesc: 'Link your GitHub profile to verify your developer identity',
+    category: 'identity',
+    icon: 'shield',
+    xpReward: 50,
+    badgeName: 'Builder',
+    actionLabel: 'Connect GitHub',
+    completedLabel: 'GitHub Linked',
+  },
+  {
+    id: 'first_ship',
+    title: 'First Ship',
+    shortDesc: 'Submit your first project backed by a verified GitHub repo',
+    category: 'shipping',
+    icon: 'rocket',
+    xpReward: 150,
+    coinReward: 50,
+    badgeName: 'Shipper',
+    actionLabel: 'Ship Project',
+    completedLabel: 'Project Shipped',
+  },
+  {
+    id: 'campus_scout',
+    title: 'Campus Scout',
+    shortDesc: 'Upvote and review 3 student projects across campus',
+    category: 'community',
+    icon: 'compass',
+    xpReward: 50,
+    coinReward: 20,
+    actionLabel: 'Explore Feed',
+    completedLabel: '3 Projects Scouted',
+  },
+  {
+    id: 'open_source_pioneer',
+    title: 'Open Source Pioneer',
+    shortDesc: 'Mark any project "Open to PRs" to invite collaboration',
+    category: 'collaboration',
+    icon: 'git-pull-request',
+    xpReward: 100,
+    badgeName: 'Contributor',
+    actionLabel: 'Enable PRs',
+    completedLabel: 'Repo Open to PRs',
+  },
+];
+
 // ─── Season 1 Campaign & Economy Types ───
 
 export interface CampaignConfig {

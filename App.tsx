@@ -422,10 +422,10 @@ const App: React.FC = () => {
                        </div>
                        <div className="p-1">
                          <button
-                           onClick={() => { setShowUserMenu(false); openCampaignHub('upload'); }}
+                           onClick={() => { setShowUserMenu(false); openCampaignHub('quests'); }}
                            className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-amber-700 font-medium hover:bg-amber-50 rounded-lg transition-colors"
                          >
-                           <Sparkles className="w-4 h-4 text-amber-500" /> Exam Paper Bounty
+                           <Sparkles className="w-4 h-4 text-amber-500" /> Builder Quests & Bounty
                          </button>
                          <button
                            onClick={() => { setShowUserMenu(false); navigate('/profile'); }}
@@ -527,14 +527,14 @@ const App: React.FC = () => {
                 </button>
                 {campaignConfig.isActive && (
                   <button
-                    onClick={() => { setIsMobileMenuOpen(false); openCampaignHub('upload'); }}
+                    onClick={() => { setIsMobileMenuOpen(false); openCampaignHub('quests'); }}
                     className="flex items-center justify-between w-full text-left px-3.5 py-2.5 font-semibold rounded-xl text-sm bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 border border-amber-200/70"
                   >
                     <span className="flex items-center gap-2.5">
                       <Sparkles className="w-4 h-4 text-amber-500" />
-                      Season {campaignConfig.seasonNumber} Bounty
+                      Builder Quests & Bounty
                     </span>
-                    <span className="text-[11px] font-bold text-amber-700">+{campaignConfig.rewardPerPaper} GC</span>
+                    <span className="text-[11px] font-bold text-amber-700">+350 XP</span>
                   </button>
                 )}
                 <div className="pt-4 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">Categories</div>
@@ -640,6 +640,13 @@ const App: React.FC = () => {
               setIsCampaignHubOpen(false);
               setIsAuthModalOpen(true);
             }}
+            onOpenSubmitModal={() => {
+              setIsCampaignHubOpen(false);
+              requireAuth(() => setIsSubmitModalOpen(true));
+            }}
+            projects={projects}
+            userVotes={userVotes}
+            onVoteProject={handleVote}
           />
         )}
       </AnimatePresence>

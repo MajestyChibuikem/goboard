@@ -1,6 +1,23 @@
-import React, { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { X, Upload, Image as ImageIcon, Github, GitFork, Sparkles, Check } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  X,
+  Upload,
+  Image as ImageIcon,
+  Github,
+  GitFork,
+  Sparkles,
+  Check,
+  Search,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  ChevronDown,
+  CheckCircle2,
+  AlertCircle,
+  Star,
+  Clock,
+} from 'lucide-react';
 import { Button } from './Button';
 import { Category, Project, ProjectGitHubMeta, GitHubRepoSummary } from '../types';
 import {
@@ -8,7 +25,11 @@ import {
   isProjectTitleTaken,
   matchGitHubContributorsToUsers,
 } from '../services/firestoreService';
-import { fetchGitHubRepoMetadata, parseGitHubRepoUrl } from '../services/githubService';
+import {
+  fetchGitHubRepoMetadata,
+  parseGitHubRepoUrl,
+  fetchAllUserRepositories,
+} from '../services/githubService';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTRIBUTION_AREAS, ACADEMIC_LEVELS } from '../constants';
 
@@ -36,13 +57,45 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
   const [importError, setImportError] = useState<string | null>(null);
   const [repoImportInput, setRepoImportInput] = useState('');
 
+  // Live repository catalog state (fetches all 60+ user repos)
+  const [userRepos, setUserRepos] = useState<GitHubRepoSummary[]>(profile?.githubProfile?.topRepos || []);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [repoSearchQuery, setRepoSearchQuery] = useState('');
+  const [isRepoSelectorOpen, setIsRepoSelectorOpen] = useState(false);
+
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [titleError, setTitleError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const connectedRepos: GitHubRepoSummary[] = profile?.githubProfile?.topRepos || [];
+  // Fetch full live repository catalog if user has connected GitHub
+  useEffect(() => {
+    const ghUser = profile?.githubProfile?.username || profile?.githubProfile?.displayUsername;
+    if (!ghUser) return;
+
+    setLoadingRepos(true);
+    fetchAllUserRepositories(ghUser)
+      .then((repos) => {
+        if (repos.length > 0) {
+          setUserRepos(repos);
+        }
+      })
+      .catch((err) => console.warn('Live repos fetch failed, using cached list:', err))
+      .finally(() => setLoadingRepos(false));
+  }, [profile?.githubProfile?.username, profile?.githubProfile?.displayUsername]);
+
+  // Filtered repositories based on live search
+  const filteredRepos = useMemo(() => {
+    if (!repoSearchQuery.trim()) return userRepos;
+    const q = repoSearchQuery.toLowerCase().trim();
+    return userRepos.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.language && r.language.toLowerCase().includes(q)) ||
+        (r.description && r.description.toLowerCase().includes(q))
+    );
+  }, [userRepos, repoSearchQuery]);
 
   const handleImportFromGitHub = async (repoUrlOrFullName: string) => {
     if (!repoUrlOrFullName.trim()) return;
@@ -76,6 +129,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         repoUrl: repoSummary.htmlUrl,
       }));
       setTitleError('');
+      setIsRepoSelectorOpen(false);
     } catch (err: any) {
       console.error('GitHub import failed:', err);
       setImportError(err?.message || 'Could not import repository from GitHub.');
@@ -106,6 +160,14 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTitleError('');
+    setImportError(null);
+
+    // Enforce GitHub-First requirement
+    if (!formData.repoUrl || !parseGitHubRepoUrl(formData.repoUrl)) {
+      setImportError('A valid GitHub repository is required to submit a project on GoBoard.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -152,7 +214,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
             contributorUids = matched.contributorUids;
           }
         } catch (ghErr) {
-          console.warn('Optional GitHub metadata fetch during submit skipped:', ghErr);
+          console.warn('GitHub metadata fetch during submit skipped:', ghErr);
         }
       }
 
@@ -199,14 +261,19 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 14 }}
         transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-        className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[85vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[88vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neutral-100">
           <div>
-            <h2 className="text-lg font-bold text-neutral-900">Submit Project</h2>
-            <p className="text-[13px] text-neutral-400 mt-0.5">Share your work or invite open-source contributors</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-neutral-900">Submit Project</h2>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                <Github className="w-3 h-3 text-emerald-400" /> GitHub Required
+              </span>
+            </div>
+            <p className="text-[13px] text-neutral-400 mt-0.5">Showcase your verified open-source software and invite student collaborators</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.08 }}
@@ -220,64 +287,137 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* ── 1-Click GitHub Repository Import Bar ── */}
+          {/* ── Step 1: GitHub Repository Selection (Mandatory) ── */}
           <div className="p-4 rounded-2xl bg-neutral-900 text-white space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs font-bold">
                 <Github className="w-4 h-4 text-emerald-400" />
-                1-Click Import from GitHub
+                Step 1: Choose GitHub Repository
               </div>
-              {importedGitHubMeta && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                  <Check className="w-3 h-3" /> Imported {importedGitHubMeta.fullName}
+              {loadingRepos && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-neutral-400">
+                  <Loader2 className="w-3 h-3 animate-spin text-emerald-400" /> Loading repos...
                 </span>
               )}
             </div>
 
-            {connectedRepos.length > 0 && (
-              <div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setRepoImportInput(e.target.value);
-                      handleImportFromGitHub(e.target.value);
-                    }
-                  }}
-                  defaultValue=""
-                  className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-white focus:outline-none"
-                >
-                  <option value="" className="text-neutral-900">
-                    Select from your connected GitHub repositories (@{profile?.githubProfile?.displayUsername})...
-                  </option>
-                  {connectedRepos.map((r) => (
-                    <option key={r.id} value={r.htmlUrl} className="text-neutral-900">
-                      {r.name} {r.language ? `(${r.language})` : ''} — ★ {r.stargazersCount}
-                    </option>
-                  ))}
-                </select>
+            {/* When already imported */}
+            {importedGitHubMeta ? (
+              <div className="p-3 bg-white/10 border border-emerald-500/30 rounded-xl space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-semibold text-xs text-white truncate">{importedGitHubMeta.fullName}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportedGitHubMeta(null);
+                      setFormData(prev => ({ ...prev, repoUrl: '' }));
+                    }}
+                    className="text-[11px] text-emerald-300 hover:text-emerald-200 underline shrink-0 cursor-pointer"
+                  >
+                    Change Repo
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-neutral-300">
+                  {importedGitHubMeta.language && (
+                    <span className="px-2 py-0.5 rounded-md bg-white/10 text-white font-medium">
+                      {importedGitHubMeta.language}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1">
+                    <Star className="w-3 h-3 text-amber-400" /> {importedGitHubMeta.stars}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <GitFork className="w-3 h-3 text-neutral-400" /> {importedGitHubMeta.forks}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Searchable live repo list if user has repos */}
+                {userRepos.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={repoSearchQuery}
+                        onChange={(e) => setRepoSearchQuery(e.target.value)}
+                        placeholder={`Search through ${userRepos.length} repositories...`}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      />
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                      {filteredRepos.length > 0 ? (
+                        filteredRepos.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            disabled={importingRepo}
+                            onClick={() => handleImportFromGitHub(r.htmlUrl)}
+                            className="w-full text-left p-2.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/5 hover:border-white/20 transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
+                                {r.name}
+                              </span>
+                              <div className="flex items-center gap-2 text-[10px] text-neutral-400 shrink-0">
+                                {r.language && (
+                                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-neutral-300 font-medium">
+                                    {r.language}
+                                  </span>
+                                )}
+                                <span className="inline-flex items-center gap-0.5">
+                                  <Star className="w-2.5 h-2.5 text-amber-400" /> {r.stargazersCount}
+                                </span>
+                              </div>
+                            </div>
+                            {r.description && (
+                              <p className="text-[11px] text-neutral-400 truncate mt-0.5">{r.description}</p>
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="text-center py-4 text-xs text-neutral-400">
+                          No repositories matching "{repoSearchQuery}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Direct Paste URL input */}
+                <div className="pt-2 border-t border-white/10 space-y-1.5">
+                  <span className="text-[11px] text-neutral-400">Or paste any public GitHub repository URL:</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={repoImportInput}
+                      onChange={(e) => setRepoImportInput(e.target.value)}
+                      placeholder="https://github.com/owner/repo"
+                      className="flex-grow px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-white placeholder:text-neutral-400 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={importingRepo || !repoImportInput.trim()}
+                      onClick={() => handleImportFromGitHub(repoImportInput)}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs transition-colors disabled:opacity-40 shrink-0 cursor-pointer"
+                    >
+                      {importingRepo ? 'Importing...' : 'Auto-Fill'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={repoImportInput}
-                onChange={(e) => setRepoImportInput(e.target.value)}
-                placeholder="Or paste GitHub URL (e.g. github.com/owner/repo)"
-                className="flex-grow px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-white placeholder:text-neutral-400 focus:outline-none"
-              />
-              <button
-                type="button"
-                disabled={importingRepo || !repoImportInput.trim()}
-                onClick={() => handleImportFromGitHub(repoImportInput)}
-                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold text-xs transition-colors disabled:opacity-40 shrink-0"
-              >
-                {importingRepo ? 'Importing...' : 'Auto-Fill'}
-              </button>
-            </div>
-
             {importError && (
-              <p className="text-[11px] text-red-300">{importError}</p>
+              <div className="flex items-center gap-1.5 text-[11px] text-red-300 bg-red-950/40 p-2 rounded-lg border border-red-800/50">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{importError}</span>
+              </div>
             )}
           </div>
 
@@ -336,7 +476,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
               onChange={handleChange}
               rows={3}
               className={`${inputStyles} resize-none`}
-              placeholder="Briefly describe the problem and solution..."
+              placeholder="Briefly describe what this project does and the problem it solves..."
             />
           </div>
 
@@ -354,25 +494,29 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
           <div className="grid grid-cols-2 gap-4">
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Demo URL <span className="text-neutral-400 font-normal">(optional)</span></label>
+              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Live Demo URL <span className="text-neutral-400 font-normal">(optional)</span></label>
               <input
                 name="demoUrl"
                 type="url"
                 value={formData.demoUrl}
                 onChange={handleChange}
+                placeholder="https://my-app.vercel.app"
                 className={inputStyles}
               />
             </div>
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Repo URL <span className="text-neutral-400 font-normal">(optional)</span></label>
-              <input
-                name="repoUrl"
-                type="url"
-                value={formData.repoUrl}
-                onChange={handleChange}
-                placeholder="https://github.com/..."
-                className={inputStyles}
-              />
+              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">GitHub Repository</label>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-sm">
+                <Github className="w-4 h-4 text-neutral-600 shrink-0" />
+                <span className="font-mono text-xs truncate flex-grow text-neutral-700">
+                  {formData.repoUrl ? formData.repoUrl.replace('https://github.com/', '') : 'Select repo above'}
+                </span>
+                {formData.repoUrl ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                ) : (
+                  <span className="text-[10px] text-amber-600 font-bold uppercase">Required</span>
+                )}
+              </div>
             </div>
           </div>
 

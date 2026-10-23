@@ -393,3 +393,67 @@ export async function fetchGitHubRepoMetadata(
 
   return { repoSummary, meta };
 }
+
+/**
+ * Fetches the complete list of a user's repositories from GitHub.
+ * Returns up to 200 repositories sorted by latest push date (covers users with 60+ repos).
+ * Includes personal repos, collaborator repos, organization repos, and forks.
+ */
+export async function fetchAllUserRepositories(
+  username: string,
+  accessToken?: string
+): Promise<GitHubRepoSummary[]> {
+  if (!username && !accessToken) return [];
+  const headers = buildHeaders(accessToken);
+
+  const fetchPage = async (page: number): Promise<any[]> => {
+    const endpoint = accessToken
+      ? `${GITHUB_API_BASE}/user/repos?sort=pushed&direction=desc&per_page=100&page=${page}&affiliation=owner,collaborator,organization_member`
+      : `${GITHUB_API_BASE}/users/${encodeURIComponent(username.trim())}/repos?sort=pushed&direction=desc&per_page=100&page=${page}&type=all`;
+
+    const res = await fetch(endpoint, { headers });
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 403) return [];
+      throw new Error(`Failed to fetch repositories (${res.status})`);
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  };
+
+  try {
+    const page1 = await fetchPage(1);
+    let allRaw = page1;
+    // If first page has 100 items, fetch second page to cover 100+ repos
+    if (page1.length === 100) {
+      try {
+        const page2 = await fetchPage(2);
+        allRaw = [...page1, ...page2];
+      } catch (err) {
+        console.warn('Page 2 repo fetch skipped:', err);
+      }
+    }
+
+    return allRaw.map((r: any) => {
+      const stars = Number(r.stargazers_count) || 0;
+      const pushedAt = r.pushed_at || r.updated_at || new Date().toISOString();
+      return {
+        id: r.id,
+        name: r.name,
+        fullName: r.full_name,
+        htmlUrl: r.html_url,
+        description: r.description || null,
+        language: r.language || null,
+        stargazersCount: stars,
+        forksCount: Number(r.forks_count) || 0,
+        openIssuesCount: Number(r.open_issues_count) || 0,
+        topics: Array.isArray(r.topics) ? r.topics.slice(0, 6) : [],
+        updatedAt: r.updated_at || new Date().toISOString(),
+        pushedAt,
+        isPinned: false,
+      };
+    });
+  } catch (err) {
+    console.error('Failed to fetch user repositories:', err);
+    return [];
+  }
+}
