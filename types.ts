@@ -281,6 +281,7 @@ export interface GitHubRepoSummary {
   updatedAt: string;
   pushedAt?: string;
   isPinned?: boolean;
+  homepage?: string | null;
 }
 
 export interface GitHubRecentCommit {

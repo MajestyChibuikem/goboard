@@ -29,6 +29,7 @@ import {
   fetchGitHubRepoMetadata,
   parseGitHubRepoUrl,
   fetchAllUserRepositories,
+  fetchGitHubRepoReadmeSummary,
 } from '../services/githubService';
 import { useAuth } from '../contexts/AuthContext';
 import { CONTRIBUTION_AREAS, ACADEMIC_LEVELS } from '../constants';
@@ -121,12 +122,36 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         .replace(/[-_]+/g, ' ')
         .replace(/\b\w/g, (c) => c.toUpperCase());
 
+      // Extract README description & live deployed link (falling back to repo description/default)
+      let readmeSummary: string | null = null;
+      let deployedLink: string | null =
+        repoSummary.homepage && repoSummary.homepage.startsWith('http')
+          ? repoSummary.homepage
+          : null;
+
+      try {
+        const readmeResult = await fetchGitHubRepoReadmeSummary(meta.owner, meta.repo);
+        if (readmeResult.description) {
+          readmeSummary = readmeResult.description;
+        }
+        if (!deployedLink && readmeResult.demoUrl) {
+          deployedLink = readmeResult.demoUrl;
+        }
+      } catch (readmeErr) {
+        console.warn('README fetch skipped:', readmeErr);
+      }
+
       setFormData((prev) => ({
         ...prev,
         title: prev.title || prettyTitle,
-        description: prev.description || repoSummary.description || `Open-source project repository ${repoSummary.fullName}`,
+        description:
+          readmeSummary ||
+          repoSummary.description ||
+          `Open-source project repository ${repoSummary.fullName}`,
         techStack: techItems.length > 0 ? techItems.join(', ') : prev.techStack,
         repoUrl: repoSummary.htmlUrl,
+        demoUrl: prev.demoUrl || deployedLink || '',
+        websiteUrl: prev.websiteUrl || deployedLink || '',
       }));
       setTitleError('');
       setIsRepoSelectorOpen(false);
@@ -364,7 +389,12 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
                               <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
                                 {r.name}
                               </span>
-                              <div className="flex items-center gap-2 text-[10px] text-neutral-400 shrink-0">
+                              <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 shrink-0">
+                                {r.homepage && (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold text-[9px] flex items-center gap-1 border border-emerald-500/30">
+                                    <ExternalLink className="w-2.5 h-2.5" /> Deployed
+                                  </span>
+                                )}
                                 {r.language && (
                                   <span className="px-1.5 py-0.5 rounded bg-white/10 text-neutral-300 font-medium">
                                     {r.language}

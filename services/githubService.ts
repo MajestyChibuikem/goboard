@@ -165,6 +165,7 @@ export async function fetchGitHubUserBundle(
         updatedAt: r.updated_at || new Date().toISOString(),
         pushedAt,
         isPinned,
+        homepage: r.homepage ? String(r.homepage).trim() : null,
       };
     });
 
@@ -371,6 +372,7 @@ export async function fetchGitHubRepoMetadata(
     openIssuesCount: Number(repoData.open_issues_count) || 0,
     topics: Array.isArray(repoData.topics) ? repoData.topics : [],
     updatedAt: repoData.updated_at || new Date().toISOString(),
+    homepage: repoData.homepage ? String(repoData.homepage).trim() : null,
   };
 
   const meta: ProjectGitHubMeta = {
@@ -450,10 +452,216 @@ export async function fetchAllUserRepositories(
         updatedAt: r.updated_at || new Date().toISOString(),
         pushedAt,
         isPinned: false,
+        homepage: r.homepage ? String(r.homepage).trim() : null,
       };
     });
   } catch (err) {
     console.error('Failed to fetch user repositories:', err);
     return [];
   }
+}
+
+/**
+ * Validates whether a given string is a valid HTTP or HTTPS URL.
+ */
+function isValidHttpUrl(str: string): boolean {
+  try {
+    const url = new URL(str);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Safely decodes a base64 encoded UTF-8 string.
+ */
+function decodeBase64Safe(b64: string): string {
+  try {
+    return decodeURIComponent(
+      atob(b64.replace(/\s/g, ''))
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+  } catch {
+    return atob(b64.replace(/\s/g, ''));
+  }
+}
+
+/**
+ * Extracts a live demo or deployment URL from a repository's markdown content.
+ */
+export function extractDemoUrlFromMarkdown(markdown: string): string | null {
+  if (!markdown) return null;
+
+  // Pattern 1: [Live Demo](https://...) or [Demo](https://...) or [Website](https://...)
+  const linkMatch = markdown.match(
+    /\[(?:Live\s*Demo|Demo|Website|App|Live\s*App|Preview|Production|Deployed(?:\s*URL)?|Live\s*Link)\]\((https?:\/\/[^\s\)]+)\)/i
+  );
+  if (linkMatch && isValidHttpUrl(linkMatch[1])) {
+    return linkMatch[1];
+  }
+
+  // Pattern 2: Live Demo: https://... or Website: https://...
+  const textMatch = markdown.match(
+    /(?:Live\s*Demo|Demo|Website|Live\s*App|Preview|Deployment|Deployed\s*at|Live\s*URL|Live\s*Site):\s*\[?(https?:\/\/[^\s\)\>\]]+)/i
+  );
+  if (textMatch && isValidHttpUrl(textMatch[1])) {
+    return textMatch[1].replace(/[.,;:)]$/, '');
+  }
+
+  // Pattern 3: Common hosting platforms (Vercel, Netlify, Render, GitHub Pages, Fly, Railway)
+  const hostMatch = markdown.match(
+    /https?:\/\/[a-zA-Z0-9-]+\.(?:vercel\.app|netlify\.app|github\.io|onrender\.com|fly\.dev|railway\.app)(?:\/[^\s\)\>\]]*)?/i
+  );
+  if (hostMatch && isValidHttpUrl(hostMatch[0])) {
+    return hostMatch[0].replace(/[.,;:)]$/, '');
+  }
+
+  return null;
+}
+
+/**
+ * Extracts a clean, readable introductory summary from raw README markdown.
+ * Skips headers, badges, images, and install commands.
+ * Returns null if the README contains no substantial descriptive text.
+ */
+export function extractCleanSummaryFromMarkdown(markdown: string): string | null {
+  if (!markdown || !markdown.trim()) return null;
+
+  // Remove HTML comments
+  let clean = markdown.replace(/<!--[\s\S]*?-->/g, '');
+
+  // Remove code blocks
+  clean = clean.replace(/```[\s\S]*?```/g, '');
+
+  // Split into paragraphs by blank lines
+  const paragraphs = clean.split(/\n\s*\n/);
+
+  for (const para of paragraphs) {
+    let text = para.trim();
+    if (!text) continue;
+
+    // If paragraph has headers, remove the header lines
+    if (/^#+\s+/m.test(text)) {
+      const nonHeaderLines = text
+        .split('\n')
+        .filter((l) => !/^#+\s+/.test(l.trim()))
+        .join(' ')
+        .trim();
+      text = nonHeaderLines;
+    }
+
+    if (!text) continue;
+
+    // Skip if paragraph is only badges or markdown image links: [![badge](url)](url)
+    const strippedImages = text.replace(/!?\[.*?\]\(.*?\)/g, '').trim();
+    if (strippedImages.length < 15) continue;
+
+    // Strip inline markdown images
+    text = text.replace(/!\[.*?\]\(.*?\)/g, '');
+
+    // Convert markdown links [text](url) to just text
+    text = text.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+
+    // Strip HTML tags
+    text = text.replace(/<.*?>/g, '');
+
+    // Strip bold/italics markers
+    text = text.replace(/[*_~`]/g, '');
+
+    // Normalize whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // Skip common boilerplate lines
+    if (/^(table of contents|contents|overview|about|description|summary):?$/i.test(text)) continue;
+    if (/^(npm\s+(?:install|i|run)|yarn\s+(?:add|install)|pnpm\s+(?:add|install)|git\s+clone|pip\s+install)/i.test(text)) continue;
+    if (/^(license|contributing|acknowledgments|author|authors):?/i.test(text)) continue;
+
+    // Check if substantial enough to be a genuine description (at least 25 characters)
+    if (text.length >= 25) {
+      if (text.length > 350) {
+        const truncated = text.slice(0, 350);
+        const lastSpace = truncated.lastIndexOf(' ');
+        return (lastSpace > 250 ? truncated.slice(0, lastSpace) : truncated) + '...';
+      }
+      return text;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetches the raw README.md for a repository and extracts:
+ * 1. A clean, human-readable summary/description (or null if empty/missing).
+ * 2. An extracted live deployed URL if present (or null).
+ */
+export async function fetchGitHubRepoReadmeSummary(
+  owner: string,
+  repo: string,
+  accessToken?: string
+): Promise<{ description: string | null; demoUrl: string | null }> {
+  const headers = buildHeaders(accessToken);
+  let rawMarkdown = '';
+
+  // 1. Try GitHub API for README
+  try {
+    const apiRes = await fetch(
+      `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/readme`,
+      {
+        headers: {
+          ...headers,
+          Accept: 'application/vnd.github.raw+json, application/vnd.github.v3.raw, text/plain',
+        },
+      }
+    );
+
+    if (apiRes.ok) {
+      const contentType = apiRes.headers.get('content-type') || '';
+      if (contentType.includes('json')) {
+        const json = await apiRes.json();
+        if (json?.content && json?.encoding === 'base64') {
+          rawMarkdown = decodeBase64Safe(json.content);
+        } else if (typeof json === 'string') {
+          rawMarkdown = json;
+        }
+      } else {
+        rawMarkdown = await apiRes.text();
+      }
+    }
+  } catch (err) {
+    // API attempt failed, fallback to raw.githubusercontent.com
+  }
+
+  // 2. Fallback to raw.githubusercontent.com if API was empty or rate-limited
+  if (!rawMarkdown.trim()) {
+    const branches = ['main', 'master', 'HEAD'];
+    for (const b of branches) {
+      try {
+        const rawRes = await fetch(
+          `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${b}/README.md`
+        );
+        if (rawRes.ok) {
+          rawMarkdown = await rawRes.text();
+          if (rawMarkdown.trim()) break;
+        }
+      } catch {
+        // try next branch
+      }
+    }
+  }
+
+  if (!rawMarkdown.trim()) {
+    return { description: null, demoUrl: null };
+  }
+
+  // 3. Extract deployed link from README
+  const demoUrl = extractDemoUrlFromMarkdown(rawMarkdown);
+
+  // 4. Extract clean readable description from README
+  const description = extractCleanSummaryFromMarkdown(rawMarkdown);
+
+  return { description, demoUrl };
 }
