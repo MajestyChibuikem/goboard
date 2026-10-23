@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet, ScrollRestoration } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Project, Category, CampaignConfig } from './types';
+import { Project, Category, CampaignConfig, SortOption } from './types';
 import { INITIAL_PROJECTS, CATEGORIES } from './constants';
 import { SubmitProjectModal } from './components/SubmitProjectModal';
 import { AuthModal } from './components/AuthModal';
@@ -51,6 +51,10 @@ const App: React.FC = () => {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [showOpenToContributions, setShowOpenToContributions] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [userVotes, setUserVotes] = useState<Set<string>>(new Set());
@@ -64,9 +68,8 @@ const App: React.FC = () => {
   // Determine current page from URL for sidebar highlighting
   const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : location.pathname.startsWith('/lit-club') || location.pathname.startsWith('/writing/') ? 'lit-club' : 'home';
 
-  // Scroll to top and close open menus on navigation
+  // Close open menus on navigation (ScrollRestoration handles scroll position preservation)
   useEffect(() => {
-    window.scrollTo(0, 0);
     setShowUserMenu(false);
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
@@ -278,10 +281,21 @@ const App: React.FC = () => {
     isCampaignHubOpen,
     setIsCampaignHubOpen,
     campaignHubInitialTab,
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    sortBy,
+    setSortBy,
+    showFavorites,
+    setShowFavorites,
+    showOpenToContributions,
+    setShowOpenToContributions,
   };
 
   return (
     <div className="min-h-screen bg-[#fafafa] font-sans text-neutral-900">
+      <ScrollRestoration />
 
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-neutral-200/60">
@@ -294,7 +308,15 @@ const App: React.FC = () => {
 
             <div
               className="flex items-center gap-2.5 cursor-pointer"
-              onClick={() => navigate('/browse')}
+              onClick={() => {
+                setSelectedCategory('All');
+                setSearchQuery('');
+                setShowFavorites(false);
+                setShowOpenToContributions(false);
+                setSortBy('newest');
+                navigate('/browse');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             >
               <div className="w-8 h-8 bg-gouni-dark rounded-lg flex items-center justify-center">
                 <GraduationCap className="w-4.5 h-4.5 text-white" />
@@ -480,9 +502,17 @@ const App: React.FC = () => {
               </div>
               <nav className="space-y-1">
                 <button
-                  onClick={() => { navigate('/browse'); setIsMobileMenuOpen(false); }}
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    setShowFavorites(false);
+                    setShowOpenToContributions(false);
+                    navigate('/browse');
+                    setIsMobileMenuOpen(false);
+                  }}
                   className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 font-medium rounded-xl text-sm ${
-                    currentPage === 'home' ? 'text-neutral-900 bg-neutral-100' : 'text-neutral-500 hover:bg-neutral-50'
+                    currentPage === 'home' && selectedCategory === 'All' && !showFavorites && !showOpenToContributions
+                      ? 'text-neutral-900 bg-neutral-100 font-semibold'
+                      : 'text-neutral-500 hover:bg-neutral-50'
                   }`}
                 >
                   <Home className="w-4 h-4" /> All Projects
@@ -511,8 +541,18 @@ const App: React.FC = () => {
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
-                    onClick={() => { navigate('/browse'); setIsMobileMenuOpen(false); }}
-                    className="flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 rounded-xl"
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setShowFavorites(false);
+                      setShowOpenToContributions(false);
+                      navigate('/browse');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-sm rounded-xl ${
+                      selectedCategory === cat && !showFavorites && !showOpenToContributions
+                        ? 'bg-neutral-900 text-white font-medium'
+                        : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50'
+                    }`}
                   >
                     {CATEGORY_ICONS[cat] || <Tag className="w-4 h-4" />}
                     {cat}

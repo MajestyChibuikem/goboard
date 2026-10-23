@@ -77,6 +77,14 @@ const WritingPage: React.FC = () => {
     });
   }, [user, writing, userLitVotes, votingPending, requireAuth, toast]);
 
+  const handleBack = useCallback(() => {
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/lit-club');
+    }
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -93,7 +101,7 @@ const WritingPage: React.FC = () => {
         <h2 className="text-xl font-semibold text-neutral-900 mb-2">Writing not found</h2>
         <p className="text-sm text-neutral-400 mb-6">This piece may have been removed, is pending review, or doesn't exist.</p>
         <button
-          onClick={() => navigate('/lit-club')}
+          onClick={handleBack}
           className="text-sm font-medium text-gouni-primary hover:underline"
         >
           Back to Lit Club
@@ -106,7 +114,7 @@ const WritingPage: React.FC = () => {
     <>
       <WritingDetailView
         writing={writing}
-        onBack={() => navigate('/lit-club')}
+        onBack={handleBack}
         onUpdateWriting={setWriting}
         onVote={handleVote}
         onRequireAuth={() => requireAuth(() => {})}

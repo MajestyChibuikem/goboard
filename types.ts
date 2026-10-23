@@ -283,3 +283,5 @@ export interface ProjectGitHubMeta {
   lastSyncedAt: string;
 }
 
+export type SortOption = 'newest' | 'votes' | 'comments';
+

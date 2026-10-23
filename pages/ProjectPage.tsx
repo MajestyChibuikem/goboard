@@ -51,6 +51,14 @@ const ProjectPage: React.FC = () => {
     setProject(updated);
   }, []);
 
+  const handleBack = useCallback(() => {
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/browse');
+    }
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="max-w-[1440px] mx-auto flex items-center justify-center py-24">
@@ -67,7 +75,7 @@ const ProjectPage: React.FC = () => {
         <h2 className="text-xl font-semibold text-neutral-900 mb-2">Project not found</h2>
         <p className="text-sm text-neutral-400 mb-6">This project may have been removed, is pending review, or doesn't exist.</p>
         <button
-          onClick={() => navigate('/browse')}
+          onClick={handleBack}
           className="text-sm font-medium text-gouni-primary hover:underline"
         >
           Back to projects
@@ -80,7 +88,7 @@ const ProjectPage: React.FC = () => {
     <>
       <ProjectDetailView
         project={project}
-        onBack={() => navigate('/browse')}
+        onBack={handleBack}
         onUpdateProject={handleUpdateProject}
         allProjects={projects}
         onProjectClick={(p) => navigate(`/project/${p.slug || p.id}`)}

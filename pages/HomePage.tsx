@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Project, Category, BoardNotice, CampaignConfig } from '../types';
+import { Project, Category, BoardNotice, CampaignConfig, SortOption } from '../types';
 import { ProjectCard } from '../components/ProjectCard';
 import { ProjectGridSkeleton } from '../components/Skeleton';
 import { PublicProfileModal } from '../components/PublicProfileModal';
@@ -39,9 +39,7 @@ import {
   GitPullRequest,
   Github,
 } from 'lucide-react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
-
-type SortOption = 'newest' | 'votes' | 'comments';
+import { useOutletContext, useNavigate, useNavigationType } from 'react-router-dom';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   [Category.WEB]: <Layers className="w-4 h-4" />,
@@ -70,6 +68,19 @@ export interface HomeContext {
   handleToggleFavorite: (e: React.MouseEvent, projectId: string) => void;
   campaignConfig: CampaignConfig;
   openCampaignHub: (tab?: CampaignHubTab) => void;
+  isCampaignHubOpen?: boolean;
+  setIsCampaignHubOpen?: (open: boolean) => void;
+  campaignHubInitialTab?: CampaignHubTab;
+  searchQuery: string;
+  setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
+  selectedCategory: string;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+  sortBy: SortOption;
+  setSortBy: React.Dispatch<React.SetStateAction<SortOption>>;
+  showFavorites: boolean;
+  setShowFavorites: React.Dispatch<React.SetStateAction<boolean>>;
+  showOpenToContributions: boolean;
+  setShowOpenToContributions: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const HomePage: React.FC = () => {
@@ -85,15 +96,90 @@ const HomePage: React.FC = () => {
     handleToggleFavorite,
     campaignConfig,
     openCampaignHub,
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    sortBy,
+    setSortBy,
+    showFavorites,
+    setShowFavorites,
+    showOpenToContributions,
+    setShowOpenToContributions,
   } = useOutletContext<HomeContext>();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
+
+  // Helper to record scroll position before navigating to a project
+  const handleProjectClick = (p: Project) => {
+    sessionStorage.setItem('goboard_browse_scroll_y', window.scrollY.toString());
+    navigate(`/project/${p.slug || p.id}`);
+  };
+
+  // Keep sessionStorage scroll position synchronized while user scrolls on /browse
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          sessionStorage.setItem('goboard_browse_scroll_y', window.scrollY.toString());
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // Restore scroll position when returning via back/forward navigation (POP)
+  useEffect(() => {
+    if (navigationType !== 'POP') return;
+
+    const savedYStr = sessionStorage.getItem('goboard_browse_scroll_y');
+    if (!savedYStr) return;
+    const targetY = parseInt(savedYStr, 10);
+    if (isNaN(targetY) || targetY <= 0) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    const checkAndScroll = () => {
+      if (cancelled) return;
+
+      const currentScroll = window.scrollY;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+
+      // If already at or very close to target position, done
+      if (Math.abs(currentScroll - targetY) < 20) {
+        return;
+      }
+
+      // If page height has expanded enough to reach target, restore
+      if (maxScroll >= targetY - 40) {
+        window.scrollTo({ top: targetY, behavior: 'instant' as ScrollBehavior });
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        requestAnimationFrame(checkAndScroll);
+      }
+    };
+
+    const rafId = requestAnimationFrame(checkAndScroll);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [navigationType]);
 
   // Sidebar state
   const [topUsersByXP, setTopUsersByXP] = useState<any[]>([]);
@@ -108,8 +194,6 @@ const HomePage: React.FC = () => {
   const [showEditNoticeModal, setShowEditNoticeModal] = useState(false);
   const [noticeEditText, setNoticeEditText] = useState(boardNotice.content);
   const [showMobileRightPanel, setShowMobileRightPanel] = useState(false);
-  const [showFavorites, setShowFavorites] = useState(false);
-  const [showOpenToContributions, setShowOpenToContributions] = useState(false);
 
   const openToContributionsCount = useMemo(
     () => projects.filter(p => p.openToContributions && !p.isSuspended).length,
@@ -394,7 +478,7 @@ const HomePage: React.FC = () => {
                 >
                   <ProjectCard
                     project={project}
-                    onClick={(p) => navigate(`/project/${p.slug || p.id}`)}
+                    onClick={handleProjectClick}
                     onVote={handleVote}
                     onToggleFavorite={handleToggleFavorite}
                     voted={userVotes.has(project.id)}
@@ -801,7 +885,7 @@ const HomePage: React.FC = () => {
         <PublicProfileModal
           userId={selectedProfileUserId}
           onClose={() => setSelectedProfileUserId(null)}
-          onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
+          onProjectClick={handleProjectClick}
         />
       )}
     </div>
