@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { Project, Category, CampaignConfig } from './types';
 import { INITIAL_PROJECTS, CATEGORIES } from './constants';
 import { SubmitProjectModal } from './components/SubmitProjectModal';
@@ -563,21 +564,23 @@ const App: React.FC = () => {
         />
       )}
 
-      {isCampaignHubOpen && (
-        <CampaignHubModal
-          initialTab={campaignHubInitialTab}
-          campaignConfig={campaignConfig}
-          onClose={() => setIsCampaignHubOpen(false)}
-          onOpenPaydaySetup={() => {
-            setIsCampaignHubOpen(false);
-            requireAuth(() => navigate('/profile?tab=wallet'));
-          }}
-          onRequireAuth={() => {
-            setIsCampaignHubOpen(false);
-            setIsAuthModalOpen(true);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {isCampaignHubOpen && (
+          <CampaignHubModal
+            initialTab={campaignHubInitialTab}
+            campaignConfig={campaignConfig}
+            onClose={() => setIsCampaignHubOpen(false)}
+            onOpenPaydaySetup={() => {
+              setIsCampaignHubOpen(false);
+              requireAuth(() => navigate('/profile?tab=wallet'));
+            }}
+            onRequireAuth={() => {
+              setIsCampaignHubOpen(false);
+              setIsAuthModalOpen(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

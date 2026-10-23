@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   CampaignConfig,
   CourseBountySummary,
@@ -364,12 +365,20 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   }, [userPapers, campaignConfig.rewardPerPaper]);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       onClick={onClose}
     >
-      <div
-        className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-neutral-200/80 overflow-hidden flex flex-col max-h-[92vh] animate-fade-up"
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 14 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-neutral-200/80 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Gacha Header ── */}
@@ -391,19 +400,23 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
               </h2>
             </div>
 
-            <button
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
               onClick={onClose}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
-            </button>
+            </motion.button>
           </div>
 
           {/* Navigation Tabs */}
           <div className="flex flex-wrap items-center gap-2 mt-5">
-            <button
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab('upload')}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'upload'
@@ -413,10 +426,12 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
             >
               <Upload className="w-4 h-4" />
               Upload Exam Paper
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab('tracker')}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === 'tracker'
@@ -435,10 +450,12 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
               >
                 {courseBounties.length}
               </span>
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 if (!user) {
                   onRequireAuth();
@@ -465,7 +482,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                   {userPapers.length}
                 </span>
               )}
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -1197,46 +1214,55 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Lightbox for inspecting own uploaded page */}
-      {previewImageUrl && (
-        <div
-          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={() => setPreviewImageUrl(null)}
-        >
-          <div
-            className="relative max-w-3xl max-h-[90vh] bg-neutral-900 rounded-2xl overflow-hidden border border-white/15"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {previewImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setPreviewImageUrl(null)}
           >
-            <div className="flex items-center justify-between px-4 py-2.5 bg-black/60 text-white text-xs">
-              <span className="font-bold">Exam Paper Page Preview</span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewImageUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                >
-                  Open Full Size <ExternalLink className="w-3 h-3" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setPreviewImageUrl(null)}
-                  className="p-1 rounded-lg bg-white/10 hover:bg-white/20"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.2 }}
+              className="relative max-w-3xl max-h-[90vh] bg-neutral-900 rounded-2xl overflow-hidden border border-white/15"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-2.5 bg-black/60 text-white text-xs">
+                <span className="font-bold">Exam Paper Page Preview</span>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={previewImageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+                  >
+                    Open Full Size <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImageUrl(null)}
+                    className="p-1 rounded-lg bg-white/10 hover:bg-white/20 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <img
-              src={previewImageUrl}
-              alt="Exam paper page"
-              className="max-h-[82vh] w-auto object-contain mx-auto"
-            />
-          </div>
-        </div>
-      )}
-    </div>
+              <img
+                src={previewImageUrl}
+                alt="Exam paper page"
+                className="max-h-[82vh] w-auto object-contain mx-auto"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
