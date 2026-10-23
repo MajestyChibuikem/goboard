@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -29,38 +30,46 @@ const ICONS: Record<ToastType, React.ReactNode> = {
 };
 
 const BG: Record<ToastType, string> = {
-  success: 'bg-emerald-50 border-emerald-200',
-  error: 'bg-red-50 border-red-200',
-  warning: 'bg-amber-50 border-amber-200',
-  info: 'bg-blue-50 border-blue-200',
+  success: 'bg-emerald-50/95 border-emerald-200/90 text-emerald-950',
+  error: 'bg-red-50/95 border-red-200/90 text-red-950',
+  warning: 'bg-amber-50/95 border-amber-200/90 text-amber-950',
+  info: 'bg-blue-50/95 border-blue-200/90 text-blue-950',
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
-  const [exiting, setExiting] = useState(false);
-
   useEffect(() => {
     const timer = setTimeout(() => {
-      setExiting(true);
-      setTimeout(() => onDismiss(toast.id), 300);
-    }, 3500);
+      onDismiss(toast.id);
+    }, 4000);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 
   return (
-    <div
-      className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-card text-[13px] font-medium text-neutral-800 transition-all duration-300 ${BG[toast.type]} ${
-        exiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0 animate-fade-up'
-      }`}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 80, scale: 0.92, transition: { duration: 0.2 } }}
+      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 120 }}
+      onDragEnd={(_, info) => {
+        if (info.offset.x > 80) {
+          onDismiss(toast.id);
+        }
+      }}
+      className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-card text-[13px] font-medium backdrop-blur-md cursor-grab active:cursor-grabbing select-none ${BG[toast.type]}`}
     >
       {ICONS[toast.type]}
-      <span className="flex-grow">{toast.message}</span>
+      <span className="flex-grow leading-snug">{toast.message}</span>
       <button
-        onClick={() => { setExiting(true); setTimeout(() => onDismiss(toast.id), 300); }}
-        className="p-0.5 hover:bg-black/5 rounded transition-colors shrink-0"
+        onClick={() => onDismiss(toast.id)}
+        className="p-1 hover:bg-black/5 rounded-lg transition-colors shrink-0 cursor-pointer text-neutral-400 hover:text-neutral-700"
+        aria-label="Dismiss toast"
       >
-        <X className="w-3.5 h-3.5 text-neutral-400" />
+        <X className="w-3.5 h-3.5" />
       </button>
-    </div>
+    </motion.div>
   );
 }
 
@@ -80,12 +89,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={{ toast }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 w-80 pointer-events-none">
-        {toasts.map(t => (
-          <div key={t.id} className="pointer-events-auto">
-            <ToastItem toast={t} onDismiss={dismiss} />
-          </div>
-        ))}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2.5 w-84 max-w-[calc(100vw-2rem)] pointer-events-none">
+        <AnimatePresence mode="popLayout">
+          {toasts.map(t => (
+            <div key={t.id} className="pointer-events-auto">
+              <ToastItem toast={t} onDismiss={dismiss} />
+            </div>
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

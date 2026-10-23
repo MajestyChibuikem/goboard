@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToUserNotifications, markNotificationAsViewed } from '../services/firestoreService';
@@ -55,24 +56,44 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   return (
     <div className="relative">
-      <button
+      <motion.button
+        type="button"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.92 }}
         onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors"
+        className="relative p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
         aria-label="Notifications"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+            <motion.span
+              animate={{ scale: [1, 2, 1], opacity: [0.8, 0, 0.8] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute inline-flex h-full w-full rounded-full bg-red-400"
+            />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+          </span>
         )}
-      </button>
+      </motion.button>
 
-      {showDropdown && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowDropdown(false)}
-          />
-          <div className="absolute top-12 z-50 w-80 max-w-[calc(100vw-1rem)] md:w-96 right-0 bg-white rounded-xl border border-neutral-200 shadow-float max-h-96 overflow-y-auto animate-fade-up">
+      <AnimatePresence>
+        {showDropdown && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40"
+              onClick={() => setShowDropdown(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -8 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute top-12 z-50 w-80 max-w-[calc(100vw-1rem)] md:w-96 right-0 bg-white rounded-2xl border border-neutral-200 shadow-float max-h-96 overflow-y-auto"
+            >
             {loading ? (
               <div className="p-4 text-center text-neutral-400">
                 <div className="inline-block animate-spin">
@@ -109,9 +130,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
         </>
       )}
-    </div>
-  );
+    </AnimatePresence>
+  </div>
+);
 };

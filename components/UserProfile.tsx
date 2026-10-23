@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { RANK_EMOJIS, formatDate, formatTimeAgo } from '../services/utils';
@@ -885,21 +886,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
           {/* ── Profile Navigation Tabs ── */}
           <div className="flex items-center gap-2 mt-7 pt-6 border-t border-neutral-100">
-            <button
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => handleTabChange('overview')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${activeTab === 'overview'
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'overview'
                 ? 'bg-neutral-900 text-white shadow-xs'
                 : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
                 }`}
             >
               <Layers className="w-3.5 h-3.5" />
               Overview & Projects
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => handleTabChange('wallet')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${activeTab === 'wallet'
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'wallet'
                 ? 'bg-neutral-900 text-white shadow-xs'
                 : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
                 }`}
@@ -916,7 +921,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               >
                 {isFullyQualifiedForPayday ? 'Qualified' : `${completedStepsCount}/3`}
               </span>
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -924,8 +929,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
       {/* ═══════════════════════════════════════════════════════
           TAB 1: OVERVIEW & PROJECTS
       ═══════════════════════════════════════════════════════ */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6 animate-fade-up">
+      <AnimatePresence mode="wait">
+        {activeTab === 'overview' && (
+          <motion.div
+            key="tab-overview"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-6"
+          >
           {/* Rank Progress Card */}
           <div className="bg-white rounded-2xl border border-neutral-200 p-6">
             <div className="flex items-center justify-between mb-3">
@@ -1477,14 +1490,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* ═══════════════════════════════════════════════════════
           TAB 2: GOCOINS WALLET & PAYDAY READINESS CHECKLIST
       ═══════════════════════════════════════════════════════ */}
       {activeTab === 'wallet' && (
-        <div className="space-y-6 animate-fade-up">
+        <motion.div
+          key="tab-wallet"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-6"
+        >
           {/* Wallet Summary Hero */}
           <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#1e3a8a] text-white rounded-3xl p-6 sm:p-8 shadow-card relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1762,28 +1782,45 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               </div>
             </form>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* ═══════════════════════════════════════════════════════
           MODAL: CUSTOMIZE DISCORD PROFILE
       ═══════════════════════════════════════════════════════ */}
-      {showCustomizeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowCustomizeModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[85vh] overflow-y-auto animate-fade-up">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-100 sticky top-0 bg-white z-10">
-              <div>
-                <h2 className="text-lg font-bold text-neutral-900">Customize Profile</h2>
-                <p className="text-xs text-neutral-400 mt-0.5">Personalize your banner, theme accent, and bio</p>
+      <AnimatePresence>
+        {showCustomizeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowCustomizeModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 14 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b border-neutral-100 sticky top-0 bg-white z-10">
+                <div>
+                  <h2 className="text-lg font-bold text-neutral-900">Customize Profile</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">Personalize your banner, theme accent, and bio</p>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setShowCustomizeModal(false)}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-neutral-400" />
+                </motion.button>
               </div>
-              <button
-                onClick={() => setShowCustomizeModal(false)}
-                className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-neutral-400" />
-              </button>
-            </div>
 
             <form onSubmit={handleSaveCustomization} className="p-6 space-y-5">
               {/* ── Banner Theme & Custom Gradient Studio ── */}
@@ -2313,61 +2350,82 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Edit display name modal */}
-      {showEditName && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditName(false)} />
-          <div className="relative bg-white rounded-2xl shadow-float w-full max-w-sm animate-fade-up">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
-              <h2 className="text-lg font-bold text-neutral-900">Edit Display Name</h2>
-              <button onClick={() => setShowEditName(false)} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors">
-                <X className="w-5 h-5 text-neutral-400" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-[13px] font-medium text-neutral-700 mb-2">New Display Name</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Enter your new display name"
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
-                  autoFocus
-                />
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                <p className="text-[12px] text-yellow-800">
-                  ⚠️ <strong>This is your only chance to change your display name.</strong> Choose wisely!
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
+      <AnimatePresence>
+        {showEditName && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowEditName(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 14 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className="relative bg-white rounded-2xl shadow-float w-full max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+                <h2 className="text-lg font-bold text-neutral-900">Edit Display Name</h2>
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => setShowEditName(false)}
-                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveDisplayName}
-                  disabled={editingName}
-                  className="flex-1 px-4 py-2.5 bg-gouni-primary text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  {editingName ? 'Updating...' : 'Save Name'}
-                </button>
+                  <X className="w-5 h-5 text-neutral-400" />
+                </motion.button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[13px] font-medium text-neutral-700 mb-2">New Display Name</label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Enter your new display name"
+                    className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                  <p className="text-[12px] text-yellow-800">
+                    ⚠️ <strong>This is your only chance to change your display name.</strong> Choose wisely!
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowEditName(false)}
+                    className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDisplayName}
+                    disabled={editingName}
+                    className="flex-1 px-4 py-2.5 bg-gouni-primary text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    {editingName ? 'Updating...' : 'Save Name'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

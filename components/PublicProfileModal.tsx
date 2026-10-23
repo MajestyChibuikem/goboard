@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   X,
   Trophy,
@@ -155,12 +156,20 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
   const accentColor = profile.accentColor || '#1e3a8a';
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
-      <div
-        className="bg-white rounded-3xl border border-neutral-200 shadow-float w-full max-w-lg overflow-hidden animate-fade-up max-h-[90vh] overflow-y-auto"
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 14 }}
+        transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        className="bg-white rounded-3xl border border-neutral-200 shadow-float w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Discord-Style Top Banner ── */}
@@ -186,13 +195,15 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
           )}
 
           {/* Close button floating on banner */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
             onClick={onClose}
-            className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-black/45 hover:bg-black/65 text-white flex items-center justify-center transition-colors backdrop-blur-md"
+            className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-black/45 hover:bg-black/65 text-white flex items-center justify-center transition-colors backdrop-blur-md cursor-pointer"
             aria-label="Close profile"
           >
             <X className="w-4 h-4" />
-          </button>
+          </motion.button>
         </div>
 
         {/* ── Profile Body ── */}
@@ -564,7 +575,7 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

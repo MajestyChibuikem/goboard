@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Project } from '../types';
 import { formatDate, getProjectBadges } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
@@ -21,8 +22,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
   const author = useResolvedUser(project.authorUid, project.displayName || project.studentName, project.authorPhotoURL);
 
   return (
-    <div
-      className="group cursor-pointer animate-fade-up"
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="group cursor-pointer"
       onClick={() => onClick(project)}
     >
       {/* Thumbnail */}
@@ -83,9 +86,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           </h3>
           <div className="flex items-center gap-1.5 shrink-0">
             {onToggleFavorite && (
-              <button
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.85 }}
                 onClick={(e) => { e.stopPropagation(); onToggleFavorite(e, project.id); }}
-                className={`p-1.5 rounded-lg border transition-all ${
+                className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                   favorited
                     ? 'border-blue-300 bg-blue-50 text-blue-600'
                     : 'border-surface-border hover:border-blue-300 hover:bg-blue-50 text-neutral-400 hover:text-blue-500'
@@ -93,13 +99,16 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
                 title={favorited ? 'Remove from favorites' : 'Add to favorites'}
               >
                 <Bookmark className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
-              </button>
+              </motion.button>
             )}
-            <button
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.82 }}
               onClick={(e) => { e.stopPropagation(); onVote(e, project.id); }}
               disabled={disabled}
               aria-pressed={!!voted}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all group/vote ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all group/vote cursor-pointer ${
                 voted
                   ? 'border-orange-300 bg-orange-50 text-orange-600'
                   : 'border-surface-border hover:border-orange-300 hover:bg-orange-50'
@@ -108,7 +117,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
             >
               <ChevronUp className={`w-3.5 h-3.5 ${voted ? 'text-orange-500' : 'text-neutral-400 group-hover/vote:text-orange-500'}`} />
               <span className={`text-xs font-semibold ${voted ? 'text-orange-600' : 'text-neutral-600 group-hover/vote:text-orange-600'}`}>{project.likes}</span>
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -167,6 +176,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

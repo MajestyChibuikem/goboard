@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Project, Category, CampaignConfig } from './types';
 import { INITIAL_PROJECTS, CATEGORIES } from './constants';
 import { SubmitProjectModal } from './components/SubmitProjectModal';
@@ -444,12 +444,27 @@ const App: React.FC = () => {
       </header>
 
       {/* ── Mobile Menu Overlay ── */}
-      {isMobileMenuOpen && (
-         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden" onClick={() => setIsMobileMenuOpen(false)}>
-           <div className="absolute left-0 top-0 h-full w-72 bg-white p-6 overflow-y-auto shadow-float" onClick={e => e.stopPropagation()}>
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="absolute left-0 top-0 h-full w-72 bg-white p-6 overflow-y-auto shadow-float"
+              onClick={e => e.stopPropagation()}
+            >
               <div className="flex justify-between items-center mb-8">
                 <span className="font-bold text-lg">Menu</span>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-neutral-100 rounded-lg">
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-neutral-100 rounded-lg cursor-pointer">
                   <X className="w-5 h-5"/>
                 </button>
               </div>
@@ -535,9 +550,10 @@ const App: React.FC = () => {
                   </>
                 )}
               </nav>
-           </div>
-         </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Page Content ── */}
       <div className="max-w-[1440px] mx-auto px-6 py-8">
@@ -545,24 +561,30 @@ const App: React.FC = () => {
       </div>
 
       {/* Modals */}
-      {isSubmitModalOpen && (
-        <SubmitProjectModal
-          onClose={() => setIsSubmitModalOpen(false)}
-          onSubmit={handleAddProject}
-        />
-      )}
+      <AnimatePresence>
+        {isSubmitModalOpen && (
+          <SubmitProjectModal
+            onClose={() => setIsSubmitModalOpen(false)}
+            onSubmit={handleAddProject}
+          />
+        )}
+      </AnimatePresence>
 
-      {isAuthModalOpen && (
-        <AuthModal onClose={() => setIsAuthModalOpen(false)} />
-      )}
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <AuthModal onClose={() => setIsAuthModalOpen(false)} />
+        )}
+      </AnimatePresence>
 
-      {selectedProfileUserId && (
-        <PublicProfileModal
-          userId={selectedProfileUserId}
-          onClose={() => setSelectedProfileUserId(null)}
-          onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedProfileUserId && (
+          <PublicProfileModal
+            userId={selectedProfileUserId}
+            onClose={() => setSelectedProfileUserId(null)}
+            onProjectClick={(project) => navigate(`/project/${project.slug || project.id}`)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isCampaignHubOpen && (

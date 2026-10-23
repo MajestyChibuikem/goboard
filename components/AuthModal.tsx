@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Chrome } from 'lucide-react';
 import { Button } from './Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -85,23 +86,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
   const inputStyles = "w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all bg-white placeholder:text-neutral-400";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-float w-full max-w-md animate-fade-up overflow-hidden">
-
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 14 }}
+        transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        className="relative bg-white rounded-2xl shadow-float w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-6 pb-0 flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900">
-              {mode === 'signin' ? 'Welcome back' : 'Join GoBoard'}
-            </h2>
-            <p className="text-[13px] text-neutral-400 mt-1">
-              {mode === 'signin' ? 'Sign in to vote, comment, and submit projects' : 'Create an account to start showcasing your work'}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-400 hover:text-neutral-600">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+            >
+              <h2 className="text-xl font-bold text-neutral-900">
+                {mode === 'signin' ? 'Welcome back' : 'Join GoBoard'}
+              </h2>
+              <p className="text-[13px] text-neutral-400 mt-1">
+                {mode === 'signin' ? 'Sign in to vote, comment, and submit projects' : 'Create an account to start showcasing your work'}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={onClose}
+            className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-400 hover:text-neutral-600 cursor-pointer"
+          >
             <X className="w-5 h-5" />
-          </button>
+          </motion.button>
         </div>
 
         <div className="p-6 space-y-5">
@@ -195,7 +221,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
             )}
           </p>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
