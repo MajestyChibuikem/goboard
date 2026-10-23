@@ -71,24 +71,23 @@ export const CampaignBanner: React.FC<CampaignBannerProps> = ({
   // ─── Minimized Sleek Bar ───
   if (isMinimized) {
     return (
-      <div className="mb-6 rounded-2xl bg-white text-neutral-900 px-4 py-3 shadow-card border border-neutral-200/80 flex flex-wrap items-center justify-between gap-3 relative overflow-hidden">
-        <img
-          src="/bannerbg.jpg"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none opacity-60"
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-white/70 pointer-events-none" aria-hidden="true" />
-
+      <div
+        className="mb-6 rounded-2xl text-neutral-900 px-4 py-3 shadow-card border border-neutral-200/90 flex flex-wrap items-center justify-between gap-3 relative overflow-hidden"
+        style={{
+          backgroundImage: "url('/bannerbg.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <div className="relative z-10 flex items-center gap-2.5 min-w-0">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-900 border border-amber-300 shrink-0">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-950 border border-amber-400/60 shrink-0 backdrop-blur-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
             Season {campaignConfig.seasonNumber}
           </span>
-          <span className="text-xs sm:text-sm font-bold text-neutral-900 truncate">
+          <span className="text-xs sm:text-sm font-bold text-neutral-950 truncate drop-shadow-xs">
             {campaignConfig.title}
           </span>
-          <span className="hidden md:inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+          <span className="hidden md:inline-flex items-center gap-1 text-xs font-bold text-emerald-900 bg-white/80 backdrop-blur-sm px-2.5 py-0.5 rounded-lg border border-emerald-300">
             <Coins className="w-3.5 h-3.5 text-amber-600" />
             +{campaignConfig.rewardPerPaper} GC (₦{campaignConfig.nairaPer500Coins.toLocaleString()}) / Course
           </span>
@@ -106,7 +105,7 @@ export const CampaignBanner: React.FC<CampaignBannerProps> = ({
           <button
             type="button"
             onClick={() => setIsMinimized(false)}
-            className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-neutral-700 transition-colors cursor-pointer border border-neutral-200/60 shadow-xs"
             title="Expand Campaign Banner"
           >
             <ChevronDown className="w-4 h-4" />
@@ -116,28 +115,21 @@ export const CampaignBanner: React.FC<CampaignBannerProps> = ({
     );
   }
 
-  // ─── Full Campaign Banner with /bannerbg.jpg ───
+  // ─── Full Campaign Banner with /bannerbg.jpg as bg image ───
   return (
-    <div className="mb-8 relative rounded-3xl overflow-hidden bg-white text-neutral-900 shadow-card border border-neutral-200/80 transition-all duration-300 group">
-      {/* User's Luxury Silk Texture Background */}
-      <img
-        src="/bannerbg.jpg"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none opacity-75 transition-transform duration-700 group-hover:scale-[1.01]"
-        aria-hidden="true"
-      />
-
-      {/* Gentle White Gradient Overlay to guarantee pristine contrast and legibility */}
-      <div
-        className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/70 pointer-events-none"
-        aria-hidden="true"
-      />
-
+    <div
+      className="mb-8 relative rounded-3xl overflow-hidden text-neutral-900 shadow-card border border-neutral-200/90 transition-all duration-300 group"
+      style={{
+        backgroundImage: "url('/bannerbg.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       {/* Minimize Toggle Button */}
       <button
         type="button"
         onClick={() => setIsMinimized(true)}
-        className="absolute top-3.5 right-3.5 z-30 p-1.5 rounded-xl bg-white/80 hover:bg-white text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer backdrop-blur-md border border-neutral-200/80 shadow-xs"
+        className="absolute top-3.5 right-3.5 z-30 p-1.5 rounded-xl bg-white/85 hover:bg-white text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer backdrop-blur-md border border-neutral-200/80 shadow-xs"
         title="Minimize Banner"
         aria-label="Minimize Banner"
       >
