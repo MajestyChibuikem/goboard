@@ -194,5 +194,5 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by students for students at Godfrey Okoye University, Enugu.</sub>
+  <sub>Built with ❤️ by Majesty, Temnix for students at Godfrey Okoye University, Enugu.</sub>
 </div>
