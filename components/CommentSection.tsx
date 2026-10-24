@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Comment, ProjectUpdate } from '../types';
 import { generateAnonymousName, formatDate } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
@@ -91,6 +91,34 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [commentMode, setCommentMode] = useState<'global' | 'update'>('global');
   const [selectedUpdateId, setSelectedUpdateId] = useState<string | null>(null);
 
+  // Lazy render observer to delay mounting until scrolled into view
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isVisible) return;
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [isVisible]);
+
   const displayName = isAnonymous
     ? anonName
     : profile?.displayName || user?.email?.split('@')[0] || 'Student';
@@ -136,8 +164,30 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     setCommentMode('global');
   };
 
+  // Deferred placeholder before user scrolls to comments
+  if (!isVisible) {
+    return (
+      <div ref={containerRef} className="mt-10 pt-10 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between py-4">
+          <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
+            {comments.length} Comment{comments.length !== 1 ? 's' : ''}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setIsVisible(true)}
+            className="text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+          >
+            Load discussion
+          </button>
+        </div>
+        <div className="h-20 bg-neutral-50 dark:bg-neutral-800/40 rounded-2xl animate-pulse" />
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-10 pt-10 border-t border-neutral-200 dark:border-neutral-800">
+    <div ref={containerRef} className="mt-10 pt-10 border-t border-neutral-200 dark:border-neutral-800">
       <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
         <MessageSquare className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
         {comments.length} Comment{comments.length !== 1 ? 's' : ''}

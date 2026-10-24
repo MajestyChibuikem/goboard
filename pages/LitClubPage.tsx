@@ -99,10 +99,20 @@ const LitClubPage: React.FC = () => {
     return unsub;
   }, [user]);
 
-  // Sidebar data
+  // Sidebar data - deferred until after initial render
   useEffect(() => {
-    getTopUsersByXP(3).then(setTopUsersByXP).catch(console.warn);
-    getBoardNotice().then(n => n && setBoardNotice(n)).catch(console.warn);
+    const runDeferred = () => {
+      getTopUsersByXP(3).then(setTopUsersByXP).catch(console.warn);
+      getBoardNotice().then(n => n && setBoardNotice(n)).catch(console.warn);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = (window as any).requestIdleCallback(runDeferred, { timeout: 1500 });
+      return () => (window as any).cancelIdleCallback?.(handle);
+    } else {
+      const timer = setTimeout(runDeferred, 800);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const requireAuth = useCallback((action: () => void) => {

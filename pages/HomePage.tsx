@@ -232,21 +232,35 @@ const HomePage: React.FC = () => {
       .slice(0, 6);
   }, [projects]);
 
+  // Defer non-critical sidebar widgets (XP leaderboard, GitHub builders, and notice)
+  // until after initial page render and idle time
   useEffect(() => {
-    getTopUsersByXP(5)
-      .then(setTopUsersByXP)
-      .catch(err => console.warn('Failed to fetch top users:', err));
-  }, []);
+    let unsubGitHub: (() => void) | undefined;
+    const runDeferred = () => {
+      getTopUsersByXP(5)
+        .then(setTopUsersByXP)
+        .catch(err => console.warn('Failed to fetch top users:', err));
 
-  useEffect(() => {
-    const unsub = subscribeToTopGitHubBuilders(setTopGitHubBuilders, 5);
-    return () => unsub();
-  }, []);
+      unsubGitHub = subscribeToTopGitHubBuilders(setTopGitHubBuilders, 5);
 
-  useEffect(() => {
-    getBoardNotice()
-      .then(notice => notice && setBoardNotice(notice))
-      .catch(err => console.warn('Failed to fetch board notice:', err));
+      getBoardNotice()
+        .then(notice => notice && setBoardNotice(notice))
+        .catch(err => console.warn('Failed to fetch board notice:', err));
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = (window as any).requestIdleCallback(runDeferred, { timeout: 1500 });
+      return () => {
+        (window as any).cancelIdleCallback?.(handle);
+        unsubGitHub?.();
+      };
+    } else {
+      const timer = setTimeout(runDeferred, 800);
+      return () => {
+        clearTimeout(timer);
+        unsubGitHub?.();
+      };
+    }
   }, []);
 
   const filteredProjects = useMemo(() => {

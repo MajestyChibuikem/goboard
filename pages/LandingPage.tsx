@@ -61,25 +61,25 @@ const LandingPage: React.FC = () => {
       label: 'Discover Projects',
       title: 'Discover Projects',
       description: 'Browse a curated feed of student-built projects. Filter by category, sort by votes, and find your next inspiration.',
-      image: '/discover.png',
+      image: '/discover.webp',
     },
     {
       label: 'Submit & Share',
       title: 'Submit & Share',
       description: 'Showcase your work with a rich project page — title, description, tech stack, links, and screenshots.',
-      image: '/submit-project.png',
+      image: '/submit-project.webp',
     },
     {
       label: 'Track Progress',
       title: 'Track Progress',
       description: 'Post build updates, share milestones, and document your journey from idea to launch.',
-      image: '/leave-updates.png',
+      image: '/leave-updates.webp',
     },
     {
       label: 'Vote & Engage',
       title: 'Vote & Engage',
       description: 'Upvote projects you love, leave comments, and climb the leaderboard with XP and ranks.',
-      image: '/sign-in-google.png',
+      image: '/sign-in-google.webp',
     },
   ];
 
@@ -101,7 +101,7 @@ const LandingPage: React.FC = () => {
       {/* Fixed background layer — stays in place while section 2 scrolls over */}
       <div className="fixed inset-0 z-0 bg-[#0a0a0a]">
         <img
-          src="/discover.png"
+          src="/discover.webp"
           alt=""
           className="w-full h-full object-cover object-top opacity-[0.15]"
         />
@@ -113,7 +113,7 @@ const LandingPage: React.FC = () => {
         <nav className="fixed top-0 inset-x-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <img src="/logo-black.png" alt="GoBoard" className="w-8 h-8 rounded-lg bg-white object-contain p-0.5" />
+              <img src="/logo-black.webp" alt="GoBoard" className="w-8 h-8 rounded-lg bg-white object-contain p-0.5" />
               <span className="text-[15px] font-bold tracking-tight">GoBoard</span>
             </div>
             <button
@@ -185,17 +185,17 @@ const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                image: '/discover.png',
+                image: '/discover.webp',
                 title: 'Discover Projects',
                 description: 'Browse and filter student projects by category, votes, or newest — find what inspires you.',
               },
               {
-                image: '/submit-project.png',
+                image: '/submit-project.webp',
                 title: 'Submit Your Work',
                 description: 'Share your project with title, tech stack, links, and screenshots — get seen by the community.',
               },
               {
-                image: '/leave-updates.png',
+                image: '/leave-updates.webp',
                 title: 'Track the Journey',
                 description: 'Post updates, share milestones, and document your build from idea to launch.',
               },
@@ -315,7 +315,7 @@ const LandingPage: React.FC = () => {
             <div className="flex-1 w-full max-w-lg">
               <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-lg bg-white dark:bg-neutral-900">
                 <img
-                  src="/submit-project.png"
+                  src="/submit-project.webp"
                   alt="Submit project"
                   className="w-full h-auto"
                   loading="lazy"
@@ -407,7 +407,7 @@ const LandingPage: React.FC = () => {
           >
             <div className="flex items-center gap-2 mb-6">
               <div className="w-2 h-2 rounded-full bg-green-400" />
-              <img src="/logo-black.png" alt="" className="w-4 h-4 invert opacity-50" />
+              <img src="/logo-black.webp" alt="" className="w-4 h-4 invert opacity-50" />
             </div>
             <p className="text-2xl sm:text-3xl leading-snug mb-10">
               <span className="text-neutral-500 italic">Experience GoBoard right now. </span>
@@ -425,7 +425,7 @@ const LandingPage: React.FC = () => {
         {/* Right — project preview screenshot */}
         <div className="flex-1 bg-white dark:bg-neutral-900 overflow-hidden flex items-end justify-center transition-colors">
           <img
-            src="/leave-updates.png"
+            src="/leave-updates.webp"
             alt="Project detail preview"
             className="w-full max-w-lg h-auto"
             loading="lazy"
@@ -437,7 +437,7 @@ const LandingPage: React.FC = () => {
       <footer className="bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 px-6 py-8 transition-colors">
         <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img src="/logo-black.png" alt="GoBoard" className="w-7 h-7 rounded-md object-contain bg-white dark:bg-neutral-800 p-0.5" />
+            <img src="/logo-black.webp" alt="GoBoard" className="w-7 h-7 rounded-md object-contain bg-white dark:bg-neutral-800 p-0.5" />
             <span className="text-sm font-semibold text-neutral-900 dark:text-white">GoBoard</span>
           </div>
           <p className="text-sm text-neutral-400 dark:text-neutral-500">

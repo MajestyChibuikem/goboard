@@ -5,6 +5,7 @@ import { formatDate, getProjectBadges } from '../services/utils';
 import { STATUS_CONFIG } from '../constants';
 import { ChevronUp, MessageCircle, Bookmark, GitPullRequest, Star } from 'lucide-react';
 import { UserAvatar } from './UserAvatar';
+import { BlurredImage } from './BlurredImage';
 import { useResolvedUser } from '../contexts/UserCacheContext';
 
 interface ProjectCardProps {
@@ -30,16 +31,16 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
     >
       {/* Thumbnail */}
       <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 mb-4">
-        <img
+        <BlurredImage
           src={project.imageUrl || undefined}
           alt={project.title}
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          fallbackText={project.title}
+          aspectRatio="aspect-[16/10]"
+          className="transition-transform duration-500 ease-out group-hover:scale-105"
         />
 
         {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
         {/* Status pill top-right */}
         <div className="absolute top-3 right-3">

@@ -7,6 +7,7 @@ import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
 import { AddUpdateForm } from './AddUpdateForm';
+import { BlurredImage } from './BlurredImage';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 import {
@@ -448,7 +449,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               className="aspect-video w-full bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden mb-3 cursor-zoom-in"
               onClick={() => setShowImageViewer(true)}
             >
-              <img src={activeImage || undefined} alt={project.title} className="w-full h-full object-cover" />
+              <BlurredImage
+                src={activeImage || undefined}
+                alt={project.title}
+                aspectRatio="aspect-video"
+                fallbackText={project.title}
+              />
             </div>
             {(project.screenshots.length > 0) && (
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -564,7 +570,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                       onClick={() => onProjectClick(sim)}
                     >
                        <div className="aspect-[16/10] bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-                          <img src={sim.imageUrl || undefined} alt={sim.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                          <BlurredImage
+                            src={sim.imageUrl || undefined}
+                            alt={sim.title}
+                            aspectRatio="aspect-[16/10]"
+                            fallbackText={sim.title}
+                            className="transition-transform duration-500 group-hover:scale-105"
+                          />
                        </div>
                        <div className="p-4">
                          <h4 className="text-[14px] font-semibold text-neutral-900 dark:text-white group-hover:text-gouni-primary transition-colors truncate">{sim.title}</h4>
