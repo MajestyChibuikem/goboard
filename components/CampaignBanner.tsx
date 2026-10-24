@@ -204,73 +204,13 @@ export const CampaignBanner: React.FC<CampaignBannerProps> = ({
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-neutral-950/75 backdrop-blur-[1px] hidden dark:block pointer-events-none" />
 
-            {/* Top Right Controls: View Switcher Pill & Minimize Button */}
-            <div className="absolute top-3.5 right-3.5 z-30 flex items-center gap-2">
-              {/* Segmented View Switcher */}
-              <div className="bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-200/80 dark:border-neutral-700 shadow-xs flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveView('quests')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeView === 'quests'
-                      ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-xs'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>The Basics Quests</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                      activeView === 'quests' ? 'bg-white/20 dark:bg-neutral-900/20 text-white dark:text-neutral-900' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
-                    }`}
-                  >
-                    {completedCount}/4
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveView('bounty')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeView === 'bounty'
-                      ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-xs'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70'
-                  }`}
-                >
-                  <Target className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Academic Bounty</span>
-                </button>
-              </div>
-
-              {/* Minimize Toggle Button */}
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => setIsMinimized(true)}
-                className="p-1.5 rounded-xl bg-white/85 dark:bg-neutral-900/90 hover:bg-white dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer backdrop-blur-md border border-neutral-200/80 dark:border-neutral-700 shadow-xs flex items-center justify-center"
-                title="Minimize Banner"
-                aria-label="Minimize Banner"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </motion.button>
-            </div>
-
             <div className="relative z-10 p-5 sm:p-7 lg:p-8">
-              <AnimatePresence mode="wait">
-                {activeView === 'quests' ? (
-                  // ─────────────────────────────────────────────────────────────
-                  // VIEW 1: GENESIS BUILDER QUESTS ("THE BASICS")
-                  // ─────────────────────────────────────────────────────────────
-                  <motion.div
-                    key="view-quests"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.22 }}
-                    className="space-y-5"
-                  >
-                    {/* Header Badges Tray */}
-                    <div className="flex flex-wrap items-center gap-2 pr-28 sm:pr-40">
+              {/* Top Navigation & Controls Row: Badges Tray on Left, View Switcher on Right */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
+                {/* Dynamic Badges Tray based on activeView */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeView === 'quests' ? (
+                    <>
                       <motion.span
                         whileHover={{ scale: 1.03 }}
                         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs backdrop-blur-md"
@@ -301,7 +241,108 @@ export const CampaignBanner: React.FC<CampaignBannerProps> = ({
                         <Award className="w-3.5 h-3.5 text-amber-500" />
                         {completedCount} / 4 Completed ({progressPercent}%)
                       </motion.span>
-                    </div>
+                    </>
+                  ) : (
+                    <>
+                      <motion.span
+                        whileHover={{ scale: 1.03 }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs backdrop-blur-md"
+                      >
+                        <span className="relative flex h-2 w-2 mr-0.5">
+                          <motion.span
+                            animate={{ scale: [1, 2.2, 1], opacity: [0.8, 0, 0.8] }}
+                            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                            className="absolute inline-flex h-full w-full rounded-full bg-amber-500"
+                          />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600" />
+                        </span>
+                        Season {campaignConfig.seasonNumber} • Live Academic Bounty
+                      </motion.span>
+
+                      <motion.span
+                        whileHover={{ scale: 1.03 }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 backdrop-blur-md shadow-xs"
+                      >
+                        <Coins className="w-3.5 h-3.5 text-amber-600" />
+                        {campaignConfig.rewardPerPaper} GoCoins = ₦{campaignConfig.nairaPer500Coins.toLocaleString()} / Course
+                      </motion.span>
+
+                      <motion.span
+                        whileHover={{ scale: 1.03 }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-900/5 dark:bg-neutral-800/60 text-neutral-700 dark:text-neutral-300 border border-neutral-300/60 dark:border-neutral-700 backdrop-blur-md"
+                      >
+                        <Target className="w-3 h-3 text-neutral-600 dark:text-neutral-400" />
+                        5 Slots / Course
+                      </motion.span>
+                    </>
+                  )}
+                </div>
+
+                {/* Right: Switcher Pill & Minimize Button */}
+                <div className="flex items-center gap-2 shrink-0 self-start lg:self-auto">
+                  <div className="bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-200/80 dark:border-neutral-700 shadow-xs flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveView('quests')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeView === 'quests'
+                          ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-xs'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>The Basics Quests</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                          activeView === 'quests'
+                            ? 'bg-white/20 dark:bg-neutral-900/20 text-white dark:text-neutral-900'
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
+                        }`}
+                      >
+                        {completedCount}/4
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveView('bounty')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeView === 'bounty'
+                          ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-xs'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70'
+                      }`}
+                    >
+                      <Target className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Academic Bounty</span>
+                    </button>
+                  </div>
+
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => setIsMinimized(true)}
+                    className="p-1.5 rounded-xl bg-white/85 dark:bg-neutral-900/90 hover:bg-white dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer backdrop-blur-md border border-neutral-200/80 dark:border-neutral-700 shadow-xs flex items-center justify-center shrink-0"
+                    title="Minimize Banner"
+                    aria-label="Minimize Banner"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {activeView === 'quests' ? (
+                  // ─────────────────────────────────────────────────────────────
+                  // VIEW 1: GENESIS BUILDER QUESTS ("THE BASICS")
+                  // ─────────────────────────────────────────────────────────────
+                  <motion.div
+                    key="view-quests"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.22 }}
+                    className="space-y-5"
+                  >
 
                     {/* Headline & Description */}
                     <div className="max-w-3xl">
@@ -608,39 +649,6 @@ export const CampaignBanner: React.FC<CampaignBannerProps> = ({
                   >
                     {/* Left Column: Details, Rules Flow & CTAs */}
                     <div className="space-y-4 max-w-2xl min-w-0">
-                      {/* Header Badges Tray */}
-                      <div className="flex flex-wrap items-center gap-2 pr-28 sm:pr-40">
-                        <motion.span
-                          whileHover={{ scale: 1.03 }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs backdrop-blur-md"
-                        >
-                          <span className="relative flex h-2 w-2 mr-0.5">
-                            <motion.span
-                              animate={{ scale: [1, 2.2, 1], opacity: [0.8, 0, 0.8] }}
-                              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                              className="absolute inline-flex h-full w-full rounded-full bg-amber-500"
-                            />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600" />
-                          </span>
-                          Season {campaignConfig.seasonNumber} • Live Academic Bounty
-                        </motion.span>
-
-                        <motion.span
-                          whileHover={{ scale: 1.03 }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 backdrop-blur-md shadow-xs"
-                        >
-                          <Coins className="w-3.5 h-3.5 text-amber-600" />
-                          {campaignConfig.rewardPerPaper} GoCoins = ₦{campaignConfig.nairaPer500Coins.toLocaleString()} / Course
-                        </motion.span>
-
-                        <motion.span
-                          whileHover={{ scale: 1.03 }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-900/5 dark:bg-neutral-800/60 text-neutral-700 dark:text-neutral-300 border border-neutral-300/60 dark:border-neutral-700 backdrop-blur-md"
-                        >
-                          <Target className="w-3 h-3 text-neutral-600 dark:text-neutral-400" />
-                          5 Slots / Course
-                        </motion.span>
-                      </div>
 
                       {/* Headline & Description */}
                       <div>

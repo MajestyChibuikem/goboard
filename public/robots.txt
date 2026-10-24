@@ -1,0 +1,10 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Disallow private user states and auth redirects from indexing
+Disallow: /admin
+Disallow: /profile
+
+# Sitemap
+Sitemap: https://goboard-psi.vercel.app/sitemap.xml

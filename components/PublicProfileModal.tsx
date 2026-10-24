@@ -25,6 +25,7 @@ import {
   getUserContributedProjects,
 } from '../services/firestoreService';
 import { getRank, RANK_EMOJIS, cleanOldFirebaseUrl, formatTimeAgo } from '../services/utils';
+import { getEffectiveStreak } from '../contexts/AuthContext';
 import { Project, StudentVerificationStatus, GitHubProfileData } from '../types';
 import { DISCORD_BANNER_PRESETS, GITHUB_LANGUAGE_COLORS } from '../constants';
 
@@ -35,6 +36,7 @@ interface PublicUserProfileData {
   xp: number;
   rank: string;
   streakDays: number;
+  lastLoginDate?: string | null;
   joinedAt: any;
   verificationStatus?: StudentVerificationStatus;
   totalGoCoinsEarned?: number;
@@ -81,7 +83,8 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
             photoURL: cleanOldFirebaseUrl(d.photoURL) || null,
             xp,
             rank: d.rank || getRank(xp),
-            streakDays: d.streakDays || 0,
+            streakDays: getEffectiveStreak(d.streakDays || 0, d.lastLoginDate),
+            lastLoginDate: d.lastLoginDate || null,
             joinedAt: d.joinedAt,
             verificationStatus: d.verificationStatus || 'none',
             totalGoCoinsEarned: d.totalGoCoinsEarned || 0,
@@ -260,10 +263,10 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
                   )}
                 </a>
               )}
-              {profile.streakDays > 0 && (
+              {profile.streakDays >= 2 && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                   <Flame className="w-3.5 h-3.5 text-orange-500" />
-                  {profile.streakDays}d
+                  {profile.streakDays}d Streak
                 </span>
               )}
               {(profile.totalGoCoinsEarned || 0) > 0 && (

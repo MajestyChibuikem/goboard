@@ -165,13 +165,23 @@ const App: React.FC = () => {
     }
   }, [user, userFavorites]);
 
-  // Hide custom loading screen when Firebase is ready
+  // Hide custom loading screen when Firebase is ready (or max safety timeout fallback)
   useEffect(() => {
-    if (firestoreReady) {
+    const hideLoading = () => {
       const loadingScreen = document.getElementById('loading-screen');
-      if (loadingScreen) {
+      if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('hidden');
+        setTimeout(() => {
+          try { loadingScreen.remove(); } catch (e) {}
+        }, 400);
       }
+    };
+
+    if (firestoreReady) {
+      hideLoading();
+    } else {
+      const timer = setTimeout(hideLoading, 1200);
+      return () => clearTimeout(timer);
     }
   }, [firestoreReady]);
 

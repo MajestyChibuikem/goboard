@@ -781,7 +781,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   <span>{RANK_EMOJIS[profile.rank] || '🎓'}</span>
                   {profile.rank}
                 </span>
-                {profile.streakDays > 0 && (
+                {profile.streakDays >= 2 && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                     <Flame className="w-3.5 h-3.5 text-orange-500" />
                     {profile.streakDays}d Streak

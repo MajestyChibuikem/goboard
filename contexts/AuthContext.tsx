@@ -205,12 +205,22 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
 
 // ─── Login Streak ───
 
-const getDateString = (date = new Date()) => date.toISOString().split('T')[0];
+export const getDateString = (date = new Date()) => date.toISOString().split('T')[0];
 
-const getYesterday = () => {
+export const getYesterday = () => {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return getDateString(d);
+};
+
+export const getEffectiveStreak = (streakDays: number, lastLoginDate?: string | null): number => {
+  if (!streakDays || streakDays <= 0 || !lastLoginDate) return 0;
+  const today = getDateString();
+  const yesterday = getYesterday();
+  if (lastLoginDate !== today && lastLoginDate !== yesterday) {
+    return 0;
+  }
+  return streakDays;
 };
 
 async function trackLoginStreak(userId: string) {
@@ -409,7 +419,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               xp: data.xp ?? base.xp,
               seasonXp: data.seasonXp ?? base.seasonXp,
               rank: getRank(data.xp ?? base.xp ?? 0),
-              streakDays: data.streakDays ?? base.streakDays,
+              streakDays: getEffectiveStreak(
+                data.streakDays ?? base.streakDays,
+                data.lastLoginDate || base.lastLoginDate
+              ),
               lastLoginDate: data.lastLoginDate || base.lastLoginDate,
               goCoins: data.goCoins ?? base.goCoins ?? 0,
               totalGoCoinsEarned: data.totalGoCoinsEarned ?? base.totalGoCoinsEarned ?? 0,

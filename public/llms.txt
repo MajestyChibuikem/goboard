@@ -1,0 +1,20 @@
+# GoBoard
+
+> GoBoard is the premier showcase and collaboration platform for student engineering projects, computer science innovations, and creative literature at Godfrey Okoye University (GoUni), Enugu, Nigeria.
+
+## Core Capabilities
+- **Project Discovery**: Search and filter student projects across Web, Mobile, AI/ML, IoT, Blockchain, DevOps, Cybersecurity, AR/VR, and FinTech.
+- **Student Quests & Seasons**: Interactive quests (The Basics Quests, Exam Paper Bounties) rewarding active learners and open-source contributors with GoCoins, XP, and badges.
+- **GitHub Integration**: Direct GitHub OAuth linkage showing student public repositories, live commits, stars, forks, and automated PR/collaboration readiness.
+- **Lit Club**: Dedicated creative writing, essays, poetry, and technical articles by university students with peer reviews and community upvotes.
+- **Verified Student Profiles**: Academic credentials, departmental affiliations, GitHub handles, project portfolios, and streak tracking.
+
+## Key Routes
+- [/browse](https://goboard-psi.vercel.app/browse): Explore all student projects with category filters, search, and sorting.
+- [/lit-club](https://goboard-psi.vercel.app/lit-club): Read essays, poetry, short stories, and articles written by students.
+- [/profile](https://goboard-psi.vercel.app/profile): View user XP, GoCoins, streak counters, badges, and project submissions.
+
+## Technology Stack
+- Frontend: React 18, TypeScript, Tailwind CSS v4, Framer Motion, Lucide Icons, Vite
+- Backend & Services: Firebase Authentication, Cloud Firestore, Firebase Storage
+- Deployment: Vercel SPA

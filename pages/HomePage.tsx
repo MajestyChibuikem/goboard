@@ -315,10 +315,11 @@ const HomePage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             {/* ── Category Dropdown Pill ── */}
             <div className="relative" ref={categoryDropdownRef}>
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.97 }}
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
                   selectedCategory !== 'All' && !showFavorites && !showOpenToContributions
                     ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 border-neutral-900 dark:border-white shadow-sm'
                     : 'bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 border-neutral-200/80 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-2xs'
@@ -326,24 +327,33 @@ const HomePage: React.FC = () => {
               >
                 {CATEGORY_ICONS[selectedCategory] || <Layers className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />}
                 <span>{selectedCategory === 'All' ? 'All Categories' : selectedCategory}</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 transition-transform duration-200 ${
-                    isCategoryDropdownOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
+                <motion.span
+                  animate={{ rotate: isCategoryDropdownOpen ? 180 : 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="inline-flex items-center"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+                </motion.span>
+              </motion.button>
 
               <AnimatePresence>
                 {isCategoryDropdownOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 4, scale: 0.96 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-60 bg-white dark:bg-neutral-900 rounded-2xl shadow-float border border-neutral-200/80 dark:border-neutral-800 p-2 z-50 overflow-hidden text-neutral-700 dark:text-neutral-200"
+                    exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                    transition={{
+                      duration: 0.18,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    style={{ transformOrigin: 'top right' }}
+                    className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-64 bg-white dark:bg-neutral-900 rounded-2xl shadow-float border border-neutral-200/80 dark:border-neutral-800 p-2 z-50 overflow-hidden text-neutral-700 dark:text-neutral-200"
                   >
-                    <button
+                    <motion.button
                       type="button"
+                      whileHover={{ x: 2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.12 }}
                       onClick={() => {
                         setSelectedCategory('All');
                         setShowFavorites(false);
@@ -360,7 +370,7 @@ const HomePage: React.FC = () => {
                         <Layers className="w-3.5 h-3.5" /> All Categories
                       </span>
                       <span className="text-[10px] opacity-60">{projects.length}</span>
-                    </button>
+                    </motion.button>
 
                     <div className="my-1.5 h-px bg-neutral-100 dark:bg-neutral-800" />
 
@@ -370,9 +380,12 @@ const HomePage: React.FC = () => {
                           (p) => p.category === cat && p.approvalStatus === 'approved' && !p.isSuspended
                         ).length;
                         return (
-                          <button
+                          <motion.button
                             key={cat}
                             type="button"
+                            whileHover={{ x: 2 }}
+                            whileTap={{ scale: 0.98 }}
+                            transition={{ duration: 0.12 }}
                             onClick={() => {
                               setSelectedCategory(cat);
                               setShowFavorites(false);
@@ -400,7 +413,7 @@ const HomePage: React.FC = () => {
                                 {count}
                               </span>
                             )}
-                          </button>
+                          </motion.button>
                         );
                       })}
                     </div>
