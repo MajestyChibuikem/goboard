@@ -1,47 +1,60 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App';
-import LandingPage from './pages/LandingPage';
-import HomePage from './pages/HomePage';
-import ProfilePage from './pages/ProfilePage';
-import AdminPage from './pages/AdminPage';
-import ProjectPage from './pages/ProjectPage';
-import LitClubPage from './pages/LitClubPage';
-import WritingPage from './pages/WritingPage';
+
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const HomePage = lazy(() => import('./pages/HomePage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const ProjectPage = lazy(() => import('./pages/ProjectPage'));
+const LitClubPage = lazy(() => import('./pages/LitClubPage'));
+const WritingPage = lazy(() => import('./pages/WritingPage'));
+
+const PageLoader = () => (
+  <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+    <div className="w-8 h-8 border-3 border-neutral-200 border-t-amber-500 rounded-full animate-spin" />
+    <span className="text-xs font-medium text-neutral-400 animate-pulse">Loading GoBoard...</span>
+  </div>
+);
+
+const withSuspense = (Component: React.ComponentType) => (
+  <Suspense fallback={<PageLoader />}>
+    <Component />
+  </Suspense>
+);
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <LandingPage />,
+    element: withSuspense(LandingPage),
   },
   {
     element: <App />,
     children: [
       {
         path: 'browse',
-        element: <HomePage />,
+        element: withSuspense(HomePage),
       },
       {
         path: 'profile',
-        element: <ProfilePage />,
+        element: withSuspense(ProfilePage),
       },
       {
         path: 'admin',
-        element: <AdminPage />,
+        element: withSuspense(AdminPage),
       },
       {
         path: 'project/:id',
-        element: <ProjectPage />,
+        element: withSuspense(ProjectPage),
       },
       {
         path: 'lit-club',
-        element: <LitClubPage />,
+        element: withSuspense(LitClubPage),
       },
       {
         path: 'writing/:id',
-        element: <WritingPage />,
+        element: withSuspense(WritingPage),
       },
     ],
   },
 ]);
-

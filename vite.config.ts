@@ -174,20 +174,34 @@ export default defineConfig(({ mode }) => {
           output: {
             manualChunks(id) {
               if (id.includes('node_modules')) {
+                // Check icons before generic react check
+                if (id.includes('lucide-react')) {
+                  return 'vendor-icons';
+                }
+                // Framer Motion and animation runtime
+                if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) {
+                  return 'vendor-motion';
+                }
+                // Firebase Firestore
                 if (id.includes('@firebase/firestore') || id.includes('firebase/firestore')) {
                   return 'vendor-firebase-firestore';
                 }
+                // Firebase Auth
                 if (id.includes('@firebase/auth') || id.includes('firebase/auth')) {
                   return 'vendor-firebase-auth';
                 }
+                // Firebase Core & Utilities
                 if (id.includes('firebase') || id.includes('@firebase')) {
                   return 'vendor-firebase-core';
                 }
-                if (id.includes('react') || id.includes('scheduler')) {
+                // React core and routing
+                if (
+                  id.includes('react') ||
+                  id.includes('react-dom') ||
+                  id.includes('react-router') ||
+                  id.includes('scheduler')
+                ) {
                   return 'vendor-react';
-                }
-                if (id.includes('lucide-react')) {
-                  return 'vendor-icons';
                 }
               }
             }
