@@ -41,8 +41,8 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
           const isActive = idx <= currentIdx;
           return (
             <div key={s} className="flex-1 flex flex-col items-center gap-1.5">
-              <div className={`h-1.5 w-full rounded-full transition-all ${isActive ? STATUS_CONFIG[s].dot : 'bg-neutral-100'}`} />
-              <span className={`text-[10px] font-medium ${isActive ? 'text-neutral-600' : 'text-neutral-300'}`}>
+              <div className={`h-1.5 w-full rounded-full transition-all ${isActive ? STATUS_CONFIG[s].dot : 'bg-neutral-100 dark:bg-neutral-800'}`} />
+              <span className={`text-[10px] font-medium ${isActive ? 'text-neutral-600 dark:text-neutral-300' : 'text-neutral-300 dark:text-neutral-600'}`}>
                 {STATUS_CONFIG[s].label}
               </span>
             </div>
@@ -54,7 +54,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
       {sortedUpdates.length > 0 ? (
         <div className="relative">
           {/* Vertical line */}
-          <div className="absolute left-[15px] top-2 bottom-2 w-px bg-neutral-200" />
+          <div className="absolute left-[15px] top-2 bottom-2 w-px bg-neutral-200 dark:bg-neutral-800" />
 
           <div className="space-y-0">
             {displayedUpdates.map((update, idx) => (
@@ -62,12 +62,12 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
                 {/* Dot */}
                 <div className="relative z-10 shrink-0">
                   {update.milestone ? (
-                    <div className="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-neutral-900 dark:bg-neutral-800 border dark:border-neutral-700 flex items-center justify-center">
                       <Flag className="w-3.5 h-3.5 text-white" />
                     </div>
                   ) : (
                     <div className="w-8 h-8 flex items-center justify-center">
-                      <div className="w-3 h-3 rounded-full bg-neutral-300 border-2 border-white" />
+                      <div className="w-3 h-3 rounded-full bg-neutral-300 dark:bg-neutral-700 border-2 border-white dark:border-neutral-950" />
                     </div>
                   )}
                 </div>
@@ -75,16 +75,16 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
                 {/* Content */}
                 <div className="flex-grow min-w-0 pt-1">
                   {update.milestone && (
-                    <span className="inline-block text-[11px] font-bold text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded-md mb-1.5">
+                    <span className="inline-block text-[11px] font-bold text-neutral-900 dark:text-neutral-100 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-md mb-1.5">
                       {update.milestone}
                     </span>
                   )}
-                  <p className="text-[14px] text-neutral-600 leading-relaxed mb-2">{update.content}</p>
+                  <p className="text-[14px] text-neutral-600 dark:text-neutral-300 leading-relaxed mb-2">{update.content}</p>
 
                   {update.imageUrl && (
                     <button
                       onClick={() => setExpandedImage(expandedImage === update.imageUrl ? null : update.imageUrl)}
-                      className="mb-2 rounded-xl overflow-hidden border border-neutral-200 hover:border-neutral-300 transition-all inline-block"
+                      className="mb-2 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all inline-block cursor-pointer"
                     >
                       <img
                         src={update.imageUrl || undefined}
@@ -94,7 +94,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
                     </button>
                   )}
 
-                  <div className="text-[11px] text-neutral-400">{formatDate(update.date)}</div>
+                  <div className="text-[11px] text-neutral-400 dark:text-neutral-500">{formatDate(update.date)}</div>
                 </div>
               </div>
             ))}
@@ -104,7 +104,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
           {hasMore && (
             <button
               onClick={() => setShowAll(!showAll)}
-              className="flex items-center gap-1.5 ml-12 mt-4 text-[12px] font-medium text-neutral-400 hover:text-neutral-700 transition-colors"
+              className="flex items-center gap-1.5 ml-12 mt-4 text-[12px] font-medium text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
             >
               {showAll ? (
                 <>
@@ -119,7 +119,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ updates, statu
           )}
         </div>
       ) : (
-        <p className="text-[13px] text-neutral-400 text-center py-6">No updates posted yet.</p>
+        <p className="text-[13px] text-neutral-400 dark:text-neutral-500 text-center py-6">No updates posted yet.</p>
       )}
 
       {/* Lightbox for expanded image */}

@@ -34,7 +34,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
 
   if (!canEdit) {
     return (
-      <div className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 text-[13px] font-medium text-neutral-400 bg-neutral-50/50">
+      <div className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 text-[13px] font-medium text-neutral-400 dark:text-neutral-500 bg-neutral-50/50 dark:bg-neutral-900/40">
         <Lock className="w-4 h-4" />
         Only project creator and admins can post updates
       </div>
@@ -85,7 +85,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 text-[13px] font-medium text-neutral-400 hover:text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50/50 transition-all"
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 text-[13px] font-medium text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/50 transition-all cursor-pointer"
       >
         <Plus className="w-4 h-4" />
         Post an update
@@ -94,10 +94,10 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-4 animate-fade-up">
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 space-y-4 animate-fade-up">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold text-neutral-900">New Update</span>
-        <button type="button" onClick={() => setIsOpen(false)} className="text-[12px] text-neutral-400 hover:text-neutral-600">
+        <span className="text-[13px] font-bold text-neutral-900 dark:text-neutral-100">New Update</span>
+        <button type="button" onClick={() => setIsOpen(false)} className="text-[12px] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer">
           Cancel
         </button>
       </div>
@@ -106,7 +106,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="What progress have you made? Share what you built, learned, or struggled with..."
-        className="w-full p-3.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none min-h-[100px] text-sm resize-none transition-all placeholder:text-neutral-400"
+        className="w-full p-3.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none min-h-[100px] text-sm resize-none transition-all placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
         required
       />
 
@@ -121,11 +121,11 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
         />
         {imagePreview ? (
           <div className="relative inline-block">
-            <img src={imagePreview || undefined} alt="Preview" className="h-28 rounded-xl border border-neutral-200 object-cover" />
+            <img src={imagePreview || undefined} alt="Preview" className="h-28 rounded-xl border border-neutral-200 dark:border-neutral-700 object-cover" />
             <button
               type="button"
               onClick={clearImage}
-              className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+              className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-900 dark:bg-neutral-700 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -134,7 +134,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
           <button
             type="button"
             onClick={() => imageInputRef.current?.click()}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-neutral-200 text-[12px] text-neutral-400 hover:text-neutral-600 hover:border-neutral-300 transition-all"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700 text-[12px] text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all cursor-pointer"
           >
             <ImageIcon className="w-4 h-4" />
             Attach image (optional)
@@ -149,7 +149,7 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
             value={milestone}
             onChange={(e) => setMilestone(e.target.value)}
             placeholder="e.g. MVP Ready"
-            className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none transition-all placeholder:text-neutral-400"
+            className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none transition-all placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
           />
         </div>
         <div>
@@ -160,10 +160,10 @@ export const AddUpdateForm: React.FC<AddUpdateFormProps> = ({
                 key={s}
                 type="button"
                 onClick={() => setNewStatus(s)}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
                   newStatus === s
                     ? STATUS_CONFIG[s].color
-                    : 'border-neutral-100 text-neutral-400 hover:border-neutral-200'
+                    : 'border-neutral-100 dark:border-neutral-800 text-neutral-400 dark:text-neutral-500 hover:border-neutral-200 dark:hover:border-neutral-700'
                 }`}
               >
                 {STATUS_CONFIG[s].label}

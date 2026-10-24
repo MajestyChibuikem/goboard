@@ -327,7 +327,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       {/* Back button */}
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-400 hover:text-neutral-900 transition-colors mb-8"
+        className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors mb-8 cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to projects
@@ -337,42 +337,42 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       <div className="mb-10">
         {/* Title + badges */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          <h1 className="text-3xl font-bold text-neutral-900 tracking-tight">{project.title}</h1>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white tracking-tight">{project.title}</h1>
           {/* Status badge */}
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${STATUS_CONFIG[project.status].color}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[project.status].dot}`} />
             {STATUS_CONFIG[project.status].label}
           </span>
           {project.openToContributions && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <GitPullRequest className="w-3.5 h-3.5 text-emerald-600" /> Open to Contributions
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+              <GitPullRequest className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Open to Contributions
             </span>
           )}
           {badges.map((badge) => (
             <span
               key={badge.label}
-              className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-neutral-100 text-neutral-700"
+              className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
             >
               <span className="mr-1.5">{badge.icon}</span> {badge.label}
             </span>
           ))}
           {project.isSuspended && (
-            <span className="inline-block px-3 py-1 bg-amber-100 border border-amber-300 rounded-full text-[11px] font-semibold text-amber-700">
+            <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-full text-[11px] font-semibold text-amber-700 dark:text-amber-400">
               ⚠️ Suspended
             </span>
           )}
           {project.approvalStatus === 'pending' && (
-            <span className="inline-block px-3 py-1 bg-blue-100 border border-blue-300 rounded-full text-[11px] font-semibold text-blue-700">
+            <span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-800 rounded-full text-[11px] font-semibold text-blue-700 dark:text-blue-400">
               ⏳ Pending Review
             </span>
           )}
         </div>
 
         {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-400">
-          <span className="px-2.5 py-1 bg-neutral-900 text-white text-[11px] font-medium rounded-lg">{project.category}</span>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-400 dark:text-neutral-400">
+          <span className="px-2.5 py-1 bg-neutral-900 dark:bg-neutral-800 text-white text-[11px] font-medium rounded-lg">{project.category}</span>
           <span>Posted {formatDate(project.datePosted)}</span>
-          <span className="text-neutral-200">|</span>
+          <span className="text-neutral-200 dark:text-neutral-700">|</span>
           <span className="flex items-center gap-1.5">
             <UserAvatar
               uid={authorUid}
@@ -387,33 +387,33 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   onProfileClick?.(authorUid);
                 }
               }}
-              className="font-medium text-neutral-700 hover:text-neutral-900 hover:underline active:text-gouni-primary transition-colors cursor-pointer"
+              className="font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline active:text-gouni-primary transition-colors cursor-pointer"
             >
               {author.displayName}
             </button>
-            <span className="text-neutral-300">·</span>
+            <span className="text-neutral-300 dark:text-neutral-700">·</span>
             <span>{project.level}</span>
           </span>
         </div>
 
         {/* Open-Source Contribution Banner */}
         {project.openToContributions && (
-          <div className="mt-5 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="mt-5 p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-850/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-[13px] font-bold text-emerald-900">
-                <GitPullRequest className="w-4 h-4 text-emerald-600" />
+              <div className="flex items-center gap-2 text-[13px] font-bold text-emerald-900 dark:text-emerald-200">
+                <GitPullRequest className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 This project welcomes student pull requests & commits
               </div>
-              <p className="text-[12px] text-emerald-700/90 mt-0.5">
+              <p className="text-[12px] text-emerald-700/90 dark:text-emerald-400/90 mt-0.5">
                 No team invite required — fork or push code on GitHub, link your GitHub account on your GoBoard profile, and you&apos;ll automatically appear as a verified contributor (+40 XP).
               </p>
               {project.contributionAreas && project.contributionAreas.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                  <span className="text-[11px] font-semibold text-emerald-800 mr-1">Looking for help with:</span>
+                  <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 mr-1">Looking for help with:</span>
                   {project.contributionAreas.map(area => (
                     <span
                       key={area}
-                      className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white text-emerald-800 border border-emerald-200 shadow-sm"
+                      className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 shadow-sm"
                     >
                       {area}
                     </span>
@@ -445,7 +445,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           {/* Image gallery */}
           <div className="mb-10">
             <div
-              className="aspect-video w-full bg-neutral-100 rounded-2xl overflow-hidden mb-3 cursor-zoom-in"
+              className="aspect-video w-full bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden mb-3 cursor-zoom-in"
               onClick={() => setShowImageViewer(true)}
             >
               <img src={activeImage || undefined} alt={project.title} className="w-full h-full object-cover" />
@@ -454,7 +454,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setActiveImage(project.imageUrl)}
-                  className={`w-20 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === project.imageUrl ? 'border-neutral-900 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                  className={`w-20 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${activeImage === project.imageUrl ? 'border-neutral-900 dark:border-white shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
                 >
                   <img src={project.imageUrl || undefined} className="w-full h-full object-cover" />
                 </button>
@@ -462,7 +462,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   <button
                     key={idx}
                     onClick={() => setActiveImage(shot)}
-                    className={`w-20 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === shot ? 'border-neutral-900 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                    className={`w-20 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${activeImage === shot ? 'border-neutral-900 dark:border-white shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
                     <img src={shot || undefined} className="w-full h-full object-cover" />
                   </button>
@@ -481,13 +481,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     setEditedDescription(project.description);
                     setShowEditDescriptionModal(true);
                   }}
-                  className="text-[12px] font-semibold text-gouni-primary hover:text-gouni-primary/80 transition-colors"
+                  className="text-[12px] font-semibold text-gouni-primary hover:text-gouni-primary/80 transition-colors cursor-pointer"
                 >
                   Edit
                 </button>
               )}
             </div>
-            <p className="text-[15px] text-neutral-700 whitespace-pre-line leading-relaxed">{project.description}</p>
+            <p className="text-[15px] text-neutral-700 dark:text-neutral-300 whitespace-pre-line leading-relaxed">{project.description}</p>
           </div>
 
           {/* Build Journey Timeline */}
@@ -505,13 +505,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
 
           {/* AI Insight */}
-          <div className="bg-gradient-to-br from-indigo-50/80 to-violet-50/50 rounded-2xl p-6 mb-10 border border-indigo-100/60">
+          <div className="bg-gradient-to-br from-indigo-50/80 to-violet-50/50 dark:from-indigo-950/30 dark:to-violet-950/20 rounded-2xl p-6 mb-10 border border-indigo-100/60 dark:border-indigo-900/40">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/60 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <span className="text-[13px] font-bold text-neutral-900">AI Analysis</span>
+                <span className="text-[13px] font-bold text-neutral-900 dark:text-white">AI Analysis</span>
               </div>
               {!insight && (
                 <Button size="sm" onClick={handleGenerateInsight} isLoading={loadingInsight} variant="primary" className="rounded-xl">
@@ -524,19 +524,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               <div className="space-y-4 animate-fade-up">
                 <div>
                   <div className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Review</div>
-                  <p className="text-[14px] text-neutral-700 leading-relaxed">{insight.review}</p>
+                  <p className="text-[14px] text-neutral-700 dark:text-neutral-300 leading-relaxed">{insight.review}</p>
                 </div>
                 <div>
                   <div className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Impact</div>
-                  <p className="text-[14px] text-neutral-700 leading-relaxed">{insight.impact}</p>
+                  <p className="text-[14px] text-neutral-700 dark:text-neutral-300 leading-relaxed">{insight.impact}</p>
                 </div>
-                <div className="bg-white/60 rounded-xl p-4 border border-indigo-100/60">
-                  <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-1">Suggestion</div>
-                  <p className="text-[14px] text-neutral-600 italic leading-relaxed">"{insight.suggestion}"</p>
+                <div className="bg-white/60 dark:bg-neutral-900/60 rounded-xl p-4 border border-indigo-100/60 dark:border-indigo-900/40">
+                  <div className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">Suggestion</div>
+                  <p className="text-[14px] text-neutral-600 dark:text-neutral-300 italic leading-relaxed">"{insight.suggestion}"</p>
                 </div>
               </div>
             ) : (
-              <p className="text-[13px] text-neutral-400">
+              <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
                 Get an AI-powered evaluation of technical merit and potential impact.
               </p>
             )}
@@ -554,21 +554,21 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
           {/* Similar Projects */}
           {similarProjects.length > 0 && (
-             <div className="mt-12 pt-10 border-t border-neutral-200">
-               <h3 className="text-lg font-bold text-neutral-900 mb-6">Similar Projects</h3>
+             <div className="mt-12 pt-10 border-t border-neutral-200 dark:border-neutral-800">
+               <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-6">Similar Projects</h3>
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                  {similarProjects.map(sim => (
                     <div
                       key={sim.id}
-                      className="group rounded-2xl overflow-hidden border border-neutral-200 hover:shadow-card-hover hover:border-neutral-300 transition-all cursor-pointer bg-white"
+                      className="group rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 hover:shadow-card-hover hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer bg-white dark:bg-neutral-900"
                       onClick={() => onProjectClick(sim)}
                     >
-                       <div className="aspect-[16/10] bg-neutral-100 overflow-hidden">
+                       <div className="aspect-[16/10] bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
                           <img src={sim.imageUrl || undefined} alt={sim.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                        </div>
                        <div className="p-4">
-                         <h4 className="text-[14px] font-semibold text-neutral-900 group-hover:text-gouni-primary transition-colors truncate">{sim.title}</h4>
-                         <p className="text-[12px] text-neutral-400 mt-1 line-clamp-2">{sim.description}</p>
+                         <h4 className="text-[14px] font-semibold text-neutral-900 dark:text-white group-hover:text-gouni-primary transition-colors truncate">{sim.title}</h4>
+                         <p className="text-[12px] text-neutral-400 dark:text-neutral-400 mt-1 line-clamp-2">{sim.description}</p>
                        </div>
                     </div>
                  ))}
@@ -581,14 +581,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         <div className="space-y-5">
 
           {/* Actions */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-3">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 space-y-3">
             <Button
               onClick={(e) => onVote(e, project.id)}
               variant="outline"
               disabled={disabled || !user}
               aria-pressed={!!voted}
-              className={`w-full justify-center rounded-xl border-orange-200 hover:bg-orange-50 hover:border-orange-300 ${
-                voted ? 'bg-orange-50 text-orange-600 border-orange-300' : 'text-neutral-700'
+              className={`w-full justify-center rounded-xl border-orange-200 dark:border-neutral-700 hover:bg-orange-50 dark:hover:bg-neutral-800 hover:border-orange-300 dark:hover:border-neutral-600 ${
+                voted ? 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-800' : 'text-neutral-700 dark:text-neutral-200'
               }`}
             >
               <ChevronUp className={`w-4 h-4 ${voted ? 'text-orange-500' : ''}`} />
@@ -634,7 +634,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             {user && user.uid === authorUid && (
               <Button
                 variant="outline"
-                className="w-full justify-center rounded-xl text-gouni-primary border-gouni-primary/30 hover:bg-blue-50"
+                className="w-full justify-center rounded-xl text-gouni-primary border-gouni-primary/30 hover:bg-blue-50 dark:hover:bg-neutral-800"
                 onClick={() => {
                   setEditedDemoUrl(project.demoUrl || '');
                   setEditedRepoUrl(project.repoUrl || '');
@@ -651,14 +651,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             )}
 
             {profile?.isAdmin && (
-              <div className="flex gap-2 pt-3 border-t border-neutral-200">
+              <div className="flex gap-2 pt-3 border-t border-neutral-200 dark:border-neutral-800">
                 <Button
                   size="sm"
                   variant="outline"
                   className={`flex-1 rounded-xl ${
                     project.isSuspended
-                      ? 'text-green-700 border-green-300 hover:bg-green-50'
-                      : 'text-amber-700 border-amber-300 hover:bg-amber-50'
+                      ? 'text-green-700 dark:text-green-400 border-green-300 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/30'
+                      : 'text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30'
                   }`}
                   onClick={() => setShowSuspendModal(true)}
                 >
@@ -667,7 +667,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1 text-red-700 border-red-300 hover:bg-red-50 rounded-xl"
+                  className="flex-1 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl"
                   onClick={() => setShowDeleteModal(true)}
                 >
                   <Trash2 className="w-4 h-4" /> Delete
@@ -678,10 +678,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
           {/* GitHub Repository & Auto-Detected Contributors */}
           {(project.repoUrl || project.githubMeta) && (
-            <div className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-neutral-900 dark:bg-neutral-800 border dark:border-neutral-700 text-white flex items-center justify-center shrink-0">
                     <Github className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
@@ -691,12 +691,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         href={project.repoUrl || `https://github.com/${project.githubMeta.fullName}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[13px] font-semibold text-neutral-900 hover:text-gouni-primary truncate block"
+                        className="text-[13px] font-semibold text-neutral-900 dark:text-white hover:text-gouni-primary truncate block"
                       >
                         {project.githubMeta.fullName}
                       </a>
                     ) : (
-                      <span className="text-[12px] text-neutral-600 truncate block">Repository Linked</span>
+                      <span className="text-[12px] text-neutral-600 dark:text-neutral-300 truncate block">Repository Linked</span>
                     )}
                   </div>
                 </div>
@@ -707,7 +707,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     onClick={() => handleSyncGitHubRepo(true)}
                     disabled={syncingGitHub}
                     title="Sync latest commits, stars, and contributors from GitHub"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-neutral-300 bg-neutral-50 hover:bg-neutral-100 text-[11px] font-semibold text-neutral-700 transition-all disabled:opacity-50 shrink-0"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-[11px] font-semibold text-neutral-700 dark:text-neutral-200 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
                   >
                     <RefreshCw className={`w-3 h-3 ${syncingGitHub ? 'animate-spin' : ''}`} />
                     {syncingGitHub ? 'Syncing' : 'Sync'}
@@ -719,22 +719,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 <>
                   {/* Repo Stats */}
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-neutral-50 rounded-xl p-2.5 text-center border border-neutral-100">
-                      <div className="flex items-center justify-center gap-1 text-neutral-900 font-bold text-[14px]">
+                    <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-xl p-2.5 text-center border border-neutral-100 dark:border-neutral-800">
+                      <div className="flex items-center justify-center gap-1 text-neutral-900 dark:text-white font-bold text-[14px]">
                         <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
                         {project.githubMeta.stars}
                       </div>
                       <div className="text-[10px] font-medium text-neutral-400 mt-0.5">Stars</div>
                     </div>
-                    <div className="bg-neutral-50 rounded-xl p-2.5 text-center border border-neutral-100">
-                      <div className="flex items-center justify-center gap-1 text-neutral-900 font-bold text-[14px]">
-                        <GitFork className="w-3.5 h-3.5 text-neutral-500" />
+                    <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-xl p-2.5 text-center border border-neutral-100 dark:border-neutral-800">
+                      <div className="flex items-center justify-center gap-1 text-neutral-900 dark:text-white font-bold text-[14px]">
+                        <GitFork className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
                         {project.githubMeta.forks}
                       </div>
                       <div className="text-[10px] font-medium text-neutral-400 mt-0.5">Forks</div>
                     </div>
-                    <div className="bg-neutral-50 rounded-xl p-2.5 text-center border border-neutral-100">
-                      <div className="text-neutral-900 font-bold text-[14px]">
+                    <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-xl p-2.5 text-center border border-neutral-100 dark:border-neutral-800">
+                      <div className="text-neutral-900 dark:text-white font-bold text-[14px]">
                         {project.githubMeta.openIssues}
                       </div>
                       <div className="text-[10px] font-medium text-neutral-400 mt-0.5">Open Issues</div>
@@ -747,7 +747,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                       {project.githubMeta.languages.map(lang => (
                         <span
                           key={lang}
-                          className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-600 text-[11px] font-medium"
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[11px] font-medium border border-transparent dark:border-neutral-700/60"
                         >
                           {lang}
                         </span>
@@ -757,11 +757,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
                   {/* Latest Commit */}
                   {project.githubMeta.lastCommitMessage && (
-                    <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-100">
+                    <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800">
                       <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
                         Latest Commit {project.githubMeta.lastCommitDate ? `· ${formatDate(project.githubMeta.lastCommitDate).split(',')[0]}` : ''}
                       </div>
-                      <p className="text-[12px] text-neutral-700 font-mono line-clamp-2">
+                      <p className="text-[12px] text-neutral-700 dark:text-neutral-300 font-mono line-clamp-2">
                         {project.githubMeta.lastCommitMessage}
                       </p>
                     </div>
@@ -774,18 +774,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         href={`${project.repoUrl.replace(/\/$/, '')}/pulls`}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white hover:bg-neutral-50 text-[12px] font-semibold text-neutral-700 transition-colors"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-[12px] font-semibold text-neutral-700 dark:text-neutral-200 transition-colors"
                       >
-                        <GitPullRequest className="w-3.5 h-3.5 text-emerald-600" />
+                        <GitPullRequest className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         Pull Requests
                       </a>
                       <a
                         href={`${project.repoUrl.replace(/\/$/, '')}/issues`}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-white hover:bg-neutral-50 text-[12px] font-semibold text-neutral-700 transition-colors"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-[12px] font-semibold text-neutral-700 dark:text-neutral-200 transition-colors"
                       >
-                        <ExternalLink className="w-3.5 h-3.5 text-neutral-500" />
+                        <ExternalLink className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
                         View Issues
                       </a>
                     </div>
@@ -793,7 +793,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
                   {/* Contributors List */}
                   {project.githubMeta.contributors && project.githubMeta.contributors.length > 0 && (
-                    <div className="pt-3 border-t border-neutral-100">
+                    <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
                           Contributors ({project.githubMeta.contributors.length})
@@ -812,27 +812,27 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                               }}
                               className={`flex items-center justify-between gap-2 p-2 rounded-xl border transition-all ${
                                 isGoBoardStudent
-                                  ? 'border-emerald-200/80 bg-emerald-50/40 hover:bg-emerald-50 cursor-pointer'
-                                  : 'border-neutral-100 bg-neutral-50/60'
+                                  ? 'border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/25 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer'
+                                  : 'border-neutral-100 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-800/40'
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <img
                                   src={contributor.githubAvatarUrl}
                                   alt={contributor.githubUsername}
-                                  className="w-7 h-7 rounded-full object-cover border border-neutral-200 shrink-0"
+                                  className="w-7 h-7 rounded-full object-cover border border-neutral-200 dark:border-neutral-700 shrink-0"
                                 />
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[12px] font-semibold text-neutral-900 truncate">
+                                    <span className="text-[12px] font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                                       {contributor.goboardDisplayName || `@${contributor.githubUsername}`}
                                     </span>
                                     {isGoBoardStudent && (
                                       <span
-                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 shrink-0"
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 shrink-0"
                                         title="Verified GoBoard Student"
                                       >
-                                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                                         Student
                                       </span>
                                     )}
@@ -842,21 +842,21 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                                   </div>
                                 </div>
                               </div>
-                              <span className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 text-[10px] font-semibold text-neutral-600 shrink-0">
+                              <span className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 shrink-0">
                                 {contributor.contributions} commit{contributor.contributions !== 1 ? 's' : ''}
                               </span>
                             </div>
                           );
                         })}
                       </div>
-                      <p className="text-[11px] text-neutral-400 mt-3 leading-relaxed">
-                        Pushed commits or merged a PR? Connect your GitHub in Profile and click <span className="font-semibold text-neutral-600">Sync</span> to appear here.
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-3 leading-relaxed">
+                        Pushed commits or merged a PR? Connect your GitHub in Profile and click <span className="font-semibold text-neutral-600 dark:text-neutral-300">Sync</span> to appear here.
                       </p>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="text-[12px] text-neutral-400">
+                <div className="text-[12px] text-neutral-400 dark:text-neutral-500">
                   {syncingGitHub
                     ? 'Fetching repository stats & contributors from GitHub...'
                     : 'Click Sync to load live repository stats, languages, and contributors from GitHub.'}
@@ -866,11 +866,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           )}
 
           {/* Tech Stack */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-5">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5">
             <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-4">Technologies</h4>
             <div className="flex flex-wrap gap-2">
               {project.techStack.map(tech => (
-                <span key={tech} className="px-3 py-1.5 bg-neutral-50 text-neutral-600 text-[12px] font-medium rounded-lg border border-neutral-100">
+                <span key={tech} className="px-3 py-1.5 bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[12px] font-medium rounded-lg border border-neutral-100 dark:border-neutral-700">
                   {tech}
                 </span>
               ))}
@@ -878,7 +878,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
 
           {/* Author */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-5">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5">
             <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-4">Author</h4>
             <div className="flex items-center gap-3">
               <UserAvatar
@@ -889,7 +889,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 className="rounded-xl"
               />
               <div>
-                <div className="text-[14px] font-semibold text-neutral-900">{author.displayName}</div>
+                <div className="text-[14px] font-semibold text-neutral-900 dark:text-white">{author.displayName}</div>
                 <div className="text-[12px] text-neutral-400">{project.level}</div>
               </div>
             </div>
@@ -900,10 +900,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && profile?.isAdmin && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up">
-            <h3 className="text-lg font-bold text-red-600 mb-2">Delete Project?</h3>
-            <p className="text-sm text-neutral-600 mb-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float p-6 w-96 animate-fade-up">
+            <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Delete Project?</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
               This will permanently delete the project and all associated votes, comments, and updates. This action cannot be undone.
             </p>
             <div className="flex gap-2 justify-end">
@@ -929,12 +929,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {/* Suspend/Restore Confirmation Modal */}
       {showSuspendModal && profile?.isAdmin && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float p-6 w-96 animate-fade-up">
             {project.isSuspended ? (
               <>
-                <h3 className="text-lg font-bold text-green-600 mb-2">Restore Project?</h3>
-                <p className="text-sm text-neutral-600 mb-4">
+                <h3 className="text-lg font-bold text-green-600 dark:text-green-400 mb-2">Restore Project?</h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
                   This will restore the project to public view. The author will be notified.
                 </p>
                 <div className="flex gap-2 justify-end">
@@ -957,15 +957,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </>
             ) : (
               <>
-                <h3 className="text-lg font-bold text-amber-600 mb-2">Suspend Project?</h3>
-                <p className="text-sm text-neutral-600 mb-3">
+                <h3 className="text-lg font-bold text-amber-600 dark:text-amber-400 mb-2">Suspend Project?</h3>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-3">
                   The project will be hidden from public view. The author will be notified.
                 </p>
                 <textarea
                   value={suspensionReason}
                   onChange={(e) => setSuspensionReason(e.target.value)}
                   placeholder="Reason for suspension (will be sent to author)..."
-                  className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none"
+                  className="w-full p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl mb-4 text-sm font-sans resize-none"
                   rows={3}
                 />
                 <div className="flex gap-2 justify-end">
@@ -996,17 +996,17 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {/* Edit Description Modal */}
       {showEditDescriptionModal && user && user.uid === authorUid && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up max-h-[70vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-neutral-900 mb-4">Edit Project Description</h3>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float p-6 w-96 animate-fade-up max-h-[70vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">Edit Project Description</h3>
             <textarea
               value={editedDescription}
               onChange={(e) => setEditedDescription(e.target.value)}
               placeholder="Enter project description..."
-              className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40"
+              className="w-full p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl mb-4 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40"
               rows={6}
             />
-            <div className="text-xs text-neutral-400 mb-4">{editedDescription.length} characters</div>
+            <div className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">{editedDescription.length} characters</div>
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"
@@ -1029,53 +1029,53 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {/* Edit Details Modal (URLs + Collaboration + Image) */}
       {showEditDetailsModal && user && user.uid === authorUid && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-neutral-900 mb-5">Edit Project Details</h3>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float p-6 w-full max-w-md animate-fade-up max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-5">Edit Project Details</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">GitHub Repository URL</label>
+                <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">GitHub Repository URL</label>
                 <input
                   type="url"
                   value={editedRepoUrl}
                   onChange={(e) => setEditedRepoUrl(e.target.value)}
                   placeholder="https://github.com/username/repo"
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Demo URL</label>
+                <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Demo URL</label>
                 <input
                   type="url"
                   value={editedDemoUrl}
                   onChange={(e) => setEditedDemoUrl(e.target.value)}
                   placeholder="https://demo.example.com"
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Website URL</label>
+                <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Website URL</label>
                 <input
                   type="url"
                   value={editedWebsiteUrl}
                   onChange={(e) => setEditedWebsiteUrl(e.target.value)}
                   placeholder="https://example.com"
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
                 />
               </div>
 
               {/* Open to Contributions Toggle */}
-              <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80">
+              <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[13px] font-semibold text-neutral-900 flex items-center gap-1.5">
-                      <GitPullRequest className="w-4 h-4 text-emerald-600" />
+                    <div className="text-[13px] font-semibold text-neutral-900 dark:text-emerald-200 flex items-center gap-1.5">
+                      <GitPullRequest className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       Open to Contributions
                     </div>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                    <p className="text-[11px] text-neutral-500 dark:text-emerald-400/80 mt-0.5">
                       Invite students to push commits or open PRs on GitHub
                     </p>
                   </div>
@@ -1085,7 +1085,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     aria-checked={editedOpenToContributions}
                     onClick={() => setEditedOpenToContributions(prev => !prev)}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      editedOpenToContributions ? 'bg-emerald-600' : 'bg-neutral-300'
+                      editedOpenToContributions ? 'bg-emerald-600' : 'bg-neutral-300 dark:bg-neutral-700'
                     }`}
                   >
                     <span
@@ -1097,8 +1097,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </div>
 
                 {editedOpenToContributions && (
-                  <div className="mt-3 pt-3 border-t border-emerald-200/60">
-                    <label className="block text-[11px] font-semibold text-emerald-900 mb-2">
+                  <div className="mt-3 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/40">
+                    <label className="block text-[11px] font-semibold text-emerald-900 dark:text-emerald-300 mb-2">
                       Areas where contributions are welcome
                     </label>
                     <div className="flex flex-wrap gap-1.5">
@@ -1109,10 +1109,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                             key={area}
                             type="button"
                             onClick={() => toggleEditedArea(area)}
-                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer ${
                               selected
                                 ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'bg-white text-neutral-600 border border-emerald-200 hover:border-emerald-400'
+                                : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-400'
                             }`}
                           >
                             {area}
@@ -1125,7 +1125,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Project Image</label>
+                <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Project Image</label>
                 <input
                   ref={editImageInputRef}
                   type="file"
@@ -1145,12 +1145,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   }}
                 />
                 {editedImagePreview ? (
-                  <div className="relative rounded-xl overflow-hidden border border-neutral-200">
+                  <div className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
                     <img src={editedImagePreview || undefined} alt="Preview" className="w-full h-40 object-cover" />
                     <button
                       type="button"
                       onClick={() => { setEditedImageFile(null); setEditedImagePreview(null); }}
-                      className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors cursor-pointer"
                     >
                       <X className="w-4 h-4 text-white" />
                     </button>
@@ -1159,10 +1159,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   <button
                     type="button"
                     onClick={() => editImageInputRef.current?.click()}
-                    className="w-full border-2 border-dashed border-neutral-200 rounded-xl p-6 flex flex-col items-center text-center bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer"
+                    className="w-full border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-xl p-6 flex flex-col items-center text-center bg-neutral-50/50 dark:bg-neutral-800/40 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all cursor-pointer"
                   >
-                    <span className="text-[13px] font-medium text-neutral-600">Upload new image</span>
-                    <span className="text-[11px] text-neutral-400 mt-1">PNG, JPG up to 5MB (optional)</span>
+                    <span className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">Upload new image</span>
+                    <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1">PNG, JPG up to 5MB (optional)</span>
                   </button>
                 )}
               </div>

@@ -6,6 +6,21 @@
     <title>GoBoard | GoUni Student Showcase</title>
     <meta name="description" content="Discover, showcase, and celebrate student engineering projects, literature, and tech innovations at Godfrey Okoye University." />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('goboard_theme');
+          var isDark = saved === 'dark' || ((!saved || saved === 'system') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
     <style>
       /* Custom Pre-React Loading Screen */
       #loading-screen {
@@ -20,6 +35,10 @@
         background: #ffffff;
         z-index: 9999;
         transition: opacity 0.3s ease-out;
+      }
+
+      html.dark #loading-screen {
+        background: #09090b;
       }
 
       #loading-screen.hidden {
@@ -84,6 +103,10 @@
         text-transform: uppercase;
         letter-spacing: 2px;
         z-index: 10;
+      }
+
+      html.dark .title {
+        color: #a1a1aa;
       }
     </style>
   </head>

@@ -650,7 +650,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
       {/* Back navigation */}
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-400 hover:text-neutral-900 transition-colors mb-6"
+        className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors mb-6 cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to projects
@@ -660,7 +660,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           DISCORD-INSPIRED PROFILE CARD
       ═══════════════════════════════════════════════════════ */}
       <div
-        className="bg-white rounded-3xl border border-neutral-200/80 shadow-card overflow-hidden mb-6"
+        className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 shadow-card overflow-hidden mb-6"
         style={{ borderTopColor: accentColor }}
       >
         {/* Modular Top Banner Slot (Ready for future SDK animated banners) */}
@@ -692,7 +692,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               type="button"
               onClick={() => bannerInputRef.current?.click()}
               disabled={uploadingBanner}
-              className="px-3 py-1.5 rounded-xl bg-black/45 hover:bg-black/65 backdrop-blur-md text-white text-xs font-medium flex items-center gap-1.5 transition-all border border-white/15"
+              className="px-3 py-1.5 rounded-xl bg-black/45 hover:bg-black/65 backdrop-blur-md text-white text-xs font-medium flex items-center gap-1.5 transition-all border border-white/15 cursor-pointer"
             >
               <Camera className="w-3.5 h-3.5" />
               {uploadingBanner ? 'Uploading...' : 'Banner Photo'}
@@ -700,7 +700,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <button
               type="button"
               onClick={() => setShowCustomizeModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white text-neutral-900 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+              className="px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white text-neutral-900 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
               <Palette className="w-3.5 h-3.5" />
               Customize Profile
@@ -716,7 +716,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               {/* Avatar with hover camera */}
               <div className="relative group shrink-0">
                 <div
-                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl p-1 bg-white shadow-md"
+                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl p-1 bg-white dark:bg-neutral-900 shadow-md"
                   style={{ boxShadow: `0 0 0 2px ${accentColor}25` }}
                 >
                   {profile.photoURL || user.photoURL ? (
@@ -747,7 +747,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
                 {/* Status / Rank Corner Pill */}
                 <div
-                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-white shadow-sm border border-neutral-200 flex items-center justify-center text-base"
+                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-white dark:bg-neutral-800 shadow-sm border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-base"
                   title={profile.rank}
                 >
                   {RANK_EMOJIS[profile.rank] || '🎓'}
@@ -757,8 +757,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               {/* Discord-Style Badge Tray */}
               <div className="flex flex-wrap items-center gap-1.5 pb-1">
                 {profile.verificationStatus === 'verified' && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     Verified Student
                   </span>
                 )}
@@ -767,7 +767,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     href={profile.githubProfile.profileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors shadow-2xs"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-900 dark:bg-neutral-800 border dark:border-neutral-700 text-white hover:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors shadow-2xs"
                     title="Connected GitHub Profile"
                   >
                     <Github className="w-3.5 h-3.5" />
@@ -777,18 +777,18 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     )}
                   </a>
                 )}
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-100 text-neutral-700 border border-neutral-200">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
                   <span>{RANK_EMOJIS[profile.rank] || '🎓'}</span>
                   {profile.rank}
                 </span>
                 {profile.streakDays > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                     <Flame className="w-3.5 h-3.5 text-orange-500" />
                     {profile.streakDays}d Streak
                   </span>
                 )}
                 {(profile.totalGoCoinsEarned || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     Season 1 Hunter
                   </span>
@@ -801,27 +801,27 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               <button
                 type="button"
                 onClick={() => handleTabChange('wallet')}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200/80 hover:border-amber-300 transition-all text-left"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20 border border-amber-200/80 dark:border-amber-800/50 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-left cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-700">
+                <div className="w-7 h-7 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-700 dark:text-amber-300">
                   <Coins className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-amber-900 leading-none">
+                  <div className="text-sm font-bold text-amber-900 dark:text-amber-200 leading-none">
                     {(profile.goCoins || 0).toLocaleString()} GC
                   </div>
-                  <div className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mt-0.5">
+                  <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mt-0.5">
                     ≈ ₦{estimatedNaira.toLocaleString()}
                   </div>
                 </div>
               </button>
 
-              <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-neutral-50 border border-neutral-200/80">
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200/80 dark:border-neutral-700">
                 <div>
-                  <div className="text-sm font-bold text-neutral-900 leading-none">
+                  <div className="text-sm font-bold text-neutral-900 dark:text-white leading-none">
                     {profile.xp.toLocaleString()} XP
                   </div>
-                  <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mt-0.5">
+                  <div className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mt-0.5">
                     Reputation
                   </div>
                 </div>
@@ -836,7 +836,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           {/* Display Name + Department/Level + Bio */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 {profile.displayName || 'Student'}
               </h1>
               {!profile.hasEditedDisplayName && (
@@ -845,14 +845,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     setNewName(profile.displayName || '');
                     setShowEditName(true);
                   }}
-                  className="text-[11px] font-medium px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+                  className="text-[11px] font-medium px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <Edit2 className="w-3 h-3" /> Edit Name (1x)
                 </button>
               )}
               {(profile.department || profile.academicLevel) && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-neutral-100 text-neutral-700 text-xs font-medium">
-                  <GraduationCap className="w-3.5 h-3.5 text-neutral-500" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-medium border border-transparent dark:border-neutral-700/60">
+                  <GraduationCap className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
                   {[profile.department, profile.academicLevel].filter(Boolean).join(' • ')}
                 </span>
               )}
@@ -860,21 +860,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
             {/* Bio / About Me */}
             {profile.bio ? (
-              <p className="text-sm text-neutral-600 leading-relaxed max-w-2xl bg-neutral-50/80 border border-neutral-100 rounded-2xl px-4 py-3">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed max-w-2xl bg-neutral-50/80 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800 rounded-2xl px-4 py-3">
                 {profile.bio}
               </p>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowCustomizeModal(true)}
-                className="text-xs text-neutral-400 hover:text-neutral-600 italic transition-colors"
+                className="text-xs text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 italic transition-colors cursor-pointer"
               >
                 + Add an "About Me" bio, department, or custom banner...
               </button>
             )}
 
             {/* Metadata strip */}
-            <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-neutral-400">
+            <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-neutral-400 dark:text-neutral-500">
               <span className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5" /> {user.email}
               </span>
@@ -885,15 +885,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
 
           {/* ── Profile Navigation Tabs ── */}
-          <div className="flex items-center gap-2 mt-7 pt-6 border-t border-neutral-100">
+          <div className="flex items-center gap-2 mt-7 pt-6 border-t border-neutral-100 dark:border-neutral-800">
             <motion.button
               type="button"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleTabChange('overview')}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'overview'
-                ? 'bg-neutral-900 text-white shadow-xs'
-                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                ? 'bg-neutral-900 dark:bg-neutral-800 text-white shadow-xs border dark:border-neutral-700'
+                : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                 }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -905,8 +905,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               whileTap={{ scale: 0.98 }}
               onClick={() => handleTabChange('wallet')}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'wallet'
-                ? 'bg-neutral-900 text-white shadow-xs'
-                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                ? 'bg-neutral-900 dark:bg-neutral-800 text-white shadow-xs border dark:border-neutral-700'
+                : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                 }`}
             >
               <Coins className="w-3.5 h-3.5 text-amber-500" />
@@ -916,7 +916,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   ? 'bg-emerald-500/20 text-emerald-400'
                   : activeTab === 'wallet'
                     ? 'bg-white/20 text-white'
-                    : 'bg-amber-100 text-amber-800'
+                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                   }`}
               >
                 {isFullyQualifiedForPayday ? 'Qualified' : `${completedStepsCount}/3`}
@@ -940,22 +940,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             className="space-y-6"
           >
           {/* Rank Progress Card */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-6">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-xl">{RANK_EMOJIS[profile.rank] || '🎓'}</span>
-                <span className="text-sm font-bold text-neutral-900">{profile.rank}</span>
+                <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{profile.rank}</span>
               </div>
               {currentTier.max !== Infinity ? (
-                <span className="text-xs font-medium text-neutral-500">
-                  <span className="font-bold text-neutral-900">{profile.xp}</span> / {currentTier.max + 1} XP
+                <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                  <span className="font-bold text-neutral-900 dark:text-neutral-100">{profile.xp}</span> / {currentTier.max + 1} XP
                 </span>
               ) : (
                 <span className="text-xs font-bold text-gouni-primary">MAX RANK</span>
               )}
             </div>
 
-            <div className="relative w-full h-3 bg-neutral-100 rounded-full overflow-hidden">
+            <div className="relative w-full h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
               <div
                 className="absolute top-0 left-0 h-full rounded-full transition-all duration-700 ease-out"
                 style={{
@@ -966,9 +966,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             </div>
 
             <div className="flex justify-between mt-2">
-              <span className="text-[11px] font-semibold text-neutral-400">Current Tier</span>
+              <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">Current Tier</span>
               {currentTier.max !== Infinity && (
-                <span className="text-[11px] font-semibold text-neutral-400">
+                <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">
                   Next: {RANK_PROGRESS[RANK_PROGRESS.indexOf(currentTier) + 1]?.rank || 'Next Rank'}
                 </span>
               )}
@@ -977,37 +977,37 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
-              <div className="text-2xl font-bold text-neutral-900">{myProjects.length}</div>
-              <div className="text-xs text-neutral-400 mt-1">Projects</div>
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 text-center">
+              <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{myProjects.length}</div>
+              <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">Projects</div>
             </div>
-            <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
-              <div className="text-2xl font-bold text-neutral-900">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 text-center">
+              <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                 {myProjects.reduce((acc, p) => acc + p.likes, 0)}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">Total Votes</div>
+              <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">Total Votes</div>
             </div>
-            <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
-              <div className="text-2xl font-bold text-amber-600">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 text-center">
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                 {(profile.goCoins || 0).toLocaleString()}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">GoCoins</div>
+              <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">GoCoins</div>
             </div>
-            <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
-              <div className="text-2xl font-bold text-neutral-900">{profile.seasonXp}</div>
-              <div className="text-xs text-neutral-400 mt-1">Season XP</div>
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 text-center">
+              <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{profile.seasonXp}</div>
+              <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">Season XP</div>
             </div>
-            <div className="bg-white rounded-2xl border border-neutral-200 p-5 text-center">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 text-center">
               <div className="flex items-center justify-center gap-1">
                 <Flame className="w-5 h-5 text-orange-500" />
-                <span className="text-2xl font-bold text-neutral-900">{profile.streakDays}</span>
+                <span className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{profile.streakDays}</span>
               </div>
-              <div className="text-xs text-neutral-400 mt-1">Day Streak</div>
+              <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">Day Streak</div>
             </div>
           </div>
 
           {/* ── Discord-Style GitHub Developer & Coding Productivity Card ── */}
-          <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden shadow-2xs">
+          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-2xs">
             <div className="bg-gradient-to-r from-[#0d1117] via-[#161b22] to-[#1f2937] text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center">
@@ -1032,7 +1032,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     type="button"
                     onClick={handleSyncGitHub}
                     disabled={syncingGitHub}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${syncingGitHub ? 'animate-spin' : ''}`} />
                     {syncingGitHub ? 'Syncing...' : 'Sync Activity'}
@@ -1040,7 +1040,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   <button
                     type="button"
                     onClick={handleDisconnectGitHub}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-xs font-medium text-red-200 transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-xs font-medium text-red-200 transition-colors cursor-pointer"
                     title="Disconnect GitHub"
                   >
                     <Unlink className="w-3.5 h-3.5" />
@@ -1053,10 +1053,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               <div className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1 max-w-lg">
-                    <p className="text-sm font-semibold text-neutral-900">
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       Link your GitHub account to showcase your code & open-source contributions
                     </p>
-                    <p className="text-xs text-neutral-500 leading-relaxed">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
                       Whenever your commits or Pull Requests land in any GoBoard project repository, you'll automatically appear as a verified contributor and earn Builder XP.
                     </p>
                   </div>
@@ -1065,7 +1065,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                       type="button"
                       onClick={handleConnectGitHubOAuth}
                       disabled={connectingGitHub}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold transition-all shadow-xs disabled:opacity-50"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-white text-white dark:text-neutral-900 text-xs font-semibold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                     >
                       <Github className="w-4 h-4" />
                       {connectingGitHub ? 'Connecting...' : 'Connect with GitHub'}
@@ -1073,7 +1073,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     <button
                       type="button"
                       onClick={() => setShowUsernameConnect(!showUsernameConnect)}
-                      className="px-3 py-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-xs font-medium text-neutral-600 transition-colors"
+                      className="px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-xs font-medium text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer"
                     >
                       Use Username
                     </button>
@@ -1083,10 +1083,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 {showUsernameConnect && (
                   <form
                     onSubmit={handleConnectGitHubUsername}
-                    className="mt-4 pt-4 border-t border-neutral-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5"
+                    className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5"
                   >
                     <div className="relative flex-grow">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-400">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-400 dark:text-neutral-500">
                         github.com/
                       </span>
                       <input
@@ -1094,14 +1094,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                         value={githubUsernameInput}
                         onChange={(e) => setGithubUsernameInput(e.target.value)}
                         placeholder="your-github-username"
-                        className="w-full pl-24 pr-4 py-2 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/15"
+                        className="w-full pl-24 pr-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/15 dark:focus:ring-white/20"
                         required
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={connectingGitHub || !githubUsernameInput.trim()}
-                      className="px-4 py-2 rounded-xl bg-gouni-primary hover:bg-gouni-dark text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl bg-gouni-primary hover:bg-gouni-dark text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       {connectingGitHub ? 'Fetching...' : 'Link Profile'}
                     </button>
@@ -1117,7 +1117,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                       <img
                         src={profile.githubProfile.avatarUrl}
                         alt={profile.githubProfile.displayUsername}
-                        className="w-12 h-12 rounded-2xl border border-neutral-200 object-cover"
+                        className="w-12 h-12 rounded-2xl border border-neutral-200 dark:border-neutral-700 object-cover"
                       />
                     )}
                     <div>
@@ -1126,74 +1126,74 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                           href={profile.githubProfile.profileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-base font-bold text-neutral-900 hover:text-gouni-primary transition-colors inline-flex items-center gap-1"
+                          className="text-base font-bold text-neutral-900 dark:text-neutral-100 hover:text-gouni-primary dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1"
                         >
                           @{profile.githubProfile.displayUsername || profile.githubProfile.username}
                           <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
                         </a>
                         {profile.githubProfile.isVerifiedOAuth ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             OAuth Verified
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 text-neutral-600">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
                             Public Sync
                           </span>
                         )}
                       </div>
                       {profile.githubProfile.bio && (
-                        <p className="text-xs text-neutral-500 mt-0.5 line-clamp-1">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
                           {profile.githubProfile.bio}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-neutral-400">
+                  <div className="text-[11px] text-neutral-400 dark:text-neutral-500">
                     Last synced {formatDate(profile.githubProfile.lastSyncedAt).split(',')[0]}
                   </div>
                 </div>
 
                 {/* 4-Pillar Productivity & Activity Metrics */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                      <GitCommit className="w-3.5 h-3.5 text-emerald-600" />
+                  <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      <GitCommit className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       30d Commits & PRs
                     </div>
-                    <div className="text-2xl font-extrabold text-neutral-900 mt-1">
+                    <div className="text-2xl font-extrabold text-neutral-900 dark:text-neutral-100 mt-1">
                       {profile.githubProfile.recentCommits30d || 0}
                     </div>
                   </div>
 
-                  <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                  <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                       <Flame className="w-3.5 h-3.5 text-orange-500" />
                       Active Days (30d)
                     </div>
-                    <div className="text-2xl font-extrabold text-neutral-900 mt-1">
+                    <div className="text-2xl font-extrabold text-neutral-900 dark:text-neutral-100 mt-1">
                       {profile.githubProfile.activeCodingDays30d || 0}
-                      <span className="text-xs font-medium text-neutral-400 ml-1">days</span>
+                      <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500 ml-1">days</span>
                     </div>
                   </div>
 
-                  <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                      <Code2 className="w-3.5 h-3.5 text-blue-600" />
+                  <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      <Code2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       Public Repos
                     </div>
-                    <div className="text-2xl font-extrabold text-neutral-900 mt-1">
+                    <div className="text-2xl font-extrabold text-neutral-900 dark:text-neutral-100 mt-1">
                       {profile.githubProfile.publicRepos || 0}
                     </div>
                   </div>
 
-                  <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                  <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                       <Star className="w-3.5 h-3.5 text-amber-500" />
                       Total Repo Stars
                     </div>
-                    <div className="text-2xl font-extrabold text-neutral-900 mt-1">
+                    <div className="text-2xl font-extrabold text-neutral-900 dark:text-neutral-100 mt-1">
                       {profile.githubProfile.totalStars || 0}
                     </div>
                   </div>
@@ -1202,10 +1202,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 {/* Top Languages Breakdown Bar */}
                 {profile.githubProfile.topLanguages && profile.githubProfile.topLanguages.length > 0 && (
                   <div>
-                    <div className="text-xs font-bold text-neutral-700 mb-2">
+                    <div className="text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-2">
                       Top Languages Across Repositories
                     </div>
-                    <div className="w-full h-2.5 rounded-full overflow-hidden flex bg-neutral-100">
+                    <div className="w-full h-2.5 rounded-full overflow-hidden flex bg-neutral-100 dark:bg-neutral-800">
                       {profile.githubProfile.topLanguages.map((lang) => (
                         <div
                           key={lang.name}
@@ -1221,7 +1221,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                       {profile.githubProfile.topLanguages.map((lang) => (
                         <span
                           key={lang.name}
-                          className="inline-flex items-center gap-1.5 text-xs text-neutral-600 font-medium"
+                          className="inline-flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-medium"
                         >
                           <span
                             className="w-2.5 h-2.5 rounded-full"
@@ -1230,7 +1230,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             }}
                           />
                           {lang.name}
-                          <span className="text-neutral-400">{lang.percentage}%</span>
+                          <span className="text-neutral-400 dark:text-neutral-500">{lang.percentage}%</span>
                         </span>
                       ))}
                     </div>
@@ -1241,11 +1241,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 {profile.githubProfile.topRepos && profile.githubProfile.topRepos.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <div className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
-                        <Pin className="w-3.5 h-3.5 text-indigo-600" />
+                      <div className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                        <Pin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         Pinned & Active Repositories
                       </div>
-                      <span className="text-[11px] text-neutral-400">
+                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
                         Click pin to feature any repo
                       </span>
                     </div>
@@ -1254,7 +1254,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                       {profile.githubProfile.topRepos.slice(0, 4).map((repo) => (
                         <div
                           key={repo.id}
-                          className="p-3.5 rounded-2xl border border-neutral-200/80 hover:border-neutral-300 bg-neutral-50/50 hover:bg-neutral-50 transition-all group flex flex-col justify-between relative"
+                          className="p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/40 hover:bg-neutral-50 dark:hover:bg-neutral-800/70 transition-all group flex flex-col justify-between relative"
                         >
                           <div>
                             <div className="flex items-center justify-between gap-2">
@@ -1263,12 +1263,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                                   href={repo.htmlUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs font-bold text-neutral-900 group-hover:text-gouni-primary truncate hover:underline"
+                                  className="text-xs font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-gouni-primary dark:group-hover:text-blue-400 truncate hover:underline"
                                 >
                                   {repo.name}
                                 </a>
                                 {repo.isPinned && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
                                     <Pin className="w-2.5 h-2.5 fill-indigo-500" /> Pinned
                                   </span>
                                 )}
@@ -1285,17 +1285,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                                   title={repo.isPinned ? 'Unpin repository' : 'Pin to top of profile'}
                                   className={`p-1 rounded-lg transition-colors cursor-pointer ${
                                     repo.isPinned
-                                      ? 'text-indigo-600 hover:bg-indigo-100 bg-indigo-50'
-                                      : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/60'
+                                      ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 bg-indigo-50 dark:bg-indigo-950/40'
+                                      : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-700'
                                   }`}
                                 >
-                                  <Pin className={`w-3 h-3 ${repo.isPinned ? 'fill-indigo-600' : ''}`} />
+                                  <Pin className={`w-3 h-3 ${repo.isPinned ? 'fill-indigo-600 dark:fill-indigo-400' : ''}`} />
                                 </button>
                                 <a
                                   href={repo.htmlUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/60 transition-colors"
+                                  className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-700 transition-colors"
                                   title="View on GitHub"
                                 >
                                   <ExternalLink className="w-3 h-3" />
@@ -1304,15 +1304,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             </div>
 
                             {repo.description && (
-                              <p className="text-[11px] text-neutral-500 line-clamp-1 mt-1">
+                              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1 mt-1">
                                 {repo.description}
                               </p>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2.5 text-[11px] text-neutral-400">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2.5 text-[11px] text-neutral-400 dark:text-neutral-500">
                             {repo.language && (
-                              <span className="inline-flex items-center gap-1 text-neutral-600 font-medium">
+                              <span className="inline-flex items-center gap-1 text-neutral-600 dark:text-neutral-300 font-medium">
                                 <span
                                   className="w-2 h-2 rounded-full"
                                   style={{
@@ -1324,8 +1324,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               </span>
                             )}
                             {repo.pushedAt && (
-                              <span className="inline-flex items-center gap-1 text-neutral-500 font-medium">
-                                <Clock className="w-3 h-3 text-neutral-400" />
+                              <span className="inline-flex items-center gap-1 text-neutral-500 dark:text-neutral-400 font-medium">
+                                <Clock className="w-3 h-3 text-neutral-400 dark:text-neutral-500" />
                                 Pushed {formatTimeAgo(repo.pushedAt)}
                               </span>
                             )}
@@ -1333,7 +1333,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               <Star className="w-3 h-3 text-amber-500" /> {repo.stargazersCount}
                             </span>
                             <span className="inline-flex items-center gap-0.5">
-                              <GitFork className="w-3 h-3 text-neutral-400" /> {repo.forksCount}
+                              <GitFork className="w-3 h-3 text-neutral-400 dark:text-neutral-500" /> {repo.forksCount}
                             </span>
                           </div>
                         </div>
@@ -1344,13 +1344,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
                 {/* Recent Commits Feed */}
                 {profile.githubProfile.recentCommitsList && profile.githubProfile.recentCommitsList.length > 0 && (
-                  <div className="pt-2 border-t border-neutral-100">
+                  <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800">
                     <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <div className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
-                        <GitCommit className="w-3.5 h-3.5 text-emerald-600" />
+                      <div className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                        <GitCommit className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         Recent Commits across Active Repositories
                       </div>
-                      <span className="text-[11px] text-neutral-400">
+                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
                         Direct GitHub commit log
                       </span>
                     </div>
@@ -1362,18 +1362,18 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                           href={c.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-3 rounded-2xl border border-neutral-200/70 hover:border-neutral-300 bg-neutral-50/50 hover:bg-neutral-50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 group"
+                          className="p-3 rounded-2xl border border-neutral-200/70 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/40 hover:bg-neutral-50 dark:hover:bg-neutral-800/70 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 group"
                         >
                           <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-                            <span className="shrink-0 p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 mt-0.5 sm:mt-0">
+                            <span className="shrink-0 p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 mt-0.5 sm:mt-0">
                               <GitCommit className="w-3.5 h-3.5" />
                             </span>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-neutral-900 group-hover:text-gouni-primary transition-colors truncate">
+                              <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-gouni-primary dark:group-hover:text-blue-400 transition-colors truncate">
                                 {c.message}
                               </p>
-                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
-                                <span className="font-mono text-[10px] text-neutral-700 bg-neutral-200/60 px-1.5 py-0.5 rounded font-semibold">
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+                                <span className="font-mono text-[10px] text-neutral-700 dark:text-neutral-300 bg-neutral-200/60 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-semibold">
                                   {c.repoName}
                                 </span>
                                 <span>•</span>
@@ -1383,7 +1383,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                            <span className="font-mono text-[11px] font-semibold text-neutral-600 group-hover:text-emerald-700 bg-white border border-neutral-200 px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                            <span className="font-mono text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
                               {c.sha}
                               <ExternalLink className="w-2.5 h-2.5 text-neutral-400" />
                             </span>
@@ -1399,17 +1399,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
           {/* My Projects */}
           <div>
-            <h2 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-neutral-400" />
+            <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
               My Projects
             </h2>
 
             {loading ? (
               <div className="space-y-4">
                 {[1, 2].map(i => (
-                  <div key={i} className="bg-white rounded-2xl border border-neutral-200 p-5 animate-pulse">
-                    <div className="h-4 bg-neutral-100 rounded w-1/3 mb-3" />
-                    <div className="h-3 bg-neutral-100 rounded w-2/3" />
+                  <div key={i} className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 animate-pulse">
+                    <div className="h-4 bg-neutral-100 dark:bg-neutral-800 rounded w-1/3 mb-3" />
+                    <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded w-2/3" />
                   </div>
                 ))}
               </div>
@@ -1419,36 +1419,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   <div
                     key={project.id}
                     onClick={() => onProjectClick(project)}
-                    className="flex items-center gap-4 bg-white rounded-2xl border border-neutral-200 p-4 hover:border-neutral-300 hover:shadow-card-hover transition-all cursor-pointer"
+                    className="flex items-center gap-4 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-card-hover transition-all cursor-pointer"
                   >
-                    <div className="w-16 h-12 rounded-xl bg-neutral-100 overflow-hidden shrink-0">
+                    <div className="w-16 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 overflow-hidden shrink-0">
                       <img src={project.imageUrl || undefined} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="text-sm font-semibold text-neutral-900 truncate">{project.title}</h3>
+                        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">{project.title}</h3>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${STATUS_CONFIG[project.status].color}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[project.status].dot}`} />
                           {STATUS_CONFIG[project.status].label}
                         </span>
                         {project.openToContributions && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <GitFork className="w-2.5 h-2.5" /> Open to PRs
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-neutral-400 truncate">{project.description}</p>
+                      <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">{project.description}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-sm font-semibold text-neutral-700">{project.likes}</div>
-                      <div className="text-[10px] text-neutral-400">votes</div>
+                      <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">{project.likes}</div>
+                      <div className="text-[10px] text-neutral-400 dark:text-neutral-500">votes</div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-neutral-200">
-                <p className="text-xs text-neutral-400">You haven't submitted any projects yet.</p>
+              <div className="text-center py-12 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+                <p className="text-xs text-neutral-400 dark:text-neutral-500">You haven't submitted any projects yet.</p>
               </div>
             )}
           </div>
@@ -1456,8 +1456,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           {/* Open-Source Contributions on GoBoard */}
           {contributedProjects.length > 0 && (
             <div>
-              <h2 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
-                <GitFork className="w-5 h-5 text-emerald-600" />
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                <GitFork className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 Open-Source Contributions ({contributedProjects.length})
               </h2>
               <div className="space-y-3">
@@ -1465,25 +1465,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   <div
                     key={project.id}
                     onClick={() => onProjectClick(project)}
-                    className="flex items-center gap-4 bg-white rounded-2xl border border-emerald-200/80 p-4 hover:border-emerald-300 hover:shadow-card-hover transition-all cursor-pointer"
+                    className="flex items-center gap-4 bg-white dark:bg-neutral-900 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 p-4 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-card-hover transition-all cursor-pointer"
                   >
-                    <div className="w-16 h-12 rounded-xl bg-neutral-100 overflow-hidden shrink-0">
+                    <div className="w-16 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 overflow-hidden shrink-0">
                       <img src={project.imageUrl || undefined} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="text-sm font-semibold text-neutral-900 truncate">{project.title}</h3>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">{project.title}</h3>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                           <Github className="w-2.5 h-2.5" /> Verified Contributor
                         </span>
                       </div>
-                      <p className="text-xs text-neutral-400 truncate">
+                      <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">
                         By {project.displayName || project.studentName} • {project.description}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-sm font-semibold text-neutral-700">{project.likes}</div>
-                      <div className="text-[10px] text-neutral-400">votes</div>
+                      <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">{project.likes}</div>
+                      <div className="text-[10px] text-neutral-400 dark:text-neutral-500">votes</div>
                     </div>
                   </div>
                 ))}
@@ -1545,14 +1545,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           {/* Overall Qualification Banner */}
           <div
             className={`rounded-2xl border p-5 flex items-start gap-3.5 ${isFullyQualifiedForPayday
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-amber-50 border-amber-200 text-amber-900'
+              ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/80 text-emerald-900 dark:text-emerald-200'
+              : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200'
               }`}
           >
             {isFullyQualifiedForPayday ? (
-              <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             )}
             <div>
               <h3 className="text-sm font-bold">
@@ -1569,30 +1569,30 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
 
           {/* Step 1: Earn GoCoins */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-6">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${hasCoins
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-neutral-100 text-neutral-600'
+                    ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
                     }`}
                 >
                   {hasCoins ? <Check className="w-4 h-4" /> : '1'}
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-neutral-900">
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
                     Earn GoCoins from Exam Paper Bounties
                   </h4>
-                  <p className="text-xs text-neutral-500 mt-1">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                     Each approved exam question paper awards <strong>500 GoCoins</strong>. Season 1 has zero minimum threshold to get paid!
                   </p>
                 </div>
               </div>
               <span
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${hasCoins
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-neutral-100 text-neutral-500'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
                   }`}
               >
                 {hasCoins ? `${profile.goCoins} GC Ready` : '0 GC'}
@@ -1601,25 +1601,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
 
           {/* Step 2: Student ID Card Verification */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-6">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
               <div className="flex items-start gap-3.5">
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${isIdVerified
-                    ? 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
                     : profile.verificationStatus === 'pending'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-neutral-100 text-neutral-600'
+                      ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
                     }`}
                 >
                   {isIdVerified ? <Check className="w-4 h-4" /> : '2'}
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                     Student ID Card Verification
-                    <span className="text-[11px] font-normal text-neutral-400">(Anti-Smurf Check)</span>
+                    <span className="text-[11px] font-normal text-neutral-400 dark:text-neutral-500">(Anti-Smurf Check)</span>
                   </h4>
-                  <p className="text-xs text-neutral-500 mt-1">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                     Upload a clear photo of your GoUni Student ID card. Only visible to you and admins.
                   </p>
                 </div>
@@ -1628,22 +1628,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               {/* Status Badge */}
               <div className="shrink-0">
                 {profile.verificationStatus === 'verified' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     <ShieldCheck className="w-3.5 h-3.5" /> Verified
                   </span>
                 )}
                 {profile.verificationStatus === 'pending' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     <Clock className="w-3.5 h-3.5" /> Pending Admin Review
                   </span>
                 )}
                 {profile.verificationStatus === 'rejected' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
                     <X className="w-3.5 h-3.5" /> Rejected
                   </span>
                 )}
                 {(!profile.verificationStatus || profile.verificationStatus === 'none') && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
                     Not Uploaded
                   </span>
                 )}
@@ -1651,14 +1651,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             </div>
 
             {profile.verificationStatus === 'rejected' && profile.verificationRejectionReason && (
-              <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+              <div className="mb-4 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/80 text-xs text-red-700 dark:text-red-300">
                 <strong>Reason:</strong> {profile.verificationRejectionReason}
               </div>
             )}
 
             <div className="pl-0 sm:pl-11 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               {profile.studentIdCardUrl && (
-                <div className="w-40 h-24 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 shrink-0">
+                <div className="w-40 h-24 rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-neutral-50 dark:bg-neutral-800 shrink-0">
                   <img
                     src={profile.studentIdCardUrl}
                     alt="Student ID Card"
@@ -1672,7 +1672,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   type="button"
                   onClick={() => idCardInputRef.current?.click()}
                   disabled={uploadingIdCard}
-                  className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-white text-white dark:text-neutral-900 text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-60 cursor-pointer"
                 >
                   <IdCard className="w-4 h-4" />
                   {uploadingIdCard
@@ -1686,30 +1686,30 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
           </div>
 
           {/* Step 3: Payout Bank Account Details */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-6">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-start gap-3.5">
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${hasBankInfo
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-neutral-100 text-neutral-600'
+                    ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
                     }`}
                 >
                   {hasBankInfo ? <Check className="w-4 h-4" /> : '3'}
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-neutral-900">
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
                     Payout Bank Account Details
                   </h4>
-                  <p className="text-xs text-neutral-500 mt-1">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                     Save the bank account where your Payday rewards should be sent.
                   </p>
                 </div>
               </div>
               <span
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${hasBankInfo
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-neutral-100 text-neutral-500'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
                   }`}
               >
                 {hasBankInfo ? 'Saved' : 'Required'}
@@ -1719,28 +1719,28 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
             <form onSubmit={handleSaveBankDetails} className="pl-0 sm:pl-11 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+                  <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                     Bank Name
                   </label>
                   <div className="relative">
-                    <Building2 className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Building2 className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={bankForm.bankName}
                       onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
                       placeholder="e.g. OPay, GTBank, Kuda"
-                      className="w-full pl-9 pr-3.5 py-2.5 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none"
+                      className="w-full pl-9 pr-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+                  <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                     Account Number (10 digits)
                   </label>
                   <div className="relative">
-                    <CreditCard className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <CreditCard className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
@@ -1750,13 +1750,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                         setBankForm({ ...bankForm, accountNumber: e.target.value.replace(/\D/g, '') })
                       }
                       placeholder="0123456789"
-                      className="w-full pl-9 pr-3.5 py-2.5 border border-neutral-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none"
+                      className="w-full pl-9 pr-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm font-mono focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+                  <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                     Account Name
                   </label>
                   <input
@@ -1765,7 +1765,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     value={bankForm.accountName}
                     onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
                     placeholder="Full name on account"
-                    className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none"
+                    className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none"
                   />
                 </div>
               </div>
@@ -1774,7 +1774,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 <button
                   type="submit"
                   disabled={savingBank}
-                  className="px-5 py-2.5 rounded-xl bg-gouni-primary hover:bg-blue-800 text-white text-xs font-semibold transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl bg-gouni-primary hover:bg-blue-800 text-white text-xs font-semibold transition-colors disabled:opacity-60 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   {savingBank ? 'Saving...' : 'Save Bank Details'}
@@ -1804,21 +1804,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 14 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[85vh] overflow-y-auto"
+              className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float w-full max-w-lg max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b border-neutral-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800 sticky top-0 bg-white dark:bg-neutral-900 z-10">
                 <div>
-                  <h2 className="text-lg font-bold text-neutral-900">Customize Profile</h2>
-                  <p className="text-xs text-neutral-400 mt-0.5">Personalize your banner, theme accent, and bio</p>
+                  <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">Customize Profile</h2>
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">Personalize your banner, theme accent, and bio</p>
                 </div>
                 <motion.button
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setShowCustomizeModal(false)}
-                  className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
                 >
-                  <X className="w-5 h-5 text-neutral-400" />
+                  <X className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
                 </motion.button>
               </div>
 
@@ -1827,14 +1827,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2.5">
                   <div>
-                    <label className="text-xs font-bold text-neutral-900">Profile Banner Theme</label>
-                    <p className="text-[11px] text-neutral-400">Choose a designer preset or build your own custom gradient</p>
+                    <label className="text-xs font-bold text-neutral-900 dark:text-neutral-100">Profile Banner Theme</label>
+                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Choose a designer preset or build your own custom gradient</p>
                   </div>
                   {profile.bannerUrl && (
                     <button
                       type="button"
                       onClick={handleRemoveCustomBanner}
-                      className="text-[11px] text-red-600 hover:underline font-semibold self-start sm:self-auto"
+                      className="text-[11px] text-red-600 dark:text-red-400 hover:underline font-semibold self-start sm:self-auto cursor-pointer"
                     >
                       Remove custom banner image
                     </button>
@@ -1842,7 +1842,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 </div>
 
                 {/* Sub-tabs: Presets vs Custom Gradient Studio */}
-                <div className="flex p-1 bg-neutral-100 rounded-xl mb-3 w-full">
+                <div className="flex p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl mb-3 w-full">
                   <button
                     type="button"
                     onClick={() => {
@@ -1855,10 +1855,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                         }));
                       }
                     }}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       bannerTab === 'presets'
-                        ? 'bg-white text-neutral-900 shadow-2xs'
-                        : 'text-neutral-500 hover:text-neutral-800'
+                        ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs'
+                        : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -1882,13 +1882,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                         bannerCustomGradient: grad,
                       }));
                     }}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       bannerTab === 'custom'
-                        ? 'bg-white text-neutral-900 shadow-2xs'
-                        : 'text-neutral-500 hover:text-neutral-800'
+                        ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs'
+                        : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
-                    <Palette className="w-3.5 h-3.5 text-purple-600" />
+                    <Palette className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                     Custom Gradient Studio
                   </button>
                 </div>
@@ -1909,9 +1909,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               bannerCustomGradient: null,
                             })
                           }
-                          className={`h-13 rounded-xl overflow-hidden relative border-2 transition-all text-left ${
+                          className={`h-13 rounded-xl overflow-hidden relative border-2 transition-all text-left cursor-pointer ${
                             isSelected
-                              ? 'border-neutral-900 scale-[1.02] shadow-xs ring-1 ring-neutral-900'
+                              ? 'border-neutral-900 dark:border-white scale-[1.02] shadow-xs ring-1 ring-neutral-900 dark:ring-white'
                               : 'border-transparent opacity-85 hover:opacity-100'
                           }`}
                         >
@@ -1925,20 +1925,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     })}
                   </div>
                 ) : (
-                  <div className="space-y-3.5 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200/80">
+                  <div className="space-y-3.5 bg-neutral-50 dark:bg-neutral-800/60 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
                     {/* Live Gradient Preview Strip */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wider">
                           Live Banner Preview
                         </span>
                         <button
                           type="button"
                           onClick={handleRandomizeGradient}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-[11px] font-semibold text-neutral-700 transition-colors shadow-2xs cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 transition-colors shadow-2xs cursor-pointer"
                           title="Generate aesthetic random gradient"
                         >
-                          <Dices className="w-3.5 h-3.5 text-purple-600" />
+                          <Dices className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                           Surprise Me
                         </button>
                       </div>
@@ -1980,7 +1980,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
                     {/* Direction / Type Selector */}
                     <div>
-                      <span className="text-[11px] font-semibold text-neutral-600 block mb-1.5">
+                      <span className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1.5">
                         Gradient Flow
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -2001,8 +2001,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               onClick={() => handleUpdateCustomGradient({ type: d.type, deg: d.deg })}
                               className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs font-semibold'
-                                  : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+                                  ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100 shadow-2xs font-semibold'
+                                  : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700'
                               }`}
                             >
                               {d.label}
@@ -2015,13 +2015,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     {/* Gradient Color Stops */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {/* Start Color */}
-                      <div className="bg-white p-2.5 rounded-xl border border-neutral-200">
-                        <span className="text-[11px] font-semibold text-neutral-600 block mb-1.5">
+                      <div className="bg-white dark:bg-neutral-800/80 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                        <span className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1.5">
                           Start Color
                         </span>
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 shadow-2xs cursor-pointer"
+                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-700 shadow-2xs cursor-pointer"
                             style={{
                               background:
                                 'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
@@ -2041,7 +2041,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             />
                           </div>
                           <div className="relative flex-1">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 font-bold">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 dark:text-neutral-500 font-bold">
                               #
                             </span>
                             <input
@@ -2053,20 +2053,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               }}
                               placeholder="4F46E5"
                               maxLength={6}
-                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
                             />
                           </div>
                         </div>
                       </div>
 
                       {/* End Color */}
-                      <div className="bg-white p-2.5 rounded-xl border border-neutral-200">
-                        <span className="text-[11px] font-semibold text-neutral-600 block mb-1.5">
+                      <div className="bg-white dark:bg-neutral-800/80 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                        <span className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1.5">
                           End Color
                         </span>
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 shadow-2xs cursor-pointer"
+                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-700 shadow-2xs cursor-pointer"
                             style={{
                               background:
                                 'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
@@ -2086,7 +2086,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             />
                           </div>
                           <div className="relative flex-1">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 font-bold">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 dark:text-neutral-500 font-bold">
                               #
                             </span>
                             <input
@@ -2098,7 +2098,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               }}
                               placeholder="06B6D4"
                               maxLength={6}
-                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
                             />
                           </div>
                         </div>
@@ -2106,9 +2106,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     </div>
 
                     {/* Optional Middle Color Stop Toggle */}
-                    <div className="bg-white p-2.5 rounded-xl border border-neutral-200">
+                    <div className="bg-white dark:bg-neutral-800/80 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-semibold text-neutral-700 flex items-center gap-1.5 cursor-pointer">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={hasGradientVia}
@@ -2119,9 +2119,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                         </label>
                       </div>
                       {hasGradientVia && (
-                        <div className="mt-2 flex items-center gap-2 pt-2 border-t border-neutral-100">
+                        <div className="mt-2 flex items-center gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-700">
                           <div
-                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 shadow-2xs cursor-pointer"
+                            className="w-8 h-8 rounded-lg relative overflow-hidden shrink-0 border border-neutral-200 dark:border-neutral-700 shadow-2xs cursor-pointer"
                             style={{
                               background:
                                 'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
@@ -2141,7 +2141,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             />
                           </div>
                           <div className="relative flex-1">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 font-bold">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 dark:text-neutral-500 font-bold">
                               #
                             </span>
                             <input
@@ -2153,7 +2153,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                               }}
                               placeholder="EC4899"
                               maxLength={6}
-                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                              className="w-full pl-6 pr-2 py-1 text-xs font-mono uppercase rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
                             />
                           </div>
                         </div>
@@ -2162,7 +2162,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
                     {/* Quick Aesthetic Starter Combos */}
                     <div>
-                      <span className="text-[11px] font-semibold text-neutral-500 block mb-1.5">
+                      <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mb-1.5">
                         Curated Aesthetic Combos
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto pr-1">
@@ -2171,7 +2171,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             key={p.label}
                             type="button"
                             onClick={() => handleApplyPalette(p)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-neutral-200 hover:border-neutral-300 text-[11px] font-medium text-neutral-700 transition-all shadow-2xs cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 text-[11px] font-medium text-neutral-700 dark:text-neutral-300 transition-all shadow-2xs cursor-pointer"
                           >
                             <span
                               className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
@@ -2192,22 +2192,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <label className="text-xs font-bold text-neutral-900">Profile Accent Color</label>
-                    <p className="text-[11px] text-neutral-400">Customizes your avatar outline, profile card header line, and badges</p>
+                    <label className="text-xs font-bold text-neutral-900 dark:text-neutral-100">Profile Accent Color</label>
+                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Customizes your avatar outline, profile card header line, and badges</p>
                   </div>
                   <div
-                    className="w-5 h-5 rounded-full border border-neutral-200 shadow-2xs shrink-0"
+                    className="w-5 h-5 rounded-full border border-neutral-200 dark:border-neutral-700 shadow-2xs shrink-0"
                     style={{ backgroundColor: customForm.accentColor }}
                     title={`Selected accent: ${customForm.accentColor}`}
                   />
                 </div>
 
-                <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200/80 space-y-3">
+                <div className="bg-neutral-50 dark:bg-neutral-800/60 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 space-y-3">
                   {/* Wheel Picker & Hex Input Bar */}
                   <div className="flex items-center gap-2.5">
                     {/* Visual Color Wheel Trigger */}
                     <div
-                      className="w-9 h-9 rounded-xl relative overflow-hidden shrink-0 shadow-xs border border-neutral-300 hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                      className="w-9 h-9 rounded-xl relative overflow-hidden shrink-0 shadow-xs border border-neutral-300 dark:border-neutral-600 hover:scale-105 active:scale-95 transition-transform cursor-pointer"
                       style={{
                         background:
                           'conic-gradient(from 90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000)',
@@ -2230,7 +2230,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
 
                     {/* Hex Input */}
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-neutral-400">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-neutral-400 dark:text-neutral-500">
                         #
                       </span>
                       <input
@@ -2242,19 +2242,19 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                         }}
                         placeholder="1E3A8A"
                         maxLength={6}
-                        className="w-full pl-7 pr-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-xl border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                        className="w-full pl-7 pr-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/20"
                       />
                     </div>
 
-                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider shrink-0 flex items-center gap-1">
-                      <Palette className="w-3 h-3 text-purple-600" />
+                    <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                      <Palette className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                       Color Wheel
                     </span>
                   </div>
 
                   {/* Curated Swatches Row */}
                   <div>
-                    <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1.5">
+                    <span className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider block mb-1.5">
                       Curated Swatches
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
@@ -2266,9 +2266,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                             key={c.value}
                             type="button"
                             onClick={() => setCustomForm({ ...customForm, accentColor: c.value })}
-                            className={`w-7 h-7 rounded-xl transition-all flex items-center justify-center border border-black/10 shadow-2xs cursor-pointer ${
+                            className={`w-7 h-7 rounded-xl transition-all flex items-center justify-center border border-black/10 dark:border-white/10 shadow-2xs cursor-pointer ${
                               isSelected
-                                ? 'scale-115 ring-2 ring-offset-2 ring-neutral-900'
+                                ? 'scale-115 ring-2 ring-offset-2 ring-neutral-900 dark:ring-white dark:ring-offset-neutral-900'
                                 : 'hover:scale-105'
                             }`}
                             style={{ backgroundColor: c.value }}
@@ -2288,7 +2288,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               {/* Department & Academic Level */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
                     Department
                   </label>
                   <input
@@ -2296,17 +2296,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                     value={customForm.department}
                     onChange={(e) => setCustomForm({ ...customForm, department: e.target.value })}
                     placeholder="e.g. Computer Science"
-                    className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 outline-none"
+                    className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm focus:ring-2 focus:ring-gouni-primary/20 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
                     Level
                   </label>
                   <select
                     value={customForm.academicLevel}
                     onChange={(e) => setCustomForm({ ...customForm, academicLevel: e.target.value })}
-                    className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-gouni-primary/20 outline-none"
+                    className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-gouni-primary/20 outline-none"
                   >
                     <option value="">Select Level</option>
                     {ACADEMIC_LEVELS.map(lvl => (
@@ -2319,8 +2319,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               {/* Bio */}
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-neutral-700">About Me (Bio)</label>
-                  <span className="text-[11px] text-neutral-400">{customForm.bio.length}/160</span>
+                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">About Me (Bio)</label>
+                  <span className="text-[11px] text-neutral-400 dark:text-neutral-500">{customForm.bio.length}/160</span>
                 </div>
                 <textarea
                   rows={3}
@@ -2328,7 +2328,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                   value={customForm.bio}
                   onChange={(e) => setCustomForm({ ...customForm, bio: e.target.value })}
                   placeholder="Tell the community what you're building or studying..."
-                  className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl text-sm resize-none focus:ring-2 focus:ring-gouni-primary/20 outline-none"
+                  className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm resize-none focus:ring-2 focus:ring-gouni-primary/20 outline-none"
                 />
               </div>
 
@@ -2336,14 +2336,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 <button
                   type="button"
                   onClick={() => setShowCustomizeModal(false)}
-                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="flex-1 px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-sm font-medium hover:bg-neutral-800 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-white text-white dark:text-neutral-900 rounded-xl text-sm font-medium transition-colors disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   {savingProfile ? 'Saving...' : 'Save Profile'}
@@ -2371,36 +2371,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 14 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="relative bg-white rounded-2xl shadow-float w-full max-w-sm"
+              className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float w-full max-w-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-6 border-b border-neutral-100">
-                <h2 className="text-lg font-bold text-neutral-900">Edit Display Name</h2>
+              <div className="flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800">
+                <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">Edit Display Name</h2>
                 <motion.button
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.92 }}
                   onClick={() => setShowEditName(false)}
-                  className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
                 >
-                  <X className="w-5 h-5 text-neutral-400" />
+                  <X className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
                 </motion.button>
               </div>
 
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-[13px] font-medium text-neutral-700 mb-2">New Display Name</label>
+                  <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-2">New Display Name</label>
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Enter your new display name"
-                    className="w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
+                    className="w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all"
                     autoFocus
                   />
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                  <p className="text-[12px] text-yellow-800">
+                <div className="bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800/60 rounded-xl p-3">
+                  <p className="text-[12px] text-yellow-800 dark:text-yellow-200">
                     ⚠️ <strong>This is your only chance to change your display name.</strong> Choose wisely!
                   </p>
                 </div>
@@ -2408,14 +2408,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => setShowEditName(false)}
-                    className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                    className="flex-1 px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveDisplayName}
                     disabled={editingName}
-                    className="flex-1 px-4 py-2.5 bg-gouni-primary text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2.5 bg-gouni-primary text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
                     {editingName ? 'Updating...' : 'Save Name'}

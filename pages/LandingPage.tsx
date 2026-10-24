@@ -219,9 +219,9 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* ═══════════════════════════════════════════
-          SECTION 3 — USE CASES (light, tabbed)
+          SECTION 3 — USE CASES (light/dark, tabbed)
       ═══════════════════════════════════════════ */}
-      <section className="bg-white text-neutral-900 px-6 py-24">
+      <section className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-6 py-24 transition-colors">
         <div
           ref={(el) => { sectionsRef.current[1] = el; }}
           className="landing-section max-w-[1200px] mx-auto"
@@ -229,30 +229,30 @@ const LandingPage: React.FC = () => {
           {/* Tag */}
           <div className="flex items-center gap-2 mb-6">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-sm text-neutral-400">Use cases</span>
+            <span className="text-sm text-neutral-400 dark:text-neutral-500">Use cases</span>
           </div>
 
           {/* Heading */}
           <h2 className="text-3xl sm:text-4xl md:text-[44px] leading-[1.15] tracking-tight mb-14 max-w-3xl">
-            <span className="text-neutral-400 font-light italic">Different paths to explore </span>
-            <span className="text-neutral-900 font-semibold">all guided by one board.</span>
+            <span className="text-neutral-400 dark:text-neutral-500 font-light italic">Different paths to explore </span>
+            <span className="text-neutral-900 dark:text-white font-semibold">all guided by one board.</span>
           </h2>
 
           {/* Tabs */}
-          <div className="flex flex-wrap gap-1 border-b border-neutral-200 mb-12">
+          <div className="flex flex-wrap gap-1 border-b border-neutral-200 dark:border-neutral-800 mb-12">
             {useCaseTabs.map((tab, i) => (
               <button
                 key={tab.label}
                 onClick={() => setActiveTab(i)}
-                className={`px-5 py-3 text-sm font-medium transition-colors relative ${
+                className={`px-5 py-3 text-sm font-medium transition-colors relative cursor-pointer ${
                   activeTab === i
-                    ? 'text-neutral-900'
-                    : 'text-neutral-400 hover:text-neutral-600'
+                    ? 'text-neutral-900 dark:text-white'
+                    : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300'
                 }`}
               >
                 {tab.label}
                 {activeTab === i && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-neutral-900" />
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-neutral-900 dark:bg-white" />
                 )}
               </button>
             ))}
@@ -262,7 +262,7 @@ const LandingPage: React.FC = () => {
           <div className="flex flex-col md:flex-row items-center gap-12">
             {/* Screenshot */}
             <div className="flex-1 w-full">
-              <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-lg">
+              <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-lg">
                 <img
                   src={useCaseTabs[activeTab].image || undefined}
                   alt={useCaseTabs[activeTab].title}
@@ -273,13 +273,13 @@ const LandingPage: React.FC = () => {
 
             {/* Text */}
             <div className="flex-1 max-w-md">
-              <h3 className="text-2xl font-semibold mb-4">{useCaseTabs[activeTab].title}</h3>
-              <p className="text-neutral-500 text-lg leading-relaxed italic mb-8">
+              <h3 className="text-2xl font-semibold mb-4 text-neutral-900 dark:text-white">{useCaseTabs[activeTab].title}</h3>
+              <p className="text-neutral-500 dark:text-neutral-400 text-lg leading-relaxed italic mb-8">
                 {useCaseTabs[activeTab].description}
               </p>
               <button
                 onClick={handleBeginJourney}
-                className="px-6 py-3 text-sm font-medium border border-neutral-900 text-neutral-900 rounded-full hover:bg-neutral-900 hover:text-white transition-colors"
+                className="px-6 py-3 text-sm font-medium border border-neutral-900 dark:border-white text-neutral-900 dark:text-white rounded-full hover:bg-neutral-900 hover:text-white dark:hover:bg-white dark:hover:text-neutral-900 transition-colors cursor-pointer"
               >
                 Get started
               </button>
@@ -289,9 +289,9 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* ═══════════════════════════════════════════
-          SECTION 4 — HOW IT WORKS (light, steps)
+          SECTION 4 — HOW IT WORKS (light/dark, steps)
       ═══════════════════════════════════════════ */}
-      <section className="bg-[#fafafa] text-neutral-900 px-6 py-24">
+      <section className="bg-[#fafafa] dark:bg-neutral-950 text-neutral-900 dark:text-white px-6 py-24 transition-colors">
         <div
           ref={(el) => { sectionsRef.current[2] = el; }}
           className="landing-section max-w-[1200px] mx-auto"
@@ -299,21 +299,21 @@ const LandingPage: React.FC = () => {
           {/* Tag */}
           <div className="flex items-center gap-2 mb-6">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-sm text-neutral-400">How It Works</span>
+            <span className="text-sm text-neutral-400 dark:text-neutral-500">How It Works</span>
           </div>
 
           {/* Heading */}
           <h2 className="text-3xl sm:text-4xl md:text-[44px] leading-[1.15] tracking-tight mb-16 max-w-3xl">
-            <span className="text-neutral-400 font-light italic">One idea to begin,</span>
+            <span className="text-neutral-400 dark:text-neutral-500 font-light italic">One idea to begin,</span>
             <br />
-            <span className="text-neutral-400 font-light italic">three steps to </span>
-            <span className="text-neutral-900 font-semibold">launch.</span>
+            <span className="text-neutral-400 dark:text-neutral-500 font-light italic">three steps to </span>
+            <span className="text-neutral-900 dark:text-white font-semibold">launch.</span>
           </h2>
 
           <div className="flex flex-col md:flex-row gap-16 items-center">
             {/* Screenshot */}
             <div className="flex-1 w-full max-w-lg">
-              <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-lg bg-white">
+              <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 shadow-lg bg-white dark:bg-neutral-900">
                 <img
                   src="/submit-project.png"
                   alt="Submit project"
@@ -343,12 +343,12 @@ const LandingPage: React.FC = () => {
                 },
               ].map((step) => (
                 <div key={step.num} className="flex gap-5">
-                  <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 flex items-center justify-center text-sm font-semibold shrink-0">
                     {step.num}
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold mb-1 italic">{step.title}</h3>
-                    <p className="text-neutral-500 leading-relaxed">{step.description}</p>
+                    <h3 className="text-lg font-semibold mb-1 italic text-neutral-900 dark:text-white">{step.title}</h3>
+                    <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -360,7 +360,7 @@ const LandingPage: React.FC = () => {
       {/* ═══════════════════════════════════════════
           SECTION 5 — BENEFITS (light bg, dark cards)
       ═══════════════════════════════════════════ */}
-      <section className="bg-white text-neutral-900 px-6 py-24">
+      <section className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-6 py-24 transition-colors">
         <div
           ref={(el) => { sectionsRef.current[3] = el; }}
           className="landing-section max-w-[1200px] mx-auto"
@@ -368,13 +368,13 @@ const LandingPage: React.FC = () => {
           {/* Tag */}
           <div className="flex items-center gap-2 mb-6">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-sm text-neutral-400">Benefits</span>
+            <span className="text-sm text-neutral-400 dark:text-neutral-500">Benefits</span>
           </div>
 
           {/* Heading */}
           <h2 className="text-3xl sm:text-4xl md:text-[44px] leading-[1.15] tracking-tight mb-16 max-w-3xl">
-            <span className="text-neutral-400 font-light italic">A platform built for builders </span>
-            <span className="text-neutral-900 font-semibold">delivering real value every day.</span>
+            <span className="text-neutral-400 dark:text-neutral-500 font-light italic">A platform built for builders </span>
+            <span className="text-neutral-900 dark:text-white font-semibold">delivering real value every day.</span>
           </h2>
 
           {/* 2x3 grid of dark cards */}
@@ -382,7 +382,7 @@ const LandingPage: React.FC = () => {
             {benefits.map((b) => (
               <div
                 key={b.title}
-                className="bg-[#141414] text-white rounded-2xl p-7 flex flex-col gap-4"
+                className="bg-[#141414] text-white rounded-2xl p-7 flex flex-col gap-4 border border-white/[0.06]"
               >
                 <div className="w-10 h-10 rounded-full border border-white/[0.12] flex items-center justify-center text-neutral-400">
                   {b.icon}
@@ -415,7 +415,7 @@ const LandingPage: React.FC = () => {
             </p>
             <button
               onClick={handleBeginJourney}
-              className="px-8 py-3.5 text-[15px] font-medium bg-white text-[#0a0a0a] rounded-full hover:bg-neutral-200 transition-colors"
+              className="px-8 py-3.5 text-[15px] font-medium bg-white text-[#0a0a0a] rounded-full hover:bg-neutral-200 transition-colors cursor-pointer"
             >
               Try It Now
             </button>
@@ -423,7 +423,7 @@ const LandingPage: React.FC = () => {
         </div>
 
         {/* Right — project preview screenshot */}
-        <div className="flex-1 bg-white overflow-hidden flex items-end justify-center">
+        <div className="flex-1 bg-white dark:bg-neutral-900 overflow-hidden flex items-end justify-center transition-colors">
           <img
             src="/leave-updates.png"
             alt="Project detail preview"
@@ -434,13 +434,13 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="bg-white border-t border-neutral-200 px-6 py-8">
+      <footer className="bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 px-6 py-8 transition-colors">
         <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img src="/logo-black.png" alt="GoBoard" className="w-7 h-7 rounded-md object-contain" />
-            <span className="text-sm font-semibold text-neutral-900">GoBoard</span>
+            <img src="/logo-black.png" alt="GoBoard" className="w-7 h-7 rounded-md object-contain bg-white dark:bg-neutral-800 p-0.5" />
+            <span className="text-sm font-semibold text-neutral-900 dark:text-white">GoBoard</span>
           </div>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">
             &copy; {new Date().getFullYear()} GoBoard. Built for GoUni students.
           </p>
         </div>

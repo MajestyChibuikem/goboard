@@ -86,22 +86,22 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   return (
     <button
       onClick={handleClick}
-      className={`w-full p-4 text-left hover:bg-neutral-50 transition-colors ${
-        !notification.viewedAt ? 'bg-blue-50' : ''
+      className={`w-full p-4 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/60 transition-colors ${
+        !notification.viewedAt ? 'bg-blue-50/60 dark:bg-blue-950/25' : ''
       }`}
     >
       <div className="flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
           {getTypeIcon(notification.type)}
         </div>
 
         <div className="flex-grow min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-medium text-neutral-900">
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 {notification.message}
               </p>
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 by {notification.triggerDisplayName}
               </p>
             </div>
@@ -110,11 +110,11 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
             )}
           </div>
 
-          <p className="text-xs text-neutral-600 line-clamp-2 mt-1.5">
+          <p className="text-xs text-neutral-600 dark:text-neutral-300 line-clamp-2 mt-1.5">
             {notification.previewText}
           </p>
 
-          <p className="text-xs text-neutral-400 mt-2">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
             {timeAgo(notification.createdAt)}
           </p>
         </div>

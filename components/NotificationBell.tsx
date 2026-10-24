@@ -61,7 +61,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.92 }}
         onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+        className="relative p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
         aria-label="Notifications"
       >
         <Bell className="w-5 h-5" />
@@ -92,21 +92,21 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -8 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute top-12 z-50 w-80 max-w-[calc(100vw-1rem)] md:w-96 right-0 bg-white rounded-2xl border border-neutral-200 shadow-float max-h-96 overflow-y-auto"
+              className="absolute top-12 z-50 w-80 max-w-[calc(100vw-1rem)] md:w-96 right-0 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float max-h-96 overflow-y-auto"
             >
             {loading ? (
-              <div className="p-4 text-center text-neutral-400">
+              <div className="p-4 text-center text-neutral-400 dark:text-neutral-500">
                 <div className="inline-block animate-spin">
                   <Bell className="w-5 h-5" />
                 </div>
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-8 text-center text-neutral-400">
+              <div className="p-8 text-center text-neutral-400 dark:text-neutral-500">
                 <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No notifications yet</p>
               </div>
             ) : (
-              <div className="divide-y divide-neutral-100">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {notifications.map(notif => (
                   <NotificationItem
                     key={notif.id}

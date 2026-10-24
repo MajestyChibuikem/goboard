@@ -29,7 +29,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
       onClick={() => onClick(project)}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-neutral-100 mb-4">
+      <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 mb-4">
         <img
           src={project.imageUrl || undefined}
           alt={project.title}
@@ -37,11 +37,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
         />
 
         {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
         {/* Status pill top-right */}
         <div className="absolute top-3 right-3">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm shadow-sm ${STATUS_CONFIG[project.status].color}`}>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm shadow-sm border border-transparent dark:border-neutral-700/50 ${STATUS_CONFIG[project.status].color}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[project.status].dot}`} />
             {STATUS_CONFIG[project.status].label}
           </span>
@@ -52,7 +52,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
             {project.openToContributions && (
               <span
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-600/95 backdrop-blur-sm text-white shadow-sm"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-600/95 dark:bg-emerald-600/90 backdrop-blur-sm text-white shadow-sm"
                 title="Open to Pull Requests & Student Contributions"
               >
                 <GitPullRequest className="w-3 h-3" /> Open to PRs
@@ -61,7 +61,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
             {badges.map((badge) => (
               <span
                 key={badge.label}
-                className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/90 backdrop-blur-sm text-neutral-800 shadow-sm"
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm text-neutral-800 dark:text-neutral-200 shadow-sm border border-transparent dark:border-neutral-700/50"
               >
                 <span className="mr-1">{badge.icon}</span> {badge.label}
               </span>
@@ -71,7 +71,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
 
         {/* Category pill bottom-left */}
         <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-white/90 backdrop-blur-sm text-neutral-700">
+          <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm text-neutral-700 dark:text-neutral-200 border border-transparent dark:border-neutral-700/50">
             {project.category}
           </span>
         </div>
@@ -81,7 +81,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
       <div className="px-1">
         {/* Title + Vote row */}
         <div className="flex items-start justify-between gap-3 mb-2">
-          <h3 className="text-[15px] font-semibold text-neutral-900 leading-snug group-hover:text-gouni-primary transition-colors line-clamp-1">
+          <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-100 leading-snug group-hover:text-gouni-primary dark:group-hover:text-blue-400 transition-colors line-clamp-1">
             {project.title}
           </h3>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -93,8 +93,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
                 onClick={(e) => { e.stopPropagation(); onToggleFavorite(e, project.id); }}
                 className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                   favorited
-                    ? 'border-blue-300 bg-blue-50 text-blue-600'
-                    : 'border-surface-border hover:border-blue-300 hover:bg-blue-50 text-neutral-400 hover:text-blue-500'
+                    ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+                    : 'border-neutral-200 dark:border-neutral-800 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-neutral-400 dark:text-neutral-500 hover:text-blue-500 dark:hover:text-blue-400'
                 }`}
                 title={favorited ? 'Remove from favorites' : 'Add to favorites'}
               >
@@ -110,19 +110,19 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
               aria-pressed={!!voted}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all group/vote cursor-pointer ${
                 voted
-                  ? 'border-orange-300 bg-orange-50 text-orange-600'
-                  : 'border-surface-border hover:border-orange-300 hover:bg-orange-50'
+                  ? 'border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400'
+                  : 'border-neutral-200 dark:border-neutral-800 hover:border-orange-300 dark:hover:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/40'
               }`}
               title={voted ? 'Remove vote' : 'Upvote'}
             >
-              <ChevronUp className={`w-3.5 h-3.5 ${voted ? 'text-orange-500' : 'text-neutral-400 group-hover/vote:text-orange-500'}`} />
-              <span className={`text-xs font-semibold ${voted ? 'text-orange-600' : 'text-neutral-600 group-hover/vote:text-orange-600'}`}>{project.likes}</span>
+              <ChevronUp className={`w-3.5 h-3.5 ${voted ? 'text-orange-500' : 'text-neutral-400 dark:text-neutral-500 group-hover/vote:text-orange-500'}`} />
+              <span className={`text-xs font-semibold ${voted ? 'text-orange-600 dark:text-orange-400' : 'text-neutral-600 dark:text-neutral-400 group-hover/vote:text-orange-600'}`}>{project.likes}</span>
             </motion.button>
           </div>
         </div>
 
         {/* Description */}
-        <p className="text-[13px] text-neutral-500 leading-relaxed line-clamp-2 mb-3">
+        <p className="text-[13px] text-neutral-500 dark:text-neutral-400 leading-relaxed line-clamp-2 mb-3">
           {project.description}
         </p>
 
@@ -135,14 +135,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
               fallbackName={author.displayName}
               size="sm"
             />
-            <span className="text-[12px] text-neutral-500">
+            <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
               {author.displayName}
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[12px] text-neutral-400">
+          <div className="flex items-center gap-3 text-[12px] text-neutral-400 dark:text-neutral-500">
             {project.githubMeta && (
-              <span className="flex items-center gap-1 text-neutral-500 font-medium" title={`GitHub Stars (${project.githubMeta.fullName})`}>
+              <span className="flex items-center gap-1 text-neutral-500 dark:text-neutral-400 font-medium" title={`GitHub Stars (${project.githubMeta.fullName})`}>
                 <Star className="w-3 h-3 text-amber-500 fill-amber-400" />
                 {project.githubMeta.stars}
               </span>
@@ -165,12 +165,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick, onVo
         {/* Tech stack pills */}
         <div className="flex flex-wrap gap-1.5 mt-3">
           {project.techStack.slice(0, 3).map(tech => (
-            <span key={tech} className="px-2 py-0.5 bg-neutral-100 text-neutral-500 text-[11px] rounded-md font-medium">
+            <span key={tech} className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800/80 text-neutral-500 dark:text-neutral-400 text-[11px] rounded-md font-medium border border-transparent dark:border-neutral-700/40">
               {tech}
             </span>
           ))}
           {project.techStack.length > 3 && (
-            <span className="px-2 py-0.5 text-neutral-400 text-[11px] font-medium">
+            <span className="px-2 py-0.5 text-neutral-400 dark:text-neutral-500 text-[11px] font-medium">
               +{project.techStack.length - 3}
             </span>
           )}

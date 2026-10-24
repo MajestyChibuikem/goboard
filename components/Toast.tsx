@@ -30,10 +30,10 @@ const ICONS: Record<ToastType, React.ReactNode> = {
 };
 
 const BG: Record<ToastType, string> = {
-  success: 'bg-emerald-50/95 border-emerald-200/90 text-emerald-950',
-  error: 'bg-red-50/95 border-red-200/90 text-red-950',
-  warning: 'bg-amber-50/95 border-amber-200/90 text-amber-950',
-  info: 'bg-blue-50/95 border-blue-200/90 text-blue-950',
+  success: 'bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200/90 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100',
+  error: 'bg-red-50/95 dark:bg-red-950/90 border-red-200/90 dark:border-red-800 text-red-950 dark:text-red-100',
+  warning: 'bg-amber-50/95 dark:bg-amber-950/90 border-amber-200/90 dark:border-amber-800 text-amber-950 dark:text-amber-100',
+  info: 'bg-blue-50/95 dark:bg-blue-950/90 border-blue-200/90 dark:border-blue-800 text-blue-950 dark:text-blue-100',
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {

@@ -180,10 +180,10 @@ const LitClubPage: React.FC = () => {
   }, [writings, searchQuery, selectedGenre, sortBy, profile?.isAdmin, user?.uid]);
 
   const leaderboardUI = (onClickUser?: () => void) => (
-    <div className="bg-white rounded-2xl border border-neutral-200/60 overflow-hidden">
+    <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/60 dark:border-neutral-800 overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-2">
         <Trophy className="w-4 h-4 text-amber-500" />
-        <span className="text-[13px] font-bold text-neutral-900">Top Contributors</span>
+        <span className="text-[13px] font-bold text-neutral-900 dark:text-neutral-100">Top Contributors</span>
       </div>
       <div className="px-2 pb-2">
         {topUsersByXP.map((u, idx) => (
@@ -191,7 +191,7 @@ const LitClubPage: React.FC = () => {
             type="button"
             key={u.uid}
             onClick={() => { setSelectedProfileUserId(u.uid); onClickUser?.(); }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 transition-colors w-full text-left"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors w-full text-left cursor-pointer"
           >
             <div className="relative">
               {u.photoURL ? (
@@ -201,15 +201,15 @@ const LitClubPage: React.FC = () => {
                   {(u.displayName || 'A').charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white ${
+              <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white dark:border-neutral-900 ${
                 idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-neutral-300 text-neutral-700' : 'bg-orange-300 text-orange-800'
               }`}>
                 {idx + 1}
               </span>
             </div>
             <div className="flex-grow min-w-0">
-              <div className="text-[13px] font-medium text-neutral-900 truncate">{u.displayName || 'Anonymous'}</div>
-              <div className="text-[11px] text-neutral-400">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
+              <div className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">{u.displayName || 'Anonymous'}</div>
+              <div className="text-[11px] text-neutral-400 dark:text-neutral-500">{u.xp || 0} XP · {u.rank || 'Freshman Coder'}</div>
             </div>
           </button>
         ))}
@@ -218,19 +218,19 @@ const LitClubPage: React.FC = () => {
   );
 
   const noticeUI = (
-    <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl border border-rose-200/60 p-5">
+    <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 rounded-2xl border border-rose-200/60 dark:border-rose-900/40 p-5">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">{boardNotice.title}</div>
+        <div className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">{boardNotice.title}</div>
         {profile?.isAdmin && (
           <button
             onClick={() => { setNoticeEditText(boardNotice.content); setShowEditNoticeModal(true); }}
-            className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold"
+            className="text-[11px] text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold cursor-pointer"
           >
             Edit
           </button>
         )}
       </div>
-      <p className="text-[13px] text-neutral-700 leading-relaxed">{boardNotice.content}</p>
+      <p className="text-[13px] text-neutral-700 dark:text-neutral-300 leading-relaxed">{boardNotice.content}</p>
     </div>
   );
 
@@ -244,10 +244,10 @@ const LitClubPage: React.FC = () => {
             <button
               key={value}
               onClick={() => setSelectedGenre(value)}
-              className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all ${
+              className={`flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] font-medium rounded-xl transition-all cursor-pointer ${
                 selectedGenre === value
-                  ? 'bg-neutral-900 text-white shadow-sm'
-                  : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                  ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
               {icon}
@@ -263,39 +263,39 @@ const LitClubPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Literature Club</h1>
-              <span className="px-2.5 py-1 bg-rose-100 text-rose-700 text-[11px] font-semibold rounded-full border border-rose-200">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">Literature Club</h1>
+              <span className="px-2.5 py-1 bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-[11px] font-semibold rounded-full border border-rose-200 dark:border-rose-800">
                 ✍️ Creative Writing
               </span>
             </div>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">
               {filteredWritings.length} piece{filteredWritings.length !== 1 ? 's' : ''} from our community
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Sort pills */}
-            <div className="flex items-center gap-1 bg-white border border-neutral-200 p-1 rounded-xl">
+            <div className="flex items-center gap-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1 rounded-xl">
               <button
                 onClick={() => setSortBy('newest')}
-                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
-                  sortBy === 'newest' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  sortBy === 'newest' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm' : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" /> New
               </button>
               <button
                 onClick={() => setSortBy('votes')}
-                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
-                  sortBy === 'votes' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  sortBy === 'votes' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm' : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" /> Top
               </button>
               <button
                 onClick={() => setSortBy('comments')}
-                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all ${
-                  sortBy === 'comments' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-700'
+                className={`px-3.5 py-1.5 text-[12px] font-medium rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  sortBy === 'comments' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm' : 'text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                 }`}
               >
                 <MessageCircle className="w-3.5 h-3.5" /> Discussed
@@ -315,13 +315,13 @@ const LitClubPage: React.FC = () => {
 
         {/* Mobile search */}
         <div className="md:hidden mb-6 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 w-4 h-4" />
           <input
             type="text"
             placeholder="Search writings or authors..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 text-sm bg-neutral-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gouni-primary/20"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-sm bg-neutral-50/50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-gouni-primary/20"
           />
         </div>
 
@@ -343,11 +343,11 @@ const LitClubPage: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-24">
-            <div className="w-16 h-16 mx-auto mb-4 bg-rose-50 rounded-2xl flex items-center justify-center">
-              <BookOpen className="w-7 h-7 text-rose-300" />
+            <div className="w-16 h-16 mx-auto mb-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl flex items-center justify-center">
+              <BookOpen className="w-7 h-7 text-rose-300 dark:text-rose-400" />
             </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-1">No writings yet</h3>
-            <p className="text-sm text-neutral-400 mb-6">Be the first to share your work with the club</p>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-1">No writings yet</h3>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500 mb-6">Be the first to share your work with the club</p>
             <Button variant="primary" className="rounded-xl" onClick={() => requireAuth(() => setIsSubmitModalOpen(true))}>
               <Plus className="w-4 h-4 mr-1.5" /> Submit a Writing
             </Button>
@@ -366,7 +366,7 @@ const LitClubPage: React.FC = () => {
       {/* Mobile right-panel toggle */}
       <button
         onClick={() => setShowMobileRightPanel(true)}
-        className="xl:hidden fixed bottom-6 right-6 z-40 w-12 h-12 bg-neutral-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-800 transition-colors"
+        className="xl:hidden fixed bottom-6 right-6 z-40 w-12 h-12 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full shadow-lg flex items-center justify-center hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors cursor-pointer"
         title="Leaderboard & Info"
       >
         <Trophy className="w-5 h-5" />
@@ -376,17 +376,17 @@ const LitClubPage: React.FC = () => {
       {showMobileRightPanel && (
         <div className="xl:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={() => setShowMobileRightPanel(false)}>
           <div
-            className="absolute bottom-0 left-0 right-0 bg-[#fafafa] rounded-t-3xl max-h-[75vh] overflow-y-auto animate-slide-up p-6 space-y-5"
+            className="absolute bottom-0 left-0 right-0 bg-[#fafafa] dark:bg-neutral-900 rounded-t-3xl max-h-[75vh] overflow-y-auto animate-slide-up p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center mb-2">
-              <div className="w-10 h-1 bg-neutral-300 rounded-full" />
+              <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full" />
             </div>
             <button
               onClick={() => setShowMobileRightPanel(false)}
-              className="absolute top-4 right-4 p-1.5 hover:bg-neutral-200 rounded-lg transition-colors"
+              className="absolute top-4 right-4 p-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5 text-neutral-500" />
+              <X className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />
             </button>
             {leaderboardUI(() => setShowMobileRightPanel(false))}
             {noticeUI}
@@ -397,12 +397,12 @@ const LitClubPage: React.FC = () => {
       {/* Edit Notice Modal */}
       {showEditNoticeModal && profile?.isAdmin && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-float p-6 w-96 animate-fade-up">
-            <h3 className="text-lg font-bold text-neutral-900 mb-4">Edit Board Notice</h3>
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float p-6 w-96 animate-fade-up">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">Edit Board Notice</h3>
             <textarea
               value={noticeEditText}
               onChange={(e) => setNoticeEditText(e.target.value)}
-              className="w-full p-3 border border-neutral-200 rounded-xl mb-4 text-sm font-sans resize-none"
+              className="w-full p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl mb-4 text-sm font-sans resize-none"
               rows={4}
               placeholder="Enter board notice content..."
             />

@@ -43,21 +43,21 @@ export const SubmitWritingModal: React.FC<SubmitWritingModalProps> = ({ onClose,
     }
   };
 
-  const inputStyles = "w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all bg-white placeholder:text-neutral-400";
+  const inputStyles = "w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500";
   const wordCount = formData.body.split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-float w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-up">
+      <div className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-float w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-up">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+        <div className="flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800">
           <div>
-            <h2 className="text-lg font-bold text-neutral-900">Submit a Writing</h2>
-            <p className="text-[13px] text-neutral-400 mt-0.5">Share your piece with the Literature Club</p>
+            <h2 className="text-lg font-bold text-neutral-900 dark:text-white">Submit a Writing</h2>
+            <p className="text-[13px] text-neutral-400 dark:text-neutral-500 mt-0.5">Share your piece with the Literature Club</p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-400 hover:text-neutral-600">
+          <button onClick={onClose} className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -66,7 +66,7 @@ export const SubmitWritingModal: React.FC<SubmitWritingModalProps> = ({ onClose,
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Title</label>
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Title</label>
               <input
                 required
                 name="title"
@@ -77,7 +77,7 @@ export const SubmitWritingModal: React.FC<SubmitWritingModalProps> = ({ onClose,
               />
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Genre</label>
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Genre</label>
               <select
                 name="genre"
                 value={formData.genre}
@@ -93,8 +93,8 @@ export const SubmitWritingModal: React.FC<SubmitWritingModalProps> = ({ onClose,
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-[13px] font-medium text-neutral-700">Your Writing</label>
-              <span className="text-[12px] text-neutral-400">{wordCount} words</span>
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300">Your Writing</label>
+              <span className="text-[12px] text-neutral-400 dark:text-neutral-500">{wordCount} words</span>
             </div>
             <textarea
               required

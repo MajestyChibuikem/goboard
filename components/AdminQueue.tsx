@@ -628,7 +628,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
     <div className="animate-fade-up">
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-400 hover:text-neutral-900 transition-colors mb-8 cursor-pointer"
+        className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-8 cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to projects
@@ -636,14 +636,14 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 bg-amber-100 rounded-2xl flex items-center justify-center">
-            <Shield className="w-5 h-5 text-amber-700" />
+          <div className="w-11 h-11 bg-amber-100 dark:bg-amber-950/60 rounded-2xl flex items-center justify-center">
+            <Shield className="w-5 h-5 text-amber-700 dark:text-amber-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">
+            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
               Admin Command & Campaign Center
             </h1>
-            <p className="text-[13px] text-neutral-400">
+            <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
               {totalPending} item{totalPending !== 1 ? 's' : ''} awaiting admin
               action across queues
             </p>
@@ -651,12 +651,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
         </div>
 
         {/* Live Exchange Rate Summary Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200/80 text-xs font-bold text-amber-900 w-fit">
+        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-bold text-amber-900 dark:text-amber-300 w-fit">
           <Coins className="w-4 h-4 text-amber-500" />
           <span>
             500 GC = ₦{campaignConfig.nairaPer500Coins.toLocaleString()}
           </span>
-          <span className="text-amber-300">•</span>
+          <span className="text-amber-300 dark:text-amber-600">•</span>
           <span>
             Payday:{' '}
             {new Date(campaignConfig.paydayDate).toLocaleDateString()}
@@ -665,13 +665,13 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
       </div>
 
       {/* Tab switcher */}
-      <div className="flex flex-wrap items-center gap-1 bg-white border border-neutral-200 p-1.5 rounded-2xl mb-6 w-fit">
+      <div className="flex flex-wrap items-center gap-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 rounded-2xl mb-6 w-fit">
         <button
           onClick={() => setActiveTab('exam-papers')}
           className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
             activeTab === 'exam-papers'
-              ? 'bg-neutral-900 text-white shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-900'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
@@ -681,7 +681,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                 activeTab === 'exam-papers'
                   ? 'bg-amber-400 text-neutral-950'
-                  : 'bg-amber-100 text-amber-800'
+                  : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
               }`}
             >
               {pendingPaperCount}
@@ -693,8 +693,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           onClick={() => setActiveTab('id-verification')}
           className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
             activeTab === 'id-verification'
-              ? 'bg-neutral-900 text-white shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-900'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`}
         >
           <BadgeCheck className="w-3.5 h-3.5" />
@@ -704,7 +704,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                 activeTab === 'id-verification'
                   ? 'bg-amber-400 text-neutral-950'
-                  : 'bg-amber-100 text-amber-800'
+                  : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
               }`}
             >
               {pendingVerifications.length}
@@ -716,8 +716,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           onClick={() => setActiveTab('payday')}
           className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
             activeTab === 'payday'
-              ? 'bg-neutral-900 text-white shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-900'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`}
         >
           <Coins className="w-3.5 h-3.5" />
@@ -727,7 +727,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                 activeTab === 'payday'
                   ? 'bg-emerald-400 text-neutral-950'
-                  : 'bg-emerald-100 text-emerald-800'
+                  : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
               }`}
             >
               {qualifiedPaydayUsers.length}
@@ -739,8 +739,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           onClick={() => setActiveTab('projects')}
           className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
             activeTab === 'projects'
-              ? 'bg-neutral-900 text-white shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-900'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -749,8 +749,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
             <span
               className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                 activeTab === 'projects'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-neutral-100 text-neutral-600'
+                  ? 'bg-white/20 dark:bg-neutral-900/20 text-white dark:text-neutral-900'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
               }`}
             >
               {pendingProjects.length}
@@ -762,8 +762,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           onClick={() => setActiveTab('literature')}
           className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
             activeTab === 'literature'
-              ? 'bg-neutral-900 text-white shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-900'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
@@ -772,8 +772,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
             <span
               className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                 activeTab === 'literature'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-neutral-100 text-neutral-600'
+                  ? 'bg-white/20 dark:bg-neutral-900/20 text-white dark:text-neutral-900'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
               }`}
             >
               {pendingWritings.length}
@@ -788,19 +788,19 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
       {activeTab === 'exam-papers' && (
         <div className="space-y-6">
           {/* Controls bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-neutral-200/80">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-neutral-900 p-4 rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
             <div className="relative flex-grow max-w-md">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={paperSearch}
                 onChange={(e) => setPaperSearch(e.target.value)}
                 placeholder="Filter by course code, title, or student name..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
-            <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl w-fit">
               {(
                 [
                   { id: 'pending', label: 'Needs Winner Review' },
@@ -813,8 +813,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                   onClick={() => setPaperFilter(f.id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     paperFilter === f.id
-                      ? 'bg-white text-neutral-900 shadow-2xs'
-                      : 'text-neutral-500 hover:text-neutral-900'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-2xs'
+                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
                   {f.label}
@@ -824,12 +824,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           </div>
 
           {courseGroups.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-neutral-200">
-              <FileText className="w-10 h-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[14px] font-medium text-neutral-900 mb-1">
+            <div className="text-center py-16 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+              <FileText className="w-10 h-10 text-neutral-200 dark:text-neutral-700 mx-auto mb-3" />
+              <p className="text-[14px] font-medium text-neutral-900 dark:text-white mb-1">
                 No exam paper courses in this view
               </p>
-              <p className="text-[13px] text-neutral-400">
+              <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
                 When students upload exam question papers, they will appear
                 grouped by course code here for 5-slot comparison.
               </p>
@@ -839,10 +839,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               {courseGroups.map((group) => (
                 <div
                   key={group.courseCode}
-                  className="bg-white rounded-3xl border border-neutral-200 overflow-hidden shadow-2xs"
+                  className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-2xs"
                 >
                   {/* Course Group Header */}
-                  <div className="px-6 py-4 bg-neutral-900 text-white flex flex-wrap items-center justify-between gap-3">
+                  <div className="px-6 py-4 bg-neutral-900 dark:bg-neutral-950 text-white flex flex-wrap items-center justify-between gap-3 border-b border-transparent dark:border-neutral-800">
                     <div>
                       <div className="flex flex-wrap items-center gap-2.5">
                         <span className="text-base font-black tracking-tight text-amber-400">
@@ -894,10 +894,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                           key={paper.id}
                           className={`rounded-2xl border p-4 flex flex-col justify-between gap-4 transition-all ${
                             paper.status === 'approved'
-                              ? 'bg-emerald-50/40 border-emerald-300 ring-2 ring-emerald-500/20'
+                              ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 ring-2 ring-emerald-500/20'
                               : paper.status === 'pending'
-                              ? 'bg-white border-neutral-200'
-                              : 'bg-neutral-50/70 border-neutral-200 opacity-75'
+                              ? 'bg-white dark:bg-neutral-800/70 border-neutral-200 dark:border-neutral-700'
+                              : 'bg-neutral-50/70 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 opacity-75'
                           }`}
                         >
                           <div className="space-y-3">
@@ -905,24 +905,24 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="px-2 py-0.5 rounded-md bg-neutral-900 text-white text-[11px] font-extrabold">
+                                  <span className="px-2 py-0.5 rounded-md bg-neutral-900 dark:bg-neutral-700 text-white text-[11px] font-extrabold">
                                     Slot #{paper.slotNumber || idx + 1}
                                   </span>
                                   {isEarliest && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-extrabold">
-                                      <Zap className="w-3 h-3 text-amber-600" />
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-[10px] font-extrabold">
+                                      <Zap className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                                       Fastest Upload
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-sm font-bold text-neutral-900 mt-1.5">
+                                <div className="text-sm font-bold text-neutral-900 dark:text-white mt-1.5">
                                   {paper.displayName}
                                 </div>
-                                <div className="text-[11px] text-neutral-500 flex items-center gap-1 mt-0.5">
-                                  <Clock className="w-3 h-3 text-neutral-400" />
+                                <div className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3 text-neutral-400 dark:text-neutral-500" />
                                   {new Date(paper.createdAt).toLocaleDateString()}{' '}
                                   at{' '}
-                                  <strong className="text-neutral-700">
+                                  <strong className="text-neutral-700 dark:text-neutral-300">
                                     {new Date(
                                       paper.createdAt
                                     ).toLocaleTimeString()}
@@ -932,139 +932,139 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
                               {/* Status Pill */}
                               {paper.status === 'approved' && (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                                  <Trophy className="w-3 h-3" />
-                                  Winner
-                                </span>
-                              )}
-                              {paper.status === 'not_selected' && (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-neutral-200 text-neutral-700 flex items-center gap-1">
-                                  <Lock className="w-3 h-3" />
-                                  Closed
-                                </span>
-                              )}
-                              {paper.status === 'rejected' && (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
-                                  Rejected
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Page Thumbnails (Click to inspect lighting & readability) */}
-                            <div>
-                              <div className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
-                                {paper.imageUrls.length} Page
-                                {paper.imageUrls.length !== 1 ? 's' : ''} — Click
-                                to Inspect Readability
-                              </div>
-                              <div className="grid grid-cols-3 gap-2">
-                                {paper.imageUrls.map((url, pageIdx) => (
-                                  <button
-                                    type="button"
-                                    key={pageIdx}
-                                    onClick={() =>
-                                      openLightbox(
-                                        paper.imageUrls,
-                                        pageIdx,
-                                        `${paper.courseCode} • ${paper.displayName} (Slot #${paper.slotNumber}) — Page ${pageIdx + 1} of ${paper.imageUrls.length}`
-                                      )
-                                    }
-                                    className="relative aspect-[3/4] rounded-xl overflow-hidden border border-neutral-200 group bg-neutral-100 cursor-pointer"
-                                  >
-                                    <img
-                                      src={url}
-                                      alt={`Page ${pageIdx + 1}`}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                    />
-                                    <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/75 text-white text-[9px] font-extrabold">
-                                      P{pageIdx + 1}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {paper.rejectionReason && (
-                              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800">
-                                <strong>Rejection note:</strong>{' '}
-                                {paper.rejectionReason}
-                              </div>
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                                <Trophy className="w-3 h-3" />
+                                Winner
+                              </span>
+                            )}
+                            {paper.status === 'not_selected' && (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
+                                <Lock className="w-3 h-3" />
+                                Closed
+                              </span>
+                            )}
+                            {paper.status === 'rejected' && (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400">
+                                Rejected
+                              </span>
                             )}
                           </div>
 
-                          {/* Candidate Action Buttons */}
-                          {paper.status === 'pending' && !group.hasWinner && (
-                            <div className="pt-3 border-t border-neutral-100 space-y-2">
-                              {paperRejectId === paper.id ? (
-                                <div className="space-y-2">
-                                  <input
-                                    type="text"
-                                    value={paperRejectReason}
-                                    onChange={(e) =>
-                                      setPaperRejectReason(e.target.value)
-                                    }
-                                    placeholder="Reason (e.g. Page 2 is blurry, bad lighting)..."
-                                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 text-xs"
+                          {/* Page Thumbnails (Click to inspect lighting & readability) */}
+                          <div>
+                            <div className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
+                              {paper.imageUrls.length} Page
+                              {paper.imageUrls.length !== 1 ? 's' : ''} — Click
+                              to Inspect Readability
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {paper.imageUrls.map((url, pageIdx) => (
+                                <button
+                                  type="button"
+                                  key={pageIdx}
+                                  onClick={() =>
+                                    openLightbox(
+                                      paper.imageUrls,
+                                      pageIdx,
+                                      `${paper.courseCode} • ${paper.displayName} (Slot #${paper.slotNumber}) — Page ${pageIdx + 1} of ${paper.imageUrls.length}`
+                                    )
+                                  }
+                                  className="relative aspect-[3/4] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 group bg-neutral-100 dark:bg-neutral-800 cursor-pointer"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`Page ${pageIdx + 1}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                   />
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="primary"
-                                      className="rounded-xl bg-red-600 hover:bg-red-700 text-xs flex-1"
-                                      onClick={() => handleRejectPaper(paper)}
-                                      isLoading={paperProcessingId === paper.id}
-                                    >
-                                      Confirm Reject & Reopen Slot
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="rounded-xl text-xs"
-                                      onClick={() => {
-                                        setPaperRejectId(null);
-                                        setPaperRejectReason('');
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
+                                  <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/75 text-white text-[9px] font-extrabold">
+                                    P{pageIdx + 1}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {paper.rejectionReason && (
+                            <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-300">
+                              <strong>Rejection note:</strong>{' '}
+                              {paper.rejectionReason}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Candidate Action Buttons */}
+                        {paper.status === 'pending' && !group.hasWinner && (
+                          <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+                            {paperRejectId === paper.id ? (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={paperRejectReason}
+                                  onChange={(e) =>
+                                    setPaperRejectReason(e.target.value)
+                                  }
+                                  placeholder="Reason (e.g. Page 2 is blurry, bad lighting)..."
+                                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-xs"
+                                />
                                 <div className="flex items-center gap-2">
                                   <Button
                                     size="sm"
                                     variant="primary"
-                                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs flex-1"
-                                    onClick={() => handleSelectWinner(paper)}
+                                    className="rounded-xl bg-red-600 hover:bg-red-700 text-xs flex-1"
+                                    onClick={() => handleRejectPaper(paper)}
                                     isLoading={paperProcessingId === paper.id}
                                   >
-                                    <Trophy className="w-3.5 h-3.5" />
-                                    Pick Winner (+
-                                    {campaignConfig.rewardPerPaper} GC)
+                                    Confirm Reject & Reopen Slot
                                   </Button>
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="rounded-xl text-red-600 border-red-200 hover:bg-red-50 text-xs"
-                                    onClick={() => setPaperRejectId(paper.id)}
+                                    variant="ghost"
+                                    className="rounded-xl text-xs"
+                                    onClick={() => {
+                                      setPaperRejectId(null);
+                                      setPaperRejectReason('');
+                                    }}
                                   >
-                                    <X className="w-3.5 h-3.5" />
-                                    Reject
+                                    Cancel
                                   </Button>
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs flex-1"
+                                  onClick={() => handleSelectWinner(paper)}
+                                  isLoading={paperProcessingId === paper.id}
+                                >
+                                  <Trophy className="w-3.5 h-3.5" />
+                                  Pick Winner (+
+                                  {campaignConfig.rewardPerPaper} GC)
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs"
+                                  onClick={() => setPaperRejectId(paper.id)}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
 
       {/* =====================================================================
           TAB 2: ANTI-SMURF STUDENT ID VERIFICATION QUEUE
@@ -1072,12 +1072,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
       {activeTab === 'id-verification' && (
         <div className="space-y-4">
           {pendingVerifications.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-neutral-200">
-              <BadgeCheck className="w-10 h-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[14px] font-medium text-neutral-900 mb-1">
+            <div className="text-center py-16 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+              <BadgeCheck className="w-10 h-10 text-neutral-200 dark:text-neutral-700 mx-auto mb-3" />
+              <p className="text-[14px] font-medium text-neutral-900 dark:text-white mb-1">
                 No pending Student ID verifications
               </p>
-              <p className="text-[13px] text-neutral-400">
+              <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
                 When students upload their GoUni Student ID card to qualify for
                 Payday, they will appear here.
               </p>
@@ -1087,7 +1087,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               {pendingVerifications.map((student) => (
                 <div
                   key={student.uid}
-                  className="bg-white rounded-2xl border border-neutral-200 p-5 flex flex-col justify-between gap-4"
+                  className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 flex flex-col justify-between gap-4"
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between gap-3">
@@ -1096,34 +1096,34 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                           <img
                             src={student.photoURL}
                             alt=""
-                            className="w-11 h-11 rounded-full object-cover border border-neutral-200"
+                            className="w-11 h-11 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
                           />
                         ) : (
-                          <div className="w-11 h-11 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">
+                          <div className="w-11 h-11 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 font-bold flex items-center justify-center">
                             {(student.displayName || 'S')
                               .charAt(0)
                               .toUpperCase()}
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-neutral-900 truncate">
+                          <div className="text-sm font-bold text-neutral-900 dark:text-white truncate">
                             {student.displayName || 'Student'}
                           </div>
-                          <div className="text-xs text-neutral-400 truncate">
+                          <div className="text-xs text-neutral-400 dark:text-neutral-500 truncate">
                             {student.email}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
                             {student.department && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
                                 {student.department}
                               </span>
                             )}
                             {student.academicLevel && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
                                 {student.academicLevel}
                               </span>
                             )}
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200/60">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
                               {(student.goCoins || 0).toLocaleString()} GC
                             </span>
                           </div>
@@ -1134,7 +1134,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     {/* Student ID Card Photo */}
                     {student.studentIdCardUrl ? (
                       <div>
-                        <div className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+                        <div className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1.5">
                           Uploaded GoUni Student ID Card (Click to Zoom)
                         </div>
                         <button
@@ -1146,7 +1146,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                               `Student ID Card — ${student.displayName} (${student.email})`
                             )
                           }
-                          className="w-full h-48 rounded-2xl overflow-hidden border border-neutral-200 bg-neutral-100 relative group cursor-pointer"
+                          className="w-full h-48 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 relative group cursor-pointer"
                         >
                           <img
                             src={student.studentIdCardUrl}
@@ -1159,14 +1159,14 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         </button>
                       </div>
                     ) : (
-                      <div className="p-4 rounded-xl bg-amber-50 text-amber-800 text-xs">
+                      <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs">
                         No ID card image URL found on this profile.
                       </div>
                     )}
                   </div>
 
                   {/* Approve / Reject Controls */}
-                  <div className="pt-3 border-t border-neutral-100">
+                  <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
                     {verifyRejectUid === student.uid ? (
                       <div className="space-y-2">
                         <input
@@ -1176,7 +1176,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                             setVerifyRejectReason(e.target.value)
                           }
                           placeholder="Reason for rejecting ID card (e.g. Name/photo blurry)..."
-                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 text-xs"
+                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-xs"
                         />
                         <div className="flex items-center gap-2">
                           <Button
@@ -1226,7 +1226,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-xl text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                          className="rounded-xl text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs"
                           onClick={() => setVerifyRejectUid(student.uid)}
                         >
                           <X className="w-3.5 h-3.5" />
@@ -1250,16 +1250,16 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           {/* 1. Campaign Economy & Payday Countdown Settings */}
           <form
             onSubmit={handleSaveCampaignConfig}
-            className="bg-white rounded-3xl border border-neutral-200 p-6 space-y-5"
+            className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-5"
           >
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 dark:border-neutral-800 pb-4">
               <div>
-                <h2 className="text-base font-extrabold text-neutral-900 flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   Season {campaignConfig.seasonNumber} Economy & Payday
                   Configuration
                 </h2>
-                <p className="text-xs text-neutral-500 mt-0.5">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Adjust the live GoCoins-to-Naira exchange rate, reward per
                   paper, and the Payday countdown timer shown on the homepage.
                 </p>
@@ -1273,9 +1273,9 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     setEditIsActive(e.target.checked);
                     setIsConfigDirty(true);
                   }}
-                  className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                  className="rounded border-neutral-300 dark:border-neutral-600 text-indigo-600 focus:ring-indigo-500"
                 />
-                <span className="text-xs font-bold text-neutral-700">
+                <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                   Campaign Banner Active
                 </span>
               </label>
@@ -1283,11 +1283,11 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
                   Exchange Rate (₦ per 500 GoCoins)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-neutral-400">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-neutral-400 dark:text-neutral-500">
                     ₦
                   </span>
                   <input
@@ -1298,14 +1298,14 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                       setEditNairaRate(e.target.value);
                       setIsConfigDirty(true);
                     }}
-                    className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-neutral-200 text-sm font-bold"
+                    className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
                   Reward per Winning Paper (GC)
                 </label>
                 <input
@@ -1317,14 +1317,14 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     setEditRewardPerPaper(e.target.value);
                     setIsConfigDirty(true);
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm font-bold"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
                     Payday Date & Time
                   </label>
                   <div className="flex items-center gap-1">
@@ -1339,7 +1339,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                           setEditPaydayDate(isoToDatetimeLocal(target));
                           setIsConfigDirty(true);
                         }}
-                        className="px-1.5 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 text-[10px] font-bold text-neutral-600 cursor-pointer"
+                        className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[10px] font-bold text-neutral-600 dark:text-neutral-300 cursor-pointer"
                       >
                         +{days}d
                       </button>
@@ -1353,7 +1353,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     setEditPaydayDate(e.target.value);
                     setIsConfigDirty(true);
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
@@ -1361,7 +1361,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
                   Banner Headline
                 </label>
                 <input
@@ -1371,12 +1371,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     setEditTitle(e.target.value);
                     setIsConfigDirty(true);
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
                   Banner Description
                 </label>
                 <input
@@ -1386,7 +1386,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     setEditDescription(e.target.value);
                     setIsConfigDirty(true);
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   required
                 />
               </div>
@@ -1405,18 +1405,18 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           </form>
 
           {/* 2. Qualified Payday Roster */}
-          <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden">
-            <div className="p-6 border-b border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+            <div className="p-6 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-extrabold text-neutral-900">
+                  <h2 className="text-base font-extrabold text-neutral-900 dark:text-white">
                     Qualified Payday Roster
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     {qualifiedPaydayUsers.length} Ready to Pay
                   </span>
                 </div>
-                <p className="text-xs text-neutral-500 mt-0.5">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Students below have <strong>GoCoins &gt; 0</strong>, a{' '}
                   <strong>Verified Student ID</strong>, and saved{' '}
                   <strong>Bank Account Details</strong>.
@@ -1424,14 +1424,14 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-xs">
-                  <span className="text-emerald-700 font-medium">
+                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-xs">
+                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">
                     Total Payout:{' '}
                   </span>
-                  <strong className="text-emerald-950 font-black">
+                  <strong className="text-emerald-950 dark:text-emerald-100 font-black">
                     ₦{totalQualifiedNaira.toLocaleString()}
                   </strong>{' '}
-                  <span className="text-emerald-700">
+                  <span className="text-emerald-700 dark:text-emerald-300">
                     ({totalQualifiedCoins.toLocaleString()} GC)
                   </span>
                 </div>
@@ -1452,40 +1452,40 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
             {qualifiedPaydayUsers.length === 0 ? (
               <div className="p-12 text-center">
-                <CheckCircle2 className="w-10 h-10 text-neutral-200 mx-auto mb-2" />
-                <div className="text-sm font-bold text-neutral-900">
+                <CheckCircle2 className="w-10 h-10 text-neutral-200 dark:text-neutral-700 mx-auto mb-2" />
+                <div className="text-sm font-bold text-neutral-900 dark:text-white">
                   No students currently waiting in the Qualified Payday Roster
                 </div>
-                <p className="text-xs text-neutral-400 mt-1">
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
                   Once verified students earn GoCoins and save their bank
                   details, they will automatically appear here.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-neutral-100">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {qualifiedPaydayUsers.map((student) => (
                   <div
                     key={student.uid}
-                    className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-neutral-50/60 transition-colors"
+                    className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition-colors"
                   >
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-extrabold text-neutral-900">
+                        <span className="text-sm font-extrabold text-neutral-900 dark:text-white">
                           {student.displayName || 'Student'}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                           <BadgeCheck className="w-3 h-3" />
                           Verified ID
                         </span>
-                        <span className="text-xs text-neutral-400">
+                        <span className="text-xs text-neutral-400 dark:text-neutral-500">
                           {student.email}
                         </span>
                       </div>
 
                       {/* Bank Details Pill */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-700 pt-1">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 font-semibold">
-                          <Building2 className="w-3.5 h-3.5 text-neutral-500" />
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300 pt-1">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-semibold">
+                          <Building2 className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
                           {student.bankDetails.bankName}
                         </span>
                         <button
@@ -1499,13 +1499,13 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                               'info'
                             );
                           }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-900 font-mono font-bold hover:bg-indigo-100 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-300 font-mono font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors cursor-pointer"
                           title="Click to copy account number"
                         >
                           {student.bankDetails.accountNumber}
-                          <Copy className="w-3 h-3 text-indigo-600" />
+                          <Copy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         </button>
-                        <span className="font-semibold text-neutral-600 uppercase">
+                        <span className="font-semibold text-neutral-600 dark:text-neutral-400 uppercase">
                           {student.bankDetails.accountName}
                         </span>
                       </div>
@@ -1514,10 +1514,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     {/* Amount & Mark Paid Action */}
                     <div className="flex flex-wrap items-center gap-4">
                       <div className="text-right">
-                        <div className="text-base font-black text-emerald-700">
+                        <div className="text-base font-black text-emerald-700 dark:text-emerald-400">
                           ₦{student.nairaEquivalent.toLocaleString()}
                         </div>
-                        <div className="text-[11px] font-bold text-amber-700">
+                        <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
                           {student.goCoins.toLocaleString()} GoCoins
                         </div>
                       </div>
@@ -1547,7 +1547,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         <Button
                           size="sm"
                           variant="primary"
-                          className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-xs"
+                          className="rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 text-xs"
                           onClick={() => setConfirmPayUid(student.uid)}
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -1563,41 +1563,41 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
           {/* 3. Students with Coins but Incomplete Payday Setup */}
           {incompletePaydayUsers.length > 0 && (
-            <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden">
-              <div className="p-5 border-b border-neutral-100">
-                <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+              <div className="p-5 border-b border-neutral-100 dark:border-neutral-800">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-500" />
                   Earned GoCoins — Awaiting ID Verification or Bank Details (
                   {incompletePaydayUsers.length})
                 </h3>
-                <p className="text-xs text-neutral-500 mt-0.5">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   These students have GoCoins &gt; 0 but must finish their
                   Payday Readiness Checklist before they move to the Qualified
                   Payday Roster.
                 </p>
               </div>
-              <div className="divide-y divide-neutral-100">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {incompletePaydayUsers.map((u) => (
                   <div
                     key={u.uid}
                     className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs"
                   >
                     <div>
-                      <span className="font-bold text-neutral-900">
+                      <span className="font-bold text-neutral-900 dark:text-white">
                         {u.displayName || 'Student'}
                       </span>{' '}
-                      <span className="text-neutral-400">({u.email})</span>
+                      <span className="text-neutral-400 dark:text-neutral-500">({u.email})</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg">
+                      <span className="font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg">
                         {u.goCoins.toLocaleString()} GC (₦
                         {u.nairaEquivalent.toLocaleString()})
                       </span>
                       <span
                         className={`px-2.5 py-1 rounded-lg font-semibold ${
                           u.isVerified
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-red-50 text-red-700'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'
                         }`}
                       >
                         {u.isVerified
@@ -1607,8 +1607,8 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                       <span
                         className={`px-2.5 py-1 rounded-lg font-semibold ${
                           u.hasBank
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-red-50 text-red-700'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400'
                         }`}
                       >
                         {u.hasBank ? '✓ Bank Saved' : '✗ Missing Bank Details'}
@@ -1622,34 +1622,34 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
           {/* 4. Payout Audit History */}
           {payoutHistory.length > 0 && (
-            <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden">
-              <div className="p-5 border-b border-neutral-100">
-                <h3 className="text-sm font-bold text-neutral-900">
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+              <div className="p-5 border-b border-neutral-100 dark:border-neutral-800">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
                   Recent Payday Payout History
                 </h3>
               </div>
-              <div className="divide-y divide-neutral-100">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {payoutHistory.map((record) => (
                   <div
                     key={record.id}
                     className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs"
                   >
                     <div>
-                      <span className="font-bold text-neutral-900">
+                      <span className="font-bold text-neutral-900 dark:text-white">
                         {record.displayName}
                       </span>
-                      <span className="text-neutral-400 ml-2">
+                      <span className="text-neutral-400 dark:text-neutral-500 ml-2">
                         {record.bankDetails?.bankName} •{' '}
                         {record.bankDetails?.accountNumber} (
                         {record.bankDetails?.accountName})
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-extrabold text-emerald-700">
+                      <span className="font-extrabold text-emerald-700 dark:text-emerald-400">
                         ₦{record.nairaAmount.toLocaleString()} (
                         {record.coinsPaid.toLocaleString()} GC)
                       </span>
-                      <span className="text-neutral-400">
+                      <span className="text-neutral-400 dark:text-neutral-500">
                         {new Date(record.paidAt).toLocaleString()}
                       </span>
                     </div>
@@ -1671,19 +1671,19 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               onClick={() => setShowResetConfirm(true)}
               size="sm"
               variant="outline"
-              className="rounded-xl text-red-700 border-red-300 hover:bg-red-50"
+              className="rounded-xl text-red-700 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Reset Database
             </Button>
           </div>
 
           {pendingProjects.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-neutral-200">
-              <Clock className="w-10 h-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[14px] font-medium text-neutral-900 mb-1">
+            <div className="text-center py-16 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+              <Clock className="w-10 h-10 text-neutral-200 dark:text-neutral-700 mx-auto mb-3" />
+              <p className="text-[14px] font-medium text-neutral-900 dark:text-white mb-1">
                 All caught up
               </p>
-              <p className="text-[13px] text-neutral-400">
+              <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
                 No pending project submissions to review.
               </p>
             </div>
@@ -1692,11 +1692,11 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               {pendingProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="bg-white rounded-2xl border border-neutral-200 overflow-hidden"
+                  className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
                 >
                   <div className="flex gap-4 p-5">
                     <div
-                      className="w-24 h-18 rounded-xl bg-neutral-100 overflow-hidden shrink-0 cursor-pointer"
+                      className="w-24 h-18 rounded-xl bg-neutral-100 dark:bg-neutral-800 overflow-hidden shrink-0 cursor-pointer"
                       onClick={() => onProjectClick(project)}
                     >
                       <img
@@ -1708,7 +1708,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                     <div className="flex-grow min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3
-                          className="text-[15px] font-semibold text-neutral-900 truncate cursor-pointer hover:text-gouni-primary transition-colors"
+                          className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate cursor-pointer hover:text-gouni-primary transition-colors"
                           onClick={() => onProjectClick(project)}
                         >
                           {project.title}
@@ -1721,11 +1721,11 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                           {STATUS_CONFIG[project.status].label}
                         </span>
                       </div>
-                      <p className="text-[13px] text-neutral-500 line-clamp-2 mb-2">
+                      <p className="text-[13px] text-neutral-500 dark:text-neutral-400 line-clamp-2 mb-2">
                         {project.description}
                       </p>
-                      <div className="flex items-center gap-3 text-[12px] text-neutral-400">
-                        <span className="font-medium text-neutral-600">
+                      <div className="flex items-center gap-3 text-[12px] text-neutral-400 dark:text-neutral-500">
+                        <span className="font-medium text-neutral-600 dark:text-neutral-300">
                           {project.displayName || project.studentName}
                         </span>
                         <span>{project.level}</span>
@@ -1736,7 +1736,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         {project.techStack.map((t) => (
                           <span
                             key={t}
-                            className="px-2 py-0.5 bg-neutral-50 text-neutral-500 text-[11px] rounded-md border border-neutral-100"
+                            className="px-2 py-0.5 bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 text-[11px] rounded-md border border-neutral-100 dark:border-neutral-700"
                           >
                             {t}
                           </span>
@@ -1751,12 +1751,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
                         placeholder="Reason for rejection (optional)..."
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm mb-2"
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm mb-2"
                       />
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 px-5 py-3 bg-neutral-50 border-t border-neutral-100">
+                  <div className="flex items-center gap-2 px-5 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800">
                     {rejectId === project.id ? (
                       <>
                         <Button
@@ -1791,7 +1791,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-xl text-red-600 border-red-200 hover:bg-red-50"
+                          className="rounded-xl text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30"
                           onClick={() => setRejectId(project.id)}
                         >
                           <X className="w-3.5 h-3.5" /> Reject
@@ -1799,7 +1799,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-xl text-red-700 border-red-300 hover:bg-red-50"
+                          className="rounded-xl text-red-700 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30"
                           onClick={() => handleDelete(project.id)}
                           isLoading={processing === project.id}
                         >
@@ -1821,12 +1821,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
       {activeTab === 'literature' && (
         <>
           {pendingWritings.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-neutral-200">
-              <Clock className="w-10 h-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[14px] font-medium text-neutral-900 mb-1">
+            <div className="text-center py-16 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+              <Clock className="w-10 h-10 text-neutral-200 dark:text-neutral-700 mx-auto mb-3" />
+              <p className="text-[14px] font-medium text-neutral-900 dark:text-white mb-1">
                 All caught up
               </p>
-              <p className="text-[13px] text-neutral-400">
+              <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
                 No pending writing submissions to review.
               </p>
             </div>
@@ -1835,22 +1835,22 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               {pendingWritings.map((writing) => (
                 <div
                   key={writing.id}
-                  className="bg-white rounded-2xl border border-neutral-200 overflow-hidden"
+                  className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
                 >
                   <div className="p-5">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-[15px] font-semibold text-neutral-900 truncate">
+                      <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-white truncate">
                         {writing.title}
                       </h3>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 capitalize">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 capitalize">
                         {writing.genre.replace('-', ' ')}
                       </span>
                     </div>
-                    <p className="text-[13px] text-neutral-500 line-clamp-3 mb-2 font-serif whitespace-pre-line">
+                    <p className="text-[13px] text-neutral-500 dark:text-neutral-400 line-clamp-3 mb-2 font-serif whitespace-pre-line">
                       {writing.body}
                     </p>
-                    <div className="flex items-center gap-3 text-[12px] text-neutral-400">
-                      <span className="font-medium text-neutral-600">
+                    <div className="flex items-center gap-3 text-[12px] text-neutral-400 dark:text-neutral-500">
+                      <span className="font-medium text-neutral-600 dark:text-neutral-300">
                         {writing.displayName || 'Student'}
                       </span>
                       <span>
@@ -1866,12 +1866,12 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         value={litRejectReason}
                         onChange={(e) => setLitRejectReason(e.target.value)}
                         placeholder="Reason for rejection (optional)..."
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm mb-2"
+                        className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl text-sm mb-2"
                       />
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 px-5 py-3 bg-neutral-50 border-t border-neutral-100">
+                  <div className="flex items-center gap-2 px-5 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800">
                     {litRejectId === writing.id ? (
                       <>
                         <Button
@@ -1906,7 +1906,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-xl text-red-600 border-red-200 hover:bg-red-50"
+                          className="rounded-xl text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30"
                           onClick={() => setLitRejectId(writing.id)}
                         >
                           <X className="w-3.5 h-3.5" /> Reject
@@ -1914,7 +1914,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-xl text-red-700 border-red-300 hover:bg-red-50"
+                          className="rounded-xl text-red-700 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30"
                           onClick={() => handleDeleteWriting(writing.id)}
                           isLoading={litProcessing === writing.id}
                         >
@@ -2009,21 +2009,21 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowResetConfirm(false)}
           />
-          <div className="relative bg-white rounded-2xl shadow-float w-full max-w-sm animate-fade-up">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
-              <h2 className="text-lg font-bold text-neutral-900">
+          <div className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-float w-full max-w-sm animate-fade-up border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800">
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
                 Reset Database?
               </h2>
               <button
                 onClick={() => setShowResetConfirm(false)}
-                className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5 text-neutral-400" />
+                <X className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <p className="text-[13px] text-red-800">
+              <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-4">
+                <p className="text-[13px] text-red-800 dark:text-red-300">
                   ⚠️ <strong>This action cannot be undone.</strong> This will
                   permanently delete all projects, votes, and comments. User
                   accounts will be preserved.
@@ -2032,7 +2032,7 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setShowResetConfirm(false)}
-                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>

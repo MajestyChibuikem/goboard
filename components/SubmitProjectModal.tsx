@@ -270,7 +270,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const inputStyles = "w-full px-3.5 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all bg-white placeholder:text-neutral-400";
+  const inputStyles = "w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500";
 
   return (
     <motion.div
@@ -286,25 +286,25 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 14 }}
         transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-        className="relative bg-white rounded-2xl shadow-float w-full max-w-lg max-h-[88vh] overflow-y-auto"
+        className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-float w-full max-w-lg max-h-[88vh] overflow-y-auto border border-neutral-200/80 dark:border-neutral-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+        <div className="flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-neutral-900">Submit Project</h2>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-white">Submit Project</h2>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 dark:bg-neutral-800 text-white">
                 <Github className="w-3 h-3 text-emerald-400" /> GitHub Required
               </span>
             </div>
-            <p className="text-[13px] text-neutral-400 mt-0.5">Showcase your verified open-source software and invite student collaborators</p>
+            <p className="text-[13px] text-neutral-400 dark:text-neutral-400 mt-0.5">Showcase your verified open-source software and invite student collaborators</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             onClick={onClose}
-            className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-400 hover:text-neutral-600 cursor-pointer"
+            className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </motion.button>
@@ -452,7 +452,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Project Title</label>
+            <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Project Title</label>
             <input
               required
               name="title"
@@ -462,13 +462,13 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
               placeholder="e.g. Campus Navigator"
             />
             {titleError && (
-              <p className="text-[12px] text-red-600 mt-1">{titleError}</p>
+              <p className="text-[12px] text-red-600 dark:text-red-400 mt-1">{titleError}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Level</label>
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Level</label>
               <select
                 required
                 name="level"
@@ -483,7 +483,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
               </select>
             </div>
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Category</label>
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Category</label>
               <select
                 name="category"
                 value={formData.category}
@@ -498,7 +498,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Description</label>
+            <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Description</label>
             <textarea
               required
               name="description"
@@ -511,7 +511,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Tech Stack <span className="text-neutral-400 font-normal">(comma separated)</span></label>
+            <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Tech Stack <span className="text-neutral-400 dark:text-neutral-500 font-normal">(comma separated)</span></label>
             <input
               required
               name="techStack"
@@ -524,7 +524,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
           <div className="grid grid-cols-2 gap-4">
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Live Demo URL <span className="text-neutral-400 font-normal">(optional)</span></label>
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Live Demo URL <span className="text-neutral-400 dark:text-neutral-500 font-normal">(optional)</span></label>
               <input
                 name="demoUrl"
                 type="url"
@@ -535,33 +535,33 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
               />
             </div>
              <div>
-              <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">GitHub Repository</label>
-              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-800 text-sm">
-                <Github className="w-4 h-4 text-neutral-600 shrink-0" />
-                <span className="font-mono text-xs truncate flex-grow text-neutral-700">
+              <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">GitHub Repository</label>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-sm">
+                <Github className="w-4 h-4 text-neutral-600 dark:text-neutral-400 shrink-0" />
+                <span className="font-mono text-xs truncate flex-grow text-neutral-700 dark:text-neutral-300">
                   {formData.repoUrl ? formData.repoUrl.replace('https://github.com/', '') : 'Select repo above'}
                 </span>
                 {formData.repoUrl ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 ) : (
-                  <span className="text-[10px] text-amber-600 font-bold uppercase">Required</span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">Required</span>
                 )}
               </div>
             </div>
           </div>
 
           {/* ── Open to Contributions (Open-Source Collaboration) ── */}
-          <div className="p-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/40 space-y-3">
+          <div className="p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
                   <GitFork className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-neutral-900">
+                  <div className="text-xs font-bold text-neutral-900 dark:text-white">
                     Open to Contributions (Pull Requests & Issues)
                   </div>
-                  <div className="text-[11px] text-neutral-500">
+                  <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
                     Let other students push PRs on GitHub & get auto-recognized as contributors
                   </div>
                 </div>
@@ -572,7 +572,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
                 aria-checked={openToContributions}
                 onClick={() => setOpenToContributions(!openToContributions)}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                  openToContributions ? 'bg-emerald-600' : 'bg-neutral-300'
+                  openToContributions ? 'bg-emerald-600' : 'bg-neutral-300 dark:bg-neutral-700'
                 }`}
               >
                 <span
@@ -584,8 +584,8 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
             </div>
 
             {openToContributions && (
-              <div className="pt-2 border-t border-emerald-200/60">
-                <div className="text-[11px] font-semibold text-emerald-800 mb-2">
+              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
+                <div className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 mb-2">
                   What kind of contributions are welcome? (optional)
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -598,8 +598,8 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
                         onClick={() => toggleContributionArea(area)}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
                           selected
-                            ? 'bg-emerald-700 text-white border-emerald-700'
-                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-emerald-300'
+                            ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-600'
+                            : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-emerald-300 dark:hover:border-emerald-600'
                         }`}
                       >
                         {area}
@@ -612,7 +612,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Website URL <span className="text-neutral-400 font-normal">(optional)</span></label>
+            <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Website URL <span className="text-neutral-400 dark:text-neutral-500 font-normal">(optional)</span></label>
             <input
               name="websiteUrl"
               type="url"
@@ -632,12 +632,12 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
             onChange={handleImageSelect}
           />
           {imagePreview ? (
-            <div className="relative rounded-2xl overflow-hidden border border-neutral-200">
+            <div className="relative rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
               <img src={imagePreview || undefined} alt="Preview" className="w-full h-48 object-cover" />
               <button
                 type="button"
                 onClick={() => { setImageFile(null); setImagePreview(null); }}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4 text-white" />
               </button>
@@ -649,13 +649,13 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
           ) : (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-neutral-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer"
+              className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-neutral-50/50 dark:bg-neutral-850/50 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all cursor-pointer"
             >
-              <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center mb-3">
-                <Upload className="w-5 h-5 text-neutral-400" />
+              <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center mb-3">
+                <Upload className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
               </div>
-              <span className="text-[13px] font-medium text-neutral-600">Upload Screenshot</span>
-              <span className="text-[11px] text-neutral-400 mt-1">PNG, JPG up to 5MB</span>
+              <span className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">Upload Screenshot</span>
+              <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1">PNG, JPG up to 5MB</span>
             </div>
           )}
 
