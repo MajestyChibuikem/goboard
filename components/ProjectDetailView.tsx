@@ -104,7 +104,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     try {
       await addCommentToFirestore(project.id, newComment);
       if (user) {
-        await awardCommentXP(user.uid, project.id, authorUid);
+        await awardCommentXP(user.uid, project.id, authorUid, 'project', newComment.id);
       }
       toast('Comment posted!', 'success');
     } catch (err) {

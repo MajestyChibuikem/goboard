@@ -21,11 +21,10 @@ import { auth, googleProvider, githubProvider, db } from '../services/firebase';
 import {
   uploadUserAvatar,
   deleteViewedNotifications,
-  awardXP,
-  XP_VALUES,
   saveUserGitHubProfile,
   disconnectUserGitHubProfile,
 } from '../services/firestoreService';
+import { reportXpEvent } from '../services/xpClient';
 import { fetchGitHubUserBundle } from '../services/githubService';
 import { getRank, cleanOldFirebaseUrl } from '../services/utils';
 import { StudentVerificationStatus, BankDetails, GitHubProfileData } from '../types';
@@ -98,9 +97,9 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
   if (snap.exists()) {
     const data = snap.data();
 
-    // Ensure xp and uid fields exist (fix for users created before XP system)
-    if (!('xp' in data) || !('uid' in data)) {
-      await setDoc(ref, { xp: data.xp || 0, seasonXp: data.seasonXp || 0, uid: user.uid }, { merge: true });
+    // Ensure uid field exists (fix for users created before uid was stored on doc)
+    if (!('uid' in data)) {
+      await setDoc(ref, { uid: user.uid }, { merge: true });
     }
 
     let photoURL = data.photoURL || user.photoURL;
@@ -224,43 +223,10 @@ export const getEffectiveStreak = (streakDays: number, lastLoginDate?: string | 
 };
 
 async function trackLoginStreak(userId: string) {
-  const userRef = doc(db, 'users', userId);
-  const today = getDateString();
-  const yesterday = getYesterday();
-
-  let shouldAwardStreakXp = false;
-
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(userRef);
-    if (!snapshot.exists()) return;
-
-    const data = snapshot.data();
-
-    // Already logged in today — no-op
-    if (data.lastLoginDate === today) return;
-
-    let newStreak = 1;
-    if (data.lastLoginDate === yesterday) {
-      newStreak = (data.streakDays || 1) + 1;
-    }
-
-    const updates: Record<string, any> = {
-      lastLoginDate: today,
-      streakDays: newStreak,
-    };
-
-    if (newStreak % 3 === 0) {
-      shouldAwardStreakXp = true;
-    }
-
-    transaction.update(userRef, updates);
+  // Delegate daily login streak tracking and XP award to server-authoritative engine
+  await reportXpEvent({ type: 'DAILY_LOGIN' }).catch((err) => {
+    console.warn('Failed to record daily login streak on server:', err);
   });
-
-  if (shouldAwardStreakXp) {
-    await awardXP(userId, XP_VALUES.LOGIN_STREAK, 'LOGIN_STREAK').catch((err) => {
-      console.warn('Failed to award login streak XP:', err);
-    });
-  }
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

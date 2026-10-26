@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth } from './firebase';
+import { reportXpEvent } from './xpClient';
 import {
   Project,
   Comment,
@@ -204,9 +205,8 @@ export async function createProject(
     xpMilestonesAwarded: [],
   });
 
-  // Award submission XP + check first project bonus
-  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT, 'SUBMIT_PROJECT');
-  await checkFirstProjectBonus(authorUid);
+  // Report submission event to server-authoritative XP engine
+  reportXpEvent({ type: 'PROJECT_SUBMITTED', projectId: docRef.id }).catch(console.warn);
 
   return docRef.id;
 }
@@ -336,9 +336,9 @@ export async function toggleVote(
     batch.update(projectRef, { likes: increment(1) });
     await batch.commit();
 
-    // Award XP to project author (async, non-blocking)
+    // Report vote cast to server-authoritative XP engine (async, non-blocking)
     if (authorUid && authorUid !== userId) {
-      awardVoteXP(projectId, userId, authorUid).catch(console.error);
+      reportXpEvent({ type: 'VOTE_CAST', projectId }).catch(console.warn);
     }
 
     return true;
@@ -514,8 +514,8 @@ export async function approveProject(projectId: string) {
         },
       });
 
-      // Award XP to project author
-      await awardXP(project.authorUid, XP_VALUES.PROJECT_APPROVED, 'PROJECT_APPROVED');
+      // Report project approval to server-authoritative XP engine
+      reportXpEvent({ type: 'PROJECT_APPROVED', projectId }).catch(console.warn);
     }
   }
 }
@@ -692,173 +692,26 @@ export const XP_VALUES = {
   MIN_ACCOUNT_AGE_DAYS: 7,
 } as const;
 
+// Deprecated legacy shim - XP awards are now server-authoritative via reportXpEvent
 export async function awardXP(userId: string, amount: number, action?: string) {
-  try {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      const idToken = await currentUser.getIdToken();
-      const response = await fetch('/api/award-xp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          targetUserId: userId,
-          amount,
-          action: action || 'CUSTOM_AWARD',
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json().catch(() => null);
-        if (data?.success) {
-          return;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Serverless XP award error, falling back to direct write:', err);
-  }
-
-  // Fallback to client-side write (bounded by Firestore security rules)
-  const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, {
-    xp: increment(amount),
-    seasonXp: increment(amount),
-  });
-}
-
-// ─── XP Guardrails ───
-
-function getDateString(date = new Date()): string {
-  return date.toISOString().split('T')[0];
-}
-
-async function isAccountOldEnough(userId: string): Promise<boolean> {
-  const snap = await getDoc(doc(db, 'users', userId));
-  if (!snap.exists()) return false;
-  const data = snap.data();
-  const joinedAt = data.joinedAt?.toDate?.() || new Date(data.joinedAt);
-  const ageMs = Date.now() - joinedAt.getTime();
-  const ageDays = ageMs / (1000 * 60 * 60 * 24);
-  return ageDays >= XP_VALUES.MIN_ACCOUNT_AGE_DAYS;
-}
-
-async function projectHasMinVotes(projectId: string): Promise<boolean> {
-  const snap = await getDoc(doc(db, 'projects', projectId));
-  if (!snap.exists()) return false;
-  return (snap.data().likes || 0) >= XP_VALUES.MIN_VOTES_FOR_XP;
-}
-
-// ─── Vote XP ───
-
-async function awardVoteXP(
-  projectId: string,
-  voterId: string,
-  authorUid: string
-) {
-  // Votes from new accounts don't award XP
-  const eligible = await isAccountOldEnough(voterId);
-  if (!eligible) return;
-
-  // XP only flows on projects with 3+ votes
-  const hasMinVotes = await projectHasMinVotes(projectId);
-  if (!hasMinVotes) return;
-
-  await awardXP(authorUid, XP_VALUES.RECEIVE_VOTE, 'RECEIVE_VOTE');
-
-  // Check milestones after the vote
-  await checkVoteMilestones(projectId, authorUid);
-}
-
-async function checkVoteMilestones(projectId: string, authorUid: string) {
-  const projectRef = doc(db, 'projects', projectId);
-
-  await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(projectRef);
-    if (!snap.exists()) return;
-
-    const data = snap.data();
-    const likes: number = data.likes || 0;
-    const awarded: number[] = data.xpMilestonesAwarded || [];
-
-    const milestones: { threshold: number; xp: number; action: string }[] = [
-      { threshold: 10, xp: XP_VALUES.VOTE_MILESTONE_10, action: 'VOTE_MILESTONE_10' },
-      { threshold: 50, xp: XP_VALUES.VOTE_MILESTONE_50, action: 'VOTE_MILESTONE_50' },
-    ];
-
-    const achievedMilestones: { xp: number; action: string }[] = [];
-    const newAwarded = [...awarded];
-
-    for (const m of milestones) {
-      if (likes >= m.threshold && !awarded.includes(m.threshold)) {
-        achievedMilestones.push({ xp: m.xp, action: m.action });
-        newAwarded.push(m.threshold);
-      }
-    }
-
-    if (achievedMilestones.length > 0) {
-      transaction.update(projectRef, { xpMilestonesAwarded: newAwarded });
-    }
-
-    return achievedMilestones;
-  }).then(async (milestones) => {
-    if (milestones && milestones.length > 0) {
-      for (const m of milestones) {
-        await awardXP(authorUid, m.xp, m.action);
-      }
-    }
-  });
+  console.warn('awardXP is deprecated. All XP awards are server-authoritative via reportXpEvent.');
 }
 
 // ─── Comment XP ───
 
 export async function awardCommentXP(
   commenterId: string,
-  projectId: string,
-  authorUid?: string
+  targetId: string,
+  authorUid?: string,
+  targetType: 'project' | 'writing' = 'project',
+  commentId?: string
 ) {
-  const hasMinVotes = await projectHasMinVotes(projectId);
-  if (!hasMinVotes) return;
-
-  // Award commenter XP (with daily cap)
-  const commenterRef = doc(db, 'users', commenterId);
-  const commenterSnap = await getDoc(commenterRef);
-  if (commenterSnap.exists()) {
-    const data = commenterSnap.data();
-    const today = getDateString();
-    const commentXpToday = data.lastCommentXpDate === today ? (data.commentXpToday || 0) : 0;
-
-    if (commentXpToday < XP_VALUES.COMMENT_XP_DAILY_CAP) {
-      const awardable = Math.min(
-        XP_VALUES.LEAVE_COMMENT,
-        XP_VALUES.COMMENT_XP_DAILY_CAP - commentXpToday
-      );
-      await updateDoc(commenterRef, {
-        xp: increment(awardable),
-        seasonXp: increment(awardable),
-        commentXpToday: commentXpToday + awardable,
-        lastCommentXpDate: today,
-      });
-    }
-  }
-
-  // Award project author XP for receiving a comment
-  if (authorUid && authorUid !== commenterId) {
-    await awardXP(authorUid, XP_VALUES.RECEIVE_COMMENT, 'RECEIVE_COMMENT');
-  }
-}
-
-// ─── First Project Bonus ───
-
-async function checkFirstProjectBonus(authorUid: string) {
-  const q = query(projectsCol, where('authorUid', '==', authorUid));
-  const snap = await getDocs(q);
-  // Count is 1 because the project was just created
-  if (snap.size === 1) {
-    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT, 'FIRST_PROJECT');
-  }
+  return reportXpEvent({
+    type: 'COMMENT_POSTED',
+    targetType,
+    targetId,
+    commentId,
+  });
 }
 
 // ─── Image Upload ───
@@ -1254,18 +1107,10 @@ export async function createWriting(
     approvalStatus: 'pending',
   });
 
-  await awardXP(authorUid, XP_VALUES.SUBMIT_PROJECT, 'SUBMIT_PROJECT');
-  await checkFirstWritingBonus(authorUid);
+  // Report writing submission to server-authoritative XP engine
+  reportXpEvent({ type: 'WRITING_SUBMITTED', writingId: docRef.id }).catch(console.warn);
 
   return docRef.id;
-}
-
-async function checkFirstWritingBonus(authorUid: string) {
-  const q = query(writingsCol, where('authorUid', '==', authorUid));
-  const snap = await getDocs(q);
-  if (snap.size === 1) {
-    await awardXP(authorUid, XP_VALUES.FIRST_PROJECT, 'FIRST_PROJECT');
-  }
 }
 
 export async function approveWriting(writingId: string) {
@@ -1288,7 +1133,8 @@ export async function approveWriting(writingId: string) {
         viewedAt: null,
         link: { type: 'writing', id: writingId },
       });
-      await awardXP(writing.authorUid, XP_VALUES.PROJECT_APPROVED, 'PROJECT_APPROVED');
+      // Report writing approval to server-authoritative XP engine
+      reportXpEvent({ type: 'WRITING_APPROVED', writingId }).catch(console.warn);
     }
   }
 }
@@ -1415,7 +1261,7 @@ export async function toggleWritingVote(
     await batch.commit();
 
     if (authorUid && authorUid !== userId) {
-      awardXP(authorUid, XP_VALUES.RECEIVE_VOTE, 'RECEIVE_VOTE').catch(console.error);
+      reportXpEvent({ type: 'WRITING_VOTE_CAST', writingId }).catch(console.warn);
     }
     return true;
   }
@@ -2204,45 +2050,19 @@ export async function saveUserGitHubProfile(
   githubProfile: GitHubProfileData
 ): Promise<{ xpAwarded: number; updatedProfile: GitHubProfileData }> {
   const userRef = doc(db, 'users', userId);
-  const snap = await getDoc(userRef);
-  const existingData = snap.exists() ? snap.data() : {};
-  const previousRewardedDate: string | null =
-    existingData?.githubProfile?.lastRewardedCodingDate || null;
-
-  let xpAwarded = 0;
-  let nextRewardedDate = previousRewardedDate;
-
-  // Award daily active coding XP (+15 XP) if the student has a verified active GitHub coding date
-  // that hasn't been rewarded yet and is within the last 7 days
-  if (githubProfile.lastActiveDate) {
-    const activeMs = new Date(githubProfile.lastActiveDate).getTime();
-    const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    if (
-      activeMs >= sevenDaysAgoMs &&
-      (!previousRewardedDate || githubProfile.lastActiveDate > previousRewardedDate)
-    ) {
-      xpAwarded = XP_VALUES.GITHUB_ACTIVE_DAY;
-      nextRewardedDate = githubProfile.lastActiveDate;
-    }
-  }
-
-  const updatedProfile: GitHubProfileData = {
-    ...githubProfile,
-    lastRewardedCodingDate: nextRewardedDate,
-  };
 
   await updateDoc(userRef, {
-    githubProfile: updatedProfile,
-    githubUsernameLower: updatedProfile.username.toLowerCase(),
+    githubProfile,
+    githubUsernameLower: githubProfile.username.toLowerCase(),
   });
 
-  if (xpAwarded > 0) {
-    await awardXP(userId, xpAwarded, 'GITHUB_ACTIVE_DAY').catch((err) => {
-      console.warn('Failed to award GitHub coding activity XP:', err);
-    });
-  }
+  // Delegate daily active coding XP check and award to server-authoritative engine
+  const res = await reportXpEvent({ type: 'GITHUB_SYNC' }).catch((err) => {
+    console.warn('Failed to report GitHub coding activity:', err);
+    return { awarded: 0 };
+  });
 
-  return { xpAwarded, updatedProfile };
+  return { xpAwarded: res.awarded || 0, updatedProfile: githubProfile };
 }
 
 export async function disconnectUserGitHubProfile(userId: string): Promise<void> {

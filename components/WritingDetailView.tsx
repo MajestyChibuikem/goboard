@@ -72,7 +72,7 @@ export const WritingDetailView: React.FC<WritingDetailViewProps> = ({
     try {
       await addWritingComment(writing.id, newComment);
       if (user) {
-        await awardCommentXP(user.uid, writing.id, writing.authorUid);
+        await awardCommentXP(user.uid, writing.id, writing.authorUid, 'writing', newComment.id);
       }
       toast('Comment posted!', 'success');
     } catch (err) {

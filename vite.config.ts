@@ -79,7 +79,7 @@ function devApiPlugin(env: Record<string, string>): Plugin {
         });
       });
 
-      server.middlewares.use('/api/award-xp', async (req, res) => {
+      server.middlewares.use('/api/xp-event', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;
           res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -111,7 +111,7 @@ function devApiPlugin(env: Record<string, string>): Plugin {
                 process.env.VITE_FIREBASE_PROJECT_ID = env.VITE_FIREBASE_PROJECT_ID;
               }
 
-              const { default: awardXpHandler } = await server.ssrLoadModule('./api/award-xp.ts');
+              const { default: xpEventHandler } = await server.ssrLoadModule('./api/xp-event.ts');
 
               const resWrapper = {
                 status(code: number) {
@@ -127,18 +127,17 @@ function devApiPlugin(env: Record<string, string>): Plugin {
 
               const parsedBody = body ? JSON.parse(body) : {};
               const reqWrapper = Object.assign(req, { body: parsedBody });
-              return await awardXpHandler(reqWrapper, resWrapper);
+              return await xpEventHandler(reqWrapper, resWrapper);
             }
 
-            // In local dev without service account, signal fallback so client updates directly
             res.statusCode = 503;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({
-              error: 'Firebase Admin not configured in local environment. Triggering client fallback.',
-              fallback: true
+              error: 'Firebase Admin is not configured in local environment. XP event logged without local award.',
+              awarded: 0
             }));
           } catch (e: any) {
-            console.error('Dev Award XP Error:', e);
+            console.error('Dev XP Event Error:', e);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: e.message || 'Server error' }));
