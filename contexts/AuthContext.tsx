@@ -91,6 +91,57 @@ export const useAuth = () => {
   return ctx;
 };
 
+export function markWelcomeDoneLocally(uid: string) {
+  try {
+    localStorage.setItem(`goboard_welcome_done_${uid}`, 'true');
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function isWelcomeDoneLocally(uid: string): boolean {
+  try {
+    return localStorage.getItem(`goboard_welcome_done_${uid}`) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function resolveEffectiveOnboardingCompletedAt(
+  uid: string,
+  data: any,
+  fallback?: string | null
+): string | null {
+  const explicit =
+    data?.onboardingCompletedAt?.toDate?.()?.toISOString() ||
+    data?.onboardingCompletedAt ||
+    fallback ||
+    null;
+
+  if (explicit) {
+    markWelcomeDoneLocally(uid);
+    return explicit;
+  }
+
+  // Treat user as already onboarded/skipped if they dismissed it locally, filled out department & level, or are an existing active user
+  const alreadyActiveOrSkipped =
+    isWelcomeDoneLocally(uid) ||
+    Boolean(data?.department && data?.academicLevel) ||
+    Boolean(
+      data?.isAdmin ||
+      (Number(data?.xp) || 0) >= 25 ||
+      data?.githubProfile?.username ||
+      data?.hasEditedDisplayName
+    );
+
+  if (alreadyActiveOrSkipped) {
+    markWelcomeDoneLocally(uid);
+    return 'completed';
+  }
+
+  return null;
+}
+
 async function ensureUserProfile(user: User): Promise<UserProfile> {
   const ref = doc(db, 'users', user.uid);
   const snap = await getDoc(ref);
@@ -139,7 +190,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       githubProfile: data.githubProfile || null,
       githubUsernameLower: data.githubUsernameLower || null,
       // Onboarding & Quests
-      onboardingCompletedAt: data.onboardingCompletedAt?.toDate?.()?.toISOString() || data.onboardingCompletedAt || null,
+      onboardingCompletedAt: resolveEffectiveOnboardingCompletedAt(user.uid, data, null),
       interests: Array.isArray(data.interests) ? data.interests : [],
       completedQuests: Array.isArray(data.completedQuests) ? data.completedQuests : [],
     };
@@ -324,6 +375,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             accentColor: '#1e3a8a',
             githubProfile: null,
             githubUsernameLower: null,
+            onboardingCompletedAt: isWelcomeDoneLocally(firebaseUser.uid) ? 'completed' : null,
           });
         }
 
@@ -414,10 +466,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 'githubUsernameLower' in data
                   ? data.githubUsernameLower
                   : base.githubUsernameLower ?? null,
-              onboardingCompletedAt:
-                'onboardingCompletedAt' in data
-                  ? data.onboardingCompletedAt?.toDate?.()?.toISOString() || data.onboardingCompletedAt || null
-                  : base.onboardingCompletedAt ?? null,
+              onboardingCompletedAt: resolveEffectiveOnboardingCompletedAt(
+                user.uid,
+                data,
+                base.onboardingCompletedAt
+              ),
               interests: Array.isArray(data.interests) ? data.interests : base.interests ?? [],
               completedQuests: Array.isArray(data.completedQuests)
                 ? data.completedQuests

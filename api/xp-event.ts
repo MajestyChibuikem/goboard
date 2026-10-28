@@ -872,6 +872,41 @@ export default async function handler(req: any, res: any) {
         });
       }
 
+      // ─────────────────────────────────────────────────────────────
+      // ONBOARDING_SKIPPED
+      // ─────────────────────────────────────────────────────────────
+      case 'ONBOARDING_SKIPPED': {
+        const userRef = db.collection('users').doc(callerUid);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+          return res.status(404).json({ error: 'User profile not found.' });
+        }
+
+        const updates: Record<string, any> = {
+          onboardingCompletedAt: FieldValue.serverTimestamp(),
+        };
+        const { displayName, department, academicLevel, interests } = req.body || {};
+        if (typeof displayName === 'string' && displayName.trim().length >= 2) {
+          updates.displayName = displayName.trim();
+        }
+        if (typeof department === 'string' && department.trim().length >= 2) {
+          updates.department = department.trim();
+        }
+        if (typeof academicLevel === 'string' && ACADEMIC_LEVELS.includes(academicLevel as any)) {
+          updates.academicLevel = academicLevel;
+        }
+        if (Array.isArray(interests)) {
+          updates.interests = interests.filter((i: any) => typeof i === 'string').slice(0, 5);
+        }
+
+        await userRef.update(updates);
+        return res.status(200).json({
+          success: true,
+          awarded: 0,
+          onboardingCompletedAt: new Date().toISOString(),
+        });
+      }
+
       default:
         return res.status(400).json({ error: `Unknown event type: ${type}` });
     }

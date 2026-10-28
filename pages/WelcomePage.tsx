@@ -17,7 +17,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, markWelcomeDoneLocally } from '../contexts/AuthContext';
 import { useToast } from '../components/Toast';
 import { reportXpEvent } from '../services/xpClient';
 import {
@@ -224,6 +224,42 @@ export const WelcomePage: React.FC = () => {
     return true;
   };
 
+  const handleSkipWelcome = () => {
+    if (user) {
+      markWelcomeDoneLocally(user.uid);
+      if (displayName.trim() || department.trim() || academicLevel) {
+        saveOnboardingDraftFields(user.uid, {
+          ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
+          ...(department.trim() ? { department: department.trim() } : {}),
+          ...(academicLevel ? { academicLevel } : {}),
+          ...(selectedInterests.length > 0 ? { interests: selectedInterests } : {}),
+        }).catch(console.warn);
+      }
+      reportXpEvent({
+        type: 'ONBOARDING_SKIPPED',
+        displayName: displayName.trim() || undefined,
+        department: department.trim() || undefined,
+        academicLevel: academicLevel || undefined,
+        interests: selectedInterests,
+      }).catch(console.warn);
+    }
+
+    try {
+      sessionStorage.removeItem(WELCOME_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+
+    updateLocalProfile({
+      onboardingCompletedAt: new Date().toISOString(),
+      ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
+      ...(department.trim() ? { department: department.trim() } : {}),
+      ...(academicLevel ? { academicLevel } : {}),
+    });
+
+    navigate('/browse', { replace: true });
+  };
+
   const handleFinishOnboarding = async () => {
     if (!validateStep1()) {
       setStep(1);
@@ -233,7 +269,21 @@ export const WelcomePage: React.FC = () => {
     setSubmitting(true);
     setError(null);
 
+    if (user) {
+      markWelcomeDoneLocally(user.uid);
+    }
+
     try {
+      // Also save profile fields directly to Firestore so even if /api/xp-event has a hiccup, the profile is saved
+      if (user) {
+        await saveOnboardingDraftFields(user.uid, {
+          displayName: displayName.trim(),
+          department: department.trim(),
+          academicLevel,
+          interests: selectedInterests,
+        }).catch(console.warn);
+      }
+
       const res = await reportXpEvent({
         type: 'ONBOARDING_COMPLETED',
         displayName: displayName.trim(),
@@ -241,10 +291,6 @@ export const WelcomePage: React.FC = () => {
         academicLevel,
         interests: selectedInterests,
       });
-
-      if (!res.success && res.error) {
-        throw new Error(res.error);
-      }
 
       const completedIso = res.onboardingCompletedAt || new Date().toISOString();
       updateLocalProfile({
@@ -264,7 +310,7 @@ export const WelcomePage: React.FC = () => {
       if (res.awarded > 0) {
         toast(`Welcome to GoBoard! +${res.awarded} XP awarded!`, 'success');
       } else {
-        toast('Profile updated successfully!', 'success');
+        toast('Profile setup complete!', 'success');
       }
 
       try {
@@ -275,7 +321,15 @@ export const WelcomePage: React.FC = () => {
 
       navigate('/browse', { replace: true });
     } catch (err: any) {
-      setError(err?.message || 'Failed to finish onboarding. Please try again.');
+      // Even if XP server fails, never trap the user on /welcome
+      updateLocalProfile({
+        onboardingCompletedAt: new Date().toISOString(),
+        displayName: displayName.trim(),
+        department: department.trim(),
+        academicLevel,
+        interests: selectedInterests,
+      });
+      navigate('/browse', { replace: true });
     } finally {
       setSubmitting(false);
     }
@@ -297,20 +351,30 @@ export const WelcomePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Step Progress Indicators */}
-        <div className="flex items-center gap-1.5">
-          {[1, 2, 3, 4, 5].map((s) => (
-            <div
-              key={s}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                s === step
-                  ? 'w-6 bg-gouni-primary dark:bg-white'
-                  : s < step
-                  ? 'w-2 bg-emerald-500'
-                  : 'w-2 bg-neutral-200 dark:bg-neutral-800'
-              }`}
-            />
-          ))}
+        <div className="flex items-center gap-4">
+          {/* Step Progress Indicators */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <div
+                key={s}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  s === step
+                    ? 'w-6 bg-gouni-primary dark:bg-white'
+                    : s < step
+                    ? 'w-2 bg-emerald-500'
+                    : 'w-2 bg-neutral-200 dark:bg-neutral-800'
+                }`}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSkipWelcome}
+            className="px-3 py-1.5 rounded-xl bg-neutral-200/70 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 transition-colors cursor-pointer flex items-center gap-1"
+          >
+            Skip for now <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </header>
 

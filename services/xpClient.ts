@@ -10,7 +10,8 @@ export type XpEventType =
   | 'WRITING_VOTE_CAST'
   | 'DAILY_LOGIN'
   | 'GITHUB_SYNC'
-  | 'ONBOARDING_COMPLETED';
+  | 'ONBOARDING_COMPLETED'
+  | 'ONBOARDING_SKIPPED';
 
 export interface XpEventPayload {
   type: XpEventType;
