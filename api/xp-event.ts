@@ -1,6 +1,8 @@
-import { getAdminDb, verifyAuth } from './_lib/admin';
+import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth } from './_lib/admin';
 import { XP_VALUES, XP_LIMITS } from './_lib/xpRules';
 import { getTodayString, readXpGrantState, applyXpGrantInTransaction } from './_lib/ledger';
+import { fetchServerGitHubBundle } from './_lib/githubServer';
+import { ACADEMIC_LEVELS } from '../shared/profileOptions';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export default async function handler(req: any, res: any) {
@@ -9,11 +11,29 @@ export default async function handler(req: any, res: any) {
   }
 
   let callerUid: string;
+  let authResult: any;
   try {
-    const authResult = await verifyAuth(req);
+    authResult = await verifyAuth(req);
     callerUid = authResult.uid;
   } catch (err: any) {
     return res.status(401).json({ error: err.message || 'Unauthorized' });
+  }
+
+  // Provider gate: only accounts with Google or GitHub linked are eligible to earn XP
+  const identities = authResult.identities || {};
+  const isAllowedProvider = Boolean(
+    identities['google.com']?.length ||
+    identities['github.com']?.length ||
+    authResult.signInProvider === 'google.com' ||
+    authResult.signInProvider === 'github.com'
+  );
+
+  if (!isAllowedProvider) {
+    return res.status(403).json({
+      error: 'Unverified provider. Only Google and GitHub accounts are eligible for platform interactions.',
+      awarded: 0,
+      reason: 'PROVIDER_NOT_ALLOWED',
+    });
   }
 
   const db = getAdminDb();
@@ -646,32 +666,163 @@ export default async function handler(req: any, res: any) {
       // ─────────────────────────────────────────────────────────────
       case 'GITHUB_SYNC': {
         const userRef = db.collection('users').doc(callerUid);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+          return res.status(404).json({ error: 'User profile not found.' });
+        }
+
+        const userData = userSnap.data() || {};
+
+        // 1. Resolve verified GitHub identity from Firebase Auth
+        let ghNumericId: string | undefined;
+        let ghUsername: string | undefined;
+
+        try {
+          const authUser = await getAdminAuth().getUser(callerUid);
+          const ghProvider = authUser.providerData.find((p) => p.providerId === 'github.com');
+          if (ghProvider) {
+            ghNumericId = ghProvider.uid;
+            ghUsername = ghProvider.displayName || undefined;
+          }
+        } catch (authErr) {
+          console.warn('Could not inspect Firebase Auth providerData:', authErr);
+        }
+
+        if (!ghNumericId && !userData.githubProfile?.githubId && !userData.githubProfile?.username) {
+          return res.status(400).json({
+            error: 'No verified GitHub account linked to your profile. Please connect GitHub first.',
+          });
+        }
+
+        // 2. Sync throttle: at most once every 60 minutes
+        const lastSynced = userData.githubSyncedAt;
+        if (lastSynced) {
+          const lastSyncedMs = lastSynced.toDate ? lastSynced.toDate().getTime() : new Date(lastSynced).getTime();
+          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+          if (lastSyncedMs > oneHourAgo) {
+            return res.status(200).json({
+              success: true,
+              awarded: 0,
+              profile: userData.githubProfile,
+              reason: 'SYNC_RATE_LIMITED',
+            });
+          }
+        }
+
+        // 3. Fetch fresh bundle on the server using verified identity
+        const freshProfile = await fetchServerGitHubBundle({
+          githubNumericId: ghNumericId || (userData.githubProfile?.githubId ? String(userData.githubProfile.githubId) : undefined),
+          knownUsername: ghUsername || userData.githubProfile?.displayUsername || userData.githubProfile?.username,
+          previousRewardedDate: userData.lastRewardedCodingDate,
+        });
+
+        // 4. Calculate eligible coding XP
+        const activeDate = freshProfile.lastActiveDate;
+        const lastRewarded = userData.lastRewardedCodingDate;
+        let eligibleForXp = false;
+
+        if (activeDate) {
+          const activeMs = new Date(activeDate).getTime();
+          const sevenDaysAgo = Date.now() - 7 * 86400000;
+          if (activeMs >= sevenDaysAgo && (!lastRewarded || activeDate > lastRewarded)) {
+            eligibleForXp = true;
+          }
+        }
+
+        const ledgerId = activeDate ? `github_${callerUid}_${activeDate}` : `github_${callerUid}_noop`;
         let awarded = 0;
 
         await db.runTransaction(async (tx) => {
-          const userSnap = await tx.get(userRef);
-          if (!userSnap.exists) return;
+          let readState: any = null;
+          if (eligibleForXp && activeDate) {
+            readState = await readXpGrantState(
+              tx,
+              db,
+              ledgerId,
+              callerUid,
+              XP_VALUES.GITHUB_ACTIVE_DAY,
+              today
+            );
+          }
 
-          const data = userSnap.data() || {};
-          const githubProfile = data.githubProfile;
-          if (!githubProfile?.lastActiveDate) return;
+          // Writes
+          if (readState) {
+            awarded = applyXpGrantInTransaction(
+              tx,
+              db,
+              ledgerId,
+              callerUid,
+              readState,
+              'GITHUB_ACTIVE_DAY',
+              today,
+              { activeDate }
+            );
+          }
 
-          const activeDate = githubProfile.lastActiveDate;
-          const activeMs = new Date(activeDate).getTime();
-          const sevenDaysAgo = Date.now() - 7 * 86400000;
-          const lastRewarded = data.lastRewardedCodingDate;
+          const updatePayload: Record<string, any> = {
+            githubProfile: freshProfile,
+            githubUsernameLower: freshProfile.username.toLowerCase(),
+            githubSyncedAt: FieldValue.serverTimestamp(),
+          };
 
-          if (activeMs < sevenDaysAgo) return;
-          if (lastRewarded && activeDate <= lastRewarded) return;
+          if (awarded > 0 && activeDate) {
+            updatePayload.lastRewardedCodingDate = activeDate;
+            freshProfile.lastRewardedCodingDate = activeDate;
+            updatePayload.githubProfile = freshProfile;
+          }
 
-          const ledgerId = `github_${callerUid}_${activeDate}`;
+          tx.update(userRef, updatePayload);
+        });
+
+        return res.status(200).json({ success: true, awarded, profile: freshProfile });
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // ONBOARDING_COMPLETED
+      // ─────────────────────────────────────────────────────────────
+      case 'ONBOARDING_COMPLETED': {
+        const { displayName, department, academicLevel, interests } = req.body || {};
+
+        if (!displayName || typeof displayName !== 'string' || displayName.trim().length < 2 || displayName.trim().length > 40) {
+          return res.status(400).json({ error: 'Display name must be between 2 and 40 characters.' });
+        }
+
+        if (!department || typeof department !== 'string' || department.trim().length < 2 || department.trim().length > 60) {
+          return res.status(400).json({ error: 'Department must be between 2 and 60 characters.' });
+        }
+
+        if (!academicLevel || !ACADEMIC_LEVELS.includes(academicLevel as any)) {
+          return res.status(400).json({ error: 'Valid Academic Level is required.' });
+        }
+
+        const userRef = db.collection('users').doc(callerUid);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+          return res.status(404).json({ error: 'User profile not found.' });
+        }
+
+        const userData = userSnap.data() || {};
+        if (userData.onboardingCompletedAt) {
+          return res.status(200).json({
+            success: true,
+            awarded: 0,
+            reason: 'ALREADY_COMPLETED',
+            onboardingCompletedAt: userData.onboardingCompletedAt,
+          });
+        }
+
+        const ledgerId = `onboarding_${callerUid}`;
+        let awarded = 0;
+
+        await db.runTransaction(async (tx) => {
           const readState = await readXpGrantState(
             tx,
             db,
             ledgerId,
             callerUid,
-            XP_VALUES.GITHUB_ACTIVE_DAY,
-            today
+            XP_VALUES.ONBOARDING_COMPLETE,
+            today,
+            true // Official onboarding setup bonus bypasses daily cap
           );
 
           awarded = applyXpGrantInTransaction(
@@ -680,20 +831,28 @@ export default async function handler(req: any, res: any) {
             ledgerId,
             callerUid,
             readState,
-            'GITHUB_ACTIVE_DAY',
-            today,
-            { activeDate }
+            'ONBOARDING_COMPLETE',
+            today
           );
 
-          if (awarded > 0) {
-            tx.update(userRef, {
-              lastRewardedCodingDate: activeDate,
-              'githubProfile.lastRewardedCodingDate': activeDate,
-            });
-          }
+          const sanitizedInterests = Array.isArray(interests)
+            ? interests.filter((i) => typeof i === 'string').slice(0, 5)
+            : [];
+
+          tx.update(userRef, {
+            displayName: displayName.trim(),
+            department: department.trim(),
+            academicLevel,
+            interests: sanitizedInterests,
+            onboardingCompletedAt: FieldValue.serverTimestamp(),
+          });
         });
 
-        return res.status(200).json({ success: true, awarded });
+        return res.status(200).json({
+          success: true,
+          awarded,
+          onboardingCompletedAt: new Date().toISOString(),
+        });
       }
 
       default:

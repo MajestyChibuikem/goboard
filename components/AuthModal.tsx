@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Chrome } from 'lucide-react';
-import { Button } from './Button';
+import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AuthModalProps {
@@ -9,11 +8,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
-  const { signInWithGoogle, signInWithGitHub, signInWithEmail, signUpWithEmail } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const { signInWithGoogle, signInWithGitHub } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -24,12 +19,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      // If we're redirecting, don't show an error — the page will navigate away
       if (err.code === 'auth/redirect-cancelled-by-user') {
         setError('');
       } else {
         console.error('Google sign-in error:', err.code, err.message);
-        setError('Google sign-in unavailable. Please use email/password below.');
+        setError('Google sign-in was interrupted. Please try again or continue with GitHub.');
       }
     } finally {
       setLoading(false);
@@ -47,43 +41,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         setError('');
       } else {
         console.error('GitHub sign-in error:', err.code, err.message);
-        setError(err.message || 'GitHub sign-in unavailable. Please try another method.');
+        setError(err.message || 'GitHub sign-in was interrupted. Please try again.');
       }
     } finally {
       setLoading(false);
     }
   };
-
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      if (mode === 'signup') {
-        if (!displayName.trim()) {
-          setError('Please enter your name');
-          setLoading(false);
-          return;
-        }
-        await signUpWithEmail(email, password, displayName);
-      } else {
-        await signInWithEmail(email, password);
-      }
-      onClose();
-    } catch (err: any) {
-      const code = err.code || '';
-      if (code === 'auth/user-not-found') setError('No account found with this email');
-      else if (code === 'auth/wrong-password') setError('Incorrect password');
-      else if (code === 'auth/email-already-in-use') setError('Email already registered. Try signing in.');
-      else if (code === 'auth/weak-password') setError('Password must be at least 6 characters');
-      else if (code === 'auth/invalid-email') setError('Invalid email address');
-      else setError(err.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputStyles = "w-full px-3.5 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 outline-none text-sm transition-all bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500";
 
   return (
     <motion.div
@@ -99,27 +62,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 14 }}
         transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-        className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-float w-full max-w-md overflow-hidden"
+        className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-float w-full max-w-sm overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 pb-0 flex items-start justify-between">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={mode}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
-            >
-              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                {mode === 'signin' ? 'Welcome back' : 'Join GoBoard'}
-              </h2>
-              <p className="text-[13px] text-neutral-400 dark:text-neutral-400 mt-1">
-                {mode === 'signin' ? 'Sign in to vote, comment, and submit projects' : 'Create an account to start showcasing your work'}
-              </p>
-            </motion.div>
-          </AnimatePresence>
+        <div className="p-6 pb-2 flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
+              Welcome to GoBoard
+            </h2>
+            <p className="text-[13px] text-neutral-500 dark:text-neutral-400 mt-1">
+              Sign in to showcase your software, write on Lit Club, upvote innovations, and earn XP.
+            </p>
+          </div>
           <motion.button
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
@@ -130,13 +85,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           </motion.button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-3">
+          {error && (
+            <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 p-2.5 rounded-xl">
+              {error}
+            </p>
+          )}
+
           {/* Social sign in */}
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 pt-1">
             <button
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/80 rounded-xl text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/60 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-xl text-sm font-semibold text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-750 hover:border-neutral-350 dark:hover:border-neutral-600 transition-all shadow-xs cursor-pointer disabled:opacity-50"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -150,7 +111,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
             <button
               onClick={handleGitHubSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-neutral-900 dark:bg-neutral-800 text-white border border-transparent dark:border-neutral-700 rounded-xl text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-700 transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-neutral-900 dark:bg-neutral-800 text-white border border-transparent dark:border-neutral-700 rounded-xl text-sm font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-700 transition-all shadow-xs cursor-pointer disabled:opacity-50"
             >
               <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                 <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
@@ -159,66 +120,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
             </button>
           </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
-            <span className="text-[11px] font-medium text-neutral-400 uppercase">or</span>
-            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-800" />
-          </div>
-
-          {/* Email form */}
-          <form onSubmit={handleEmailSubmit} className="space-y-3">
-            {mode === 'signup' && (
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Full name"
-                className={inputStyles}
-              />
-            )}
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
-              required
-              className={inputStyles}
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              required
-              minLength={6}
-              className={inputStyles}
-            />
-
-            {error && (
-              <p className="text-[13px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 px-3 py-2 rounded-lg">{error}</p>
-            )}
-
-            <Button type="submit" variant="primary" isLoading={loading} className="w-full rounded-xl">
-              {mode === 'signin' ? 'Sign In' : 'Create Account'}
-            </Button>
-          </form>
-
-          {/* Toggle mode */}
-          <p className="text-[13px] text-center text-neutral-500 dark:text-neutral-400">
-            {mode === 'signin' ? (
-              <>Don't have an account?{' '}
-                <button onClick={() => { setMode('signup'); setError(''); }} className="font-semibold text-gouni-primary hover:underline">
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>Already have an account?{' '}
-                <button onClick={() => { setMode('signin'); setError(''); }} className="font-semibold text-gouni-primary hover:underline">
-                  Sign in
-                </button>
-              </>
-            )}
+          <p className="text-[11px] text-center text-neutral-400 dark:text-neutral-500 pt-3">
+            By signing in, you agree to student project showcase rules and fair gamification guidelines.
           </p>
         </div>
       </motion.div>

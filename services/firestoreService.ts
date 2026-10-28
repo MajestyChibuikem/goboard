@@ -158,37 +158,52 @@ export function subscribeToProjects(
   });
 }
 
+export async function checkProjectAvailability(title: string): Promise<{
+  available: boolean;
+  titleTaken: boolean;
+  slug?: string;
+  message?: string;
+}> {
+  const currentUser = auth.currentUser;
+  const token = currentUser ? await currentUser.getIdToken() : '';
+  const response = await fetch('/api/project-availability', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ title }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to check project title availability.');
+  }
+
+  return response.json();
+}
+
 export async function isProjectTitleTaken(title: string): Promise<boolean> {
-  const normalised = title.trim().toLowerCase();
-  const q = query(projectsCol, where('titleLower', '==', normalised));
-  const snap = await getDocs(q);
-  return !snap.empty;
+  try {
+    const res = await checkProjectAvailability(title);
+    return res.titleTaken;
+  } catch (err) {
+    console.warn('Availability check fallback error:', err);
+    return false;
+  }
 }
 
 export async function createProject(
   data: Omit<Project, 'id' | 'likes' | 'datePosted' | 'comments' | 'screenshots' | 'updates'>,
   authorUid: string
 ) {
-  // Enforce case-insensitive unique title
-  const taken = await isProjectTitleTaken(data.title);
-  if (taken) {
-    throw new Error('A project with this name already exists. Please choose a different title.');
+  // Enforce unique title & secure slug generation via server endpoint
+  const availability = await checkProjectAvailability(data.title);
+  if (availability.titleTaken) {
+    throw new Error(availability.message || 'A project with this name already exists. Please choose a different title.');
   }
 
-  let baseSlug = generateSlug(data.title);
-  if (!baseSlug) {
-    baseSlug = 'project';
-  }
-
-  let slug = baseSlug;
-  let counter = 1;
-  while (true) {
-    const slugQuery = query(projectsCol, where('slug', '==', slug), limit(1));
-    const slugSnap = await getDocs(slugQuery);
-    if (slugSnap.empty) break;
-    counter += 1;
-    slug = `${baseSlug}-${counter}`;
-  }
+  const slug = availability.slug || generateSlug(data.title) || `project-${Date.now().toString().slice(-4)}`;
 
   const docRef = await addDoc(projectsCol, {
     ...data,
@@ -2047,22 +2062,15 @@ export async function markStudentAsPaid(
 
 export async function saveUserGitHubProfile(
   userId: string,
-  githubProfile: GitHubProfileData
+  fallbackProfile?: GitHubProfileData
 ): Promise<{ xpAwarded: number; updatedProfile: GitHubProfileData }> {
-  const userRef = doc(db, 'users', userId);
-
-  await updateDoc(userRef, {
-    githubProfile,
-    githubUsernameLower: githubProfile.username.toLowerCase(),
-  });
-
-  // Delegate daily active coding XP check and award to server-authoritative engine
-  const res = await reportXpEvent({ type: 'GITHUB_SYNC' }).catch((err) => {
-    console.warn('Failed to report GitHub coding activity:', err);
-    return { awarded: 0 };
-  });
-
-  return { xpAwarded: res.awarded || 0, updatedProfile: githubProfile };
+  // Server is the sole authoritative writer of GitHub data and activity XP
+  const res = await reportXpEvent({ type: 'GITHUB_SYNC' });
+  const finalProfile = res.profile || fallbackProfile;
+  if (!finalProfile) {
+    throw new Error(res.error || 'Failed to sync GitHub profile with server.');
+  }
+  return { xpAwarded: res.awarded || 0, updatedProfile: finalProfile };
 }
 
 export async function disconnectUserGitHubProfile(userId: string): Promise<void> {

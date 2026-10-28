@@ -5,8 +5,6 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
   linkWithRedirect,
@@ -61,6 +59,9 @@ export interface UserProfile {
   // GitHub Integration
   githubProfile?: GitHubProfileData | null;
   githubUsernameLower?: string | null;
+  // Onboarding
+  onboardingCompletedAt?: string | null;
+  interests?: string[];
 }
 
 interface AuthContextType {
@@ -69,8 +70,6 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfilePhoto: (file: File) => Promise<void>;
   connectGitHubWithOAuth: () => Promise<{ profile: GitHubProfileData; xpAwarded: number }>;
@@ -137,6 +136,9 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       // GitHub Integration
       githubProfile: data.githubProfile || null,
       githubUsernameLower: data.githubUsernameLower || null,
+      // Onboarding
+      onboardingCompletedAt: data.onboardingCompletedAt?.toDate?.()?.toISOString() || data.onboardingCompletedAt || null,
+      interests: Array.isArray(data.interests) ? data.interests : [],
     };
   }
 
@@ -169,6 +171,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     accentColor: '#1e3a8a',
     githubProfile: null,
     githubUsernameLower: null,
+    interests: [],
     joinedAt: serverTimestamp(),
   };
   await setDoc(ref, newProfile);
@@ -408,6 +411,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 'githubUsernameLower' in data
                   ? data.githubUsernameLower
                   : base.githubUsernameLower ?? null,
+              onboardingCompletedAt:
+                'onboardingCompletedAt' in data
+                  ? data.onboardingCompletedAt?.toDate?.()?.toISOString() || data.onboardingCompletedAt || null
+                  : base.onboardingCompletedAt ?? null,
+              interests: Array.isArray(data.interests) ? data.interests : base.interests ?? [],
             };
           });
         }
@@ -428,15 +436,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with GitHub using same-window redirect (no popup window)
   const signInWithGitHub = async () => {
     await signInWithRedirect(auth, githubProvider);
-  };
-
-  const signInWithEmail = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
-  };
-
-  const signUpWithEmail = async (email: string, password: string, displayName: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName });
   };
 
   const updateProfilePhoto = async (file: File) => {
@@ -613,8 +612,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         signInWithGoogle,
         signInWithGitHub,
-        signInWithEmail,
-        signUpWithEmail,
         signOut,
         updateProfilePhoto,
         connectGitHubWithOAuth,

@@ -9,6 +9,7 @@ export const XP_VALUES = {
   RECEIVE_COMMENT: 5,
   LOGIN_STREAK: 10,
   GITHUB_ACTIVE_DAY: 15,
+  ONBOARDING_COMPLETE: 25,
 } as const;
 
 export const XP_LIMITS = {

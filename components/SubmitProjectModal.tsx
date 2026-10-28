@@ -36,7 +36,14 @@ import { CONTRIBUTION_AREAS, ACADEMIC_LEVELS } from '../constants';
 
 interface SubmitProjectModalProps {
   onClose: () => void;
-  onSubmit: (project: Omit<Project, 'id' | 'likes' | 'datePosted'>) => void;
+  onSubmit: (project: Omit<Project, 'id' | 'likes' | 'datePosted'>) => Promise<void> | void;
+}
+
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }
 
 export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose, onSubmit }) => {
@@ -56,6 +63,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
   const [importedGitHubMeta, setImportedGitHubMeta] = useState<ProjectGitHubMeta | null>(null);
   const [importingRepo, setImportingRepo] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [repoImportInput, setRepoImportInput] = useState('');
 
   // Live repository catalog state (fetches all 60+ user repos)
@@ -186,20 +194,46 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
     e.preventDefault();
     setTitleError('');
     setImportError(null);
+    setSubmitError(null);
+
+    // Validation
+    if (!formData.title.trim()) {
+      setTitleError('Project title is required.');
+      setSubmitError('Please enter a project title.');
+      return;
+    }
+
+    if (!formData.level) {
+      setSubmitError('Please select your Academic Level (e.g. 300 Level).');
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      setSubmitError('Please provide a short description for your project.');
+      return;
+    }
+
+    if (!formData.techStack.trim()) {
+      setSubmitError('Please list the technologies used (e.g. React, Node.js).');
+      return;
+    }
 
     // Enforce GitHub-First requirement
     if (!formData.repoUrl || !parseGitHubRepoUrl(formData.repoUrl)) {
-      setImportError('A valid GitHub repository is required to submit a project on GoBoard.');
+      const msg = 'A valid GitHub repository is required to submit a project on GoBoard.';
+      setImportError(msg);
+      setSubmitError(msg);
       return;
     }
 
     setSubmitting(true);
 
     try {
-      // Check for duplicate title (case-insensitive)
+      // Check for duplicate title (case-insensitive) via server endpoint
       const taken = await isProjectTitleTaken(formData.title);
       if (taken) {
         setTitleError('A project with this name already exists. Please choose a different title.');
+        setSubmitError('A project with this name already exists. Please choose a different title.');
         setSubmitting(false);
         return;
       }
@@ -243,8 +277,13 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         }
       }
 
-      onSubmit({
+      const normalizedDemoUrl = normalizeUrl(formData.demoUrl);
+      const normalizedWebsiteUrl = normalizeUrl(formData.websiteUrl);
+
+      await onSubmit({
         ...formData,
+        demoUrl: normalizedDemoUrl || undefined,
+        websiteUrl: normalizedWebsiteUrl || undefined,
         displayName: profile?.displayName || 'Student',
         studentName: profile?.displayName || 'Student',
         authorPhotoURL: profile?.photoURL || null,
@@ -259,9 +298,12 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         ...(finalGitHubMeta ? { githubMeta: finalGitHubMeta } : {}),
         ...(contributorUids.length > 0 ? { contributorUids } : {}),
       });
+
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Submit failed:', err);
+      setSubmitError(err?.message || 'Failed to submit project. Please try again.');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -311,7 +353,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
           {/* ── Step 1: GitHub Repository Selection (Mandatory) ── */}
           <div className="p-4 rounded-2xl bg-neutral-900 text-white space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -656,6 +698,13 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
               </div>
               <span className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">Upload Screenshot</span>
               <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1">PNG, JPG up to 5MB</span>
+            </div>
+          )}
+
+          {submitError && (
+            <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex-1 font-medium leading-relaxed">{submitError}</div>
             </div>
           )}
 

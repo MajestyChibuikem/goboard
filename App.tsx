@@ -75,6 +75,15 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  // Onboarding guard: redirect signed-in users who haven't completed onboarding to /welcome
+  useEffect(() => {
+    if (!authLoading && user && profile && !profile.onboardingCompletedAt) {
+      if (location.pathname !== '/welcome') {
+        navigate('/welcome', { replace: true });
+      }
+    }
+  }, [user, profile, authLoading, location.pathname, navigate]);
+
   // Subscribe to Firestore projects
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -207,20 +216,10 @@ const App: React.FC = () => {
     try {
       await createProject(newProjectData, user.uid);
       toast('Project submitted for review!', 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create project:', err);
-      toast('Failed to submit project. Try again.', 'error');
-      const newProject: Project = {
-        ...newProjectData,
-        id: Date.now().toString(),
-        likes: 0,
-        datePosted: new Date().toISOString(),
-        comments: [],
-        screenshots: [],
-        status: newProjectData.status || 'idea',
-        updates: [],
-      };
-      setProjects(prev => [newProject, ...prev]);
+      toast(err?.message || 'Failed to submit project. Try again.', 'error');
+      throw err;
     }
   };
 

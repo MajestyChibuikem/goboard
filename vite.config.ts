@@ -144,6 +144,68 @@ function devApiPlugin(env: Record<string, string>): Plugin {
           }
         });
       });
+
+      server.middlewares.use('/api/project-availability', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: 'Method not allowed' }));
+          return;
+        }
+
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+          try {
+            const hasAdminCreds = Boolean(
+              env.FIREBASE_SERVICE_ACCOUNT ||
+              process.env.FIREBASE_SERVICE_ACCOUNT ||
+              (env.FIREBASE_PRIVATE_KEY && env.FIREBASE_CLIENT_EMAIL) ||
+              (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL)
+            );
+
+            if (hasAdminCreds) {
+              const { default: handler } = await server.ssrLoadModule('./api/project-availability.ts');
+              const resWrapper = {
+                status(code: number) {
+                  res.statusCode = code;
+                  return this;
+                },
+                json(data: any) {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(data));
+                  return this;
+                }
+              };
+
+              const parsedBody = body ? JSON.parse(body) : {};
+              const reqWrapper = Object.assign(req, { body: parsedBody });
+              return await handler(reqWrapper, resWrapper);
+            }
+
+            // Fallback for dev without admin credentials
+            const parsedBody = body ? JSON.parse(body) : {};
+            const cleanSlug = (parsedBody.title || 'project')
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .replace(/-+/g, '-');
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({
+              available: true,
+              titleTaken: false,
+              slug: `${cleanSlug}-${Date.now().toString().slice(-4)}`
+            }));
+          } catch (e: any) {
+            console.error('Dev project-availability error:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: e.message || 'Server error' }));
+          }
+        });
+      });
     }
   };
 }

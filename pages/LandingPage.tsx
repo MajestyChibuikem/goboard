@@ -14,24 +14,26 @@ import { useAuth } from '../contexts/AuthContext';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const sectionsRef = useRef<(HTMLDivElement | null)[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const pendingRedirect = useRef(false);
 
-  // When user becomes authenticated after clicking Begin Journey, navigate to browse
+  // When user becomes authenticated after clicking Begin Journey, navigate to browse or welcome
   useEffect(() => {
     if (user && pendingRedirect.current) {
       pendingRedirect.current = false;
       setShowAuthModal(false);
-      navigate('/browse');
+      const target = profile && !profile.onboardingCompletedAt ? '/welcome' : '/browse';
+      navigate(target);
     }
-  }, [user, navigate]);
+  }, [user, profile, navigate]);
 
   const handleBeginJourney = () => {
     if (user) {
-      navigate('/browse');
+      const target = profile && !profile.onboardingCompletedAt ? '/welcome' : '/browse';
+      navigate(target);
     } else {
       pendingRedirect.current = true;
       setShowAuthModal(true);

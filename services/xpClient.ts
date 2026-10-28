@@ -9,7 +9,8 @@ export type XpEventType =
   | 'WRITING_APPROVED'
   | 'WRITING_VOTE_CAST'
   | 'DAILY_LOGIN'
-  | 'GITHUB_SYNC';
+  | 'GITHUB_SYNC'
+  | 'ONBOARDING_COMPLETED';
 
 export interface XpEventPayload {
   type: XpEventType;
@@ -18,6 +19,10 @@ export interface XpEventPayload {
   targetType?: 'project' | 'writing';
   targetId?: string;
   commentId?: string;
+  displayName?: string;
+  department?: string;
+  academicLevel?: string;
+  interests?: string[];
 }
 
 export interface XpEventResponse {
@@ -26,6 +31,8 @@ export interface XpEventResponse {
   streakDays?: number;
   reason?: string;
   error?: string;
+  profile?: any;
+  onboardingCompletedAt?: string;
 }
 
 /**
@@ -66,6 +73,8 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
       awarded: data.awarded || 0,
       streakDays: data.streakDays,
       reason: data.reason,
+      profile: data.profile,
+      onboardingCompletedAt: data.onboardingCompletedAt,
     };
   } catch (err: any) {
     console.warn(`XP event ${payload.type} network/client error:`, err);

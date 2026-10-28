@@ -88,6 +88,10 @@ rules_version = '2';
 //   - accentColor: string (optional)
 //   - githubProfile: map or null (optional)
 //   - githubUsernameLower: string or null (optional)
+//   - onboardingCompletedAt: timestamp (IMMUTABLE by clients)
+//   - lastRewardedCodingDate: string (IMMUTABLE by clients)
+//   - githubSyncedAt: timestamp (IMMUTABLE by clients)
+//   - interests: list of strings (optional)
 //
 // Subcollection: /users/{userId}/notifications/{notifId}
 // Fields:
@@ -448,7 +452,15 @@ service cloud.firestore {
         request.resource.data.hasEditedDisplayName == false &&
         request.resource.data.get('goCoins', 0) == 0 &&
         request.resource.data.get('totalGoCoinsEarned', 0) == 0 &&
-        request.resource.data.get('verificationStatus', 'none') == 'none';
+        request.resource.data.get('verificationStatus', 'none') == 'none' &&
+        request.resource.data.get('streakDays', 0) == 0 &&
+        request.resource.data.get('lastLoginDate', '') == '' &&
+        request.resource.data.get('commentXpToday', 0) == 0 &&
+        request.resource.data.get('lastCommentXpDate', '') == '' &&
+        request.resource.data.get('githubProfile', null) == null &&
+        !('onboardingCompletedAt' in request.resource.data) &&
+        !('lastRewardedCodingDate' in request.resource.data) &&
+        !('githubSyncedAt' in request.resource.data);
 
       allow update: if isSignedIn() && (
         isAdmin() ||
@@ -456,8 +468,13 @@ service cloud.firestore {
         // Owner updating profile
         (
           isOwner(userId) &&
-          // Cannot promote to admin, alter joinedAt, self-mint GoCoins, or modify server-authoritative XP and streak fields
-          !affectedKeys().hasAny(['isAdmin', 'joinedAt', 'goCoins', 'totalGoCoinsEarned', 'xp', 'seasonXp', 'streakDays', 'lastLoginDate', 'commentXpToday', 'lastCommentXpDate']) &&
+          // Cannot promote to admin, alter joinedAt, self-mint GoCoins, or modify server-authoritative XP, streak, onboarding, and GitHub sync fields
+          !affectedKeys().hasAny([
+            'isAdmin', 'joinedAt', 'goCoins', 'totalGoCoinsEarned',
+            'xp', 'seasonXp', 'streakDays', 'lastLoginDate',
+            'commentXpToday', 'lastCommentXpDate',
+            'onboardingCompletedAt', 'lastRewardedCodingDate', 'githubSyncedAt'
+          ]) &&
           // Cannot self-verify Student ID; can only keep status unchanged or set to 'pending' on ID upload
           (
             request.resource.data.get('verificationStatus', 'none') == resource.data.get('verificationStatus', 'none') ||
@@ -467,6 +484,22 @@ service cloud.firestore {
           (
             request.resource.data.get('hasEditedDisplayName', false) == resource.data.get('hasEditedDisplayName', false) ||
             (resource.data.get('hasEditedDisplayName', false) == false && request.resource.data.get('hasEditedDisplayName', false) == true)
+          ) &&
+          // Client can ONLY disconnect GitHub (setting both profile and username to null); cannot write arbitrary profile/username
+          (
+            !affectedKeys().hasAny(['githubProfile', 'githubUsernameLower']) ||
+            (
+              request.resource.data.get('githubProfile', null) == null &&
+              request.resource.data.get('githubUsernameLower', null) == null
+            )
+          ) &&
+          // Client interests field: must be a list with max 5 items
+          (
+            !affectedKeys().hasAny(['interests']) ||
+            (
+              request.resource.data.get('interests', []) is list &&
+              request.resource.data.get('interests', []).size() <= 5
+            )
           )
         )
       );

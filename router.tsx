@@ -9,6 +9,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const ProjectPage = lazy(() => import('./pages/ProjectPage'));
 const LitClubPage = lazy(() => import('./pages/LitClubPage'));
 const WritingPage = lazy(() => import('./pages/WritingPage'));
+const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 
 const PageLoader = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: withSuspense(LandingPage),
+  },
+  {
+    path: '/welcome',
+    element: withSuspense(WelcomePage),
   },
   {
     element: <App />,

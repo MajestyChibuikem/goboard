@@ -299,13 +299,8 @@ export const AESTHETIC_GRADIENT_PRESETS = [
   { label: 'Rose Gold Glow', from: '#2e0220', via: '#be185d', to: '#fbcfe8', deg: '135deg' },
 ];
 
-export const ACADEMIC_LEVELS = [
-  '100 Level',
-  '200 Level',
-  '300 Level',
-  '400 Level',
-  '500 Level',
-];
+import { ACADEMIC_LEVELS } from './shared/profileOptions';
+export { ACADEMIC_LEVELS };
 
 export const CONTRIBUTION_AREAS = [
   'Frontend',
