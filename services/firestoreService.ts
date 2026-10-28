@@ -146,16 +146,48 @@ export function subscribeToProjects(
     );
   }
 
-  return onSnapshot(q, (snapshot) => {
-    let projects = snapshot.docs.map(projectFromDoc);
+  let fallbackUnsub: (() => void) | undefined;
 
-    // Filter out suspended projects unless user is admin or author
-    if (!isAdmin) {
-      projects = projects.filter(p => !p.isSuspended || (userId && p.authorUid === userId));
+  const unsub = onSnapshot(
+    q,
+    (snapshot) => {
+      let projects = snapshot.docs.map(projectFromDoc);
+
+      // Filter out suspended projects unless user is admin or author
+      if (!isAdmin) {
+        projects = projects.filter(p => !p.isSuspended || (userId && p.authorUid === userId));
+      }
+
+      callback(projects);
+    },
+    (err) => {
+      console.warn('subscribeToProjects index warning, falling back to in-memory sort:', err);
+      if (approvalFilter !== 'all') {
+        const fallbackQ = query(projectsCol, where('approvalStatus', '==', approvalFilter));
+        fallbackUnsub = onSnapshot(
+          fallbackQ,
+          (snapshot) => {
+            let projects = snapshot.docs.map(projectFromDoc);
+            if (!isAdmin) {
+              projects = projects.filter(p => !p.isSuspended || (userId && p.authorUid === userId));
+            }
+            projects.sort((a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime());
+            callback(projects);
+          },
+          (fallbackErr) => {
+            console.warn('subscribeToProjects fallback failed:', fallbackErr);
+          }
+        );
+      }
     }
+  );
 
-    callback(projects);
-  });
+  return () => {
+    unsub();
+    if (fallbackUnsub) {
+      fallbackUnsub();
+    }
+  };
 }
 
 export async function checkProjectAvailability(title: string): Promise<{
@@ -1096,13 +1128,45 @@ export function subscribeToWritings(
     );
   }
 
-  return onSnapshot(q, (snapshot) => {
-    let writings = snapshot.docs.map(writingFromDoc);
-    if (!isAdmin) {
-      writings = writings.filter(w => !w.isSuspended || (userId && w.authorUid === userId));
+  let fallbackUnsub: (() => void) | undefined;
+
+  const unsub = onSnapshot(
+    q,
+    (snapshot) => {
+      let writings = snapshot.docs.map(writingFromDoc);
+      if (!isAdmin) {
+        writings = writings.filter(w => !w.isSuspended || (userId && w.authorUid === userId));
+      }
+      callback(writings);
+    },
+    (err) => {
+      console.warn('subscribeToWritings index warning, falling back to in-memory sort:', err);
+      if (approvalFilter !== 'all') {
+        const fallbackQ = query(writingsCol, where('approvalStatus', '==', approvalFilter));
+        fallbackUnsub = onSnapshot(
+          fallbackQ,
+          (snapshot) => {
+            let writings = snapshot.docs.map(writingFromDoc);
+            if (!isAdmin) {
+              writings = writings.filter(w => !w.isSuspended || (userId && w.authorUid === userId));
+            }
+            writings.sort((a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime());
+            callback(writings);
+          },
+          (fallbackErr) => {
+            console.warn('subscribeToWritings fallback failed:', fallbackErr);
+          }
+        );
+      }
     }
-    callback(writings);
-  });
+  );
+
+  return () => {
+    unsub();
+    if (fallbackUnsub) {
+      fallbackUnsub();
+    }
+  };
 }
 
 export function subscribeToPendingWritings(callback: (writings: Writing[]) => void) {

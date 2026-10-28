@@ -1,6 +1,6 @@
 import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth } from './_lib/admin';
 import { XP_VALUES, XP_LIMITS } from './_lib/xpRules';
-import { getTodayString, readXpGrantState, applyXpGrantInTransaction } from './_lib/ledger';
+import { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator } from './_lib/ledger';
 import { fetchServerGitHubBundle } from './_lib/githubServer';
 import { ACADEMIC_LEVELS } from '../shared/profileOptions';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -92,8 +92,8 @@ export default async function handler(req: any, res: any) {
             );
           }
 
-          const awardedSubmit = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          const awardedSubmit = acc.addGrant(
             db,
             `submit_${projectId}`,
             callerUid,
@@ -105,8 +105,7 @@ export default async function handler(req: any, res: any) {
 
           let awardedFirst = 0;
           if (firstRead) {
-            awardedFirst = applyXpGrantInTransaction(
-              tx,
+            awardedFirst = acc.addGrant(
               db,
               `first_${callerUid}`,
               callerUid,
@@ -117,6 +116,7 @@ export default async function handler(req: any, res: any) {
             );
           }
 
+          acc.apply(tx, db);
           totalAwarded = awardedSubmit + awardedFirst;
         });
 
@@ -161,8 +161,8 @@ export default async function handler(req: any, res: any) {
             true // Bypass daily cap for official admin approvals
           );
 
-          awarded = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          awarded = acc.addGrant(
             db,
             `approve_${projectId}`,
             authorUid,
@@ -171,6 +171,7 @@ export default async function handler(req: any, res: any) {
             today,
             { projectId, approvedBy: callerUid }
           );
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded });
@@ -264,8 +265,8 @@ export default async function handler(req: any, res: any) {
           }
 
           // Writes
-          awardedVote = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          awardedVote = acc.addGrant(
             db,
             voteLedgerId,
             authorUid,
@@ -277,8 +278,7 @@ export default async function handler(req: any, res: any) {
 
           const updatedMilestones = [...currentAwarded];
           if (m10Read) {
-            const m10Awarded = applyXpGrantInTransaction(
-              tx,
+            const m10Awarded = acc.addGrant(
               db,
               `milestone_${projectId}_10`,
               authorUid,
@@ -293,8 +293,7 @@ export default async function handler(req: any, res: any) {
             }
           }
           if (m50Read) {
-            const m50Awarded = applyXpGrantInTransaction(
-              tx,
+            const m50Awarded = acc.addGrant(
               db,
               `milestone_${projectId}_50`,
               authorUid,
@@ -308,6 +307,8 @@ export default async function handler(req: any, res: any) {
               updatedMilestones.push(50);
             }
           }
+
+          acc.apply(tx, db);
 
           if (updatedMilestones.length > currentAwarded.length) {
             tx.update(projectRef, { xpMilestonesAwarded: updatedMilestones });
@@ -396,10 +397,11 @@ export default async function handler(req: any, res: any) {
           }
 
           // Writes
+          const acc = new XpTransactionAccumulator();
+
           if (awardableCommenter > 0) {
             commenterRead.grantAmount = awardableCommenter;
-            const awardedCommenter = applyXpGrantInTransaction(
-              tx,
+            const awardedCommenter = acc.addGrant(
               db,
               commenterLedgerId,
               callerUid,
@@ -410,7 +412,7 @@ export default async function handler(req: any, res: any) {
             );
             if (awardedCommenter > 0) {
               totalAwarded += awardedCommenter;
-              tx.update(db.collection('users').doc(callerUid), {
+              acc.setUserExtraFields(callerUid, {
                 commentXpToday: commentXpToday + awardedCommenter,
                 lastCommentXpDate: today,
               });
@@ -418,8 +420,7 @@ export default async function handler(req: any, res: any) {
           }
 
           if (authorRead) {
-            const awardedAuthor = applyXpGrantInTransaction(
-              tx,
+            const awardedAuthor = acc.addGrant(
               db,
               authorLedgerId,
               authorUid,
@@ -430,6 +431,8 @@ export default async function handler(req: any, res: any) {
             );
             totalAwarded += awardedAuthor;
           }
+
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded: totalAwarded });
@@ -465,8 +468,8 @@ export default async function handler(req: any, res: any) {
             today
           );
 
-          totalAwarded = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          totalAwarded = acc.addGrant(
             db,
             `wsubmit_${writingId}`,
             callerUid,
@@ -475,6 +478,7 @@ export default async function handler(req: any, res: any) {
             today,
             { writingId }
           );
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded: totalAwarded });
@@ -517,8 +521,8 @@ export default async function handler(req: any, res: any) {
             true
           );
 
-          awarded = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          awarded = acc.addGrant(
             db,
             `wapprove_${writingId}`,
             authorUid,
@@ -527,6 +531,7 @@ export default async function handler(req: any, res: any) {
             today,
             { writingId, approvedBy: callerUid }
           );
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded });
@@ -584,8 +589,8 @@ export default async function handler(req: any, res: any) {
             today
           );
 
-          awardedVote = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          awardedVote = acc.addGrant(
             db,
             voteLedgerId,
             authorUid,
@@ -594,6 +599,7 @@ export default async function handler(req: any, res: any) {
             today,
             { writingId, voterUid: callerUid }
           );
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded: awardedVote });
@@ -639,14 +645,9 @@ export default async function handler(req: any, res: any) {
           }
 
           // Writes
-          tx.update(userRef, {
-            lastLoginDate: today,
-            streakDays: newStreak,
-          });
-
+          const acc = new XpTransactionAccumulator();
           if (streakRead) {
-            awarded = applyXpGrantInTransaction(
-              tx,
+            awarded = acc.addGrant(
               db,
               streakLedgerId,
               callerUid,
@@ -656,6 +657,13 @@ export default async function handler(req: any, res: any) {
               { streakDays: newStreak }
             );
           }
+
+          acc.setUserExtraFields(callerUid, {
+            lastLoginDate: today,
+            streakDays: newStreak,
+          });
+
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded, streakDays: finalStreak });
@@ -746,9 +754,9 @@ export default async function handler(req: any, res: any) {
           }
 
           // Writes
+          const acc = new XpTransactionAccumulator();
           if (readState) {
-            awarded = applyXpGrantInTransaction(
-              tx,
+            awarded = acc.addGrant(
               db,
               ledgerId,
               callerUid,
@@ -771,7 +779,8 @@ export default async function handler(req: any, res: any) {
             updatePayload.githubProfile = freshProfile;
           }
 
-          tx.update(userRef, updatePayload);
+          acc.setUserExtraFields(callerUid, updatePayload);
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({ success: true, awarded, profile: freshProfile });
@@ -825,8 +834,8 @@ export default async function handler(req: any, res: any) {
             true // Official onboarding setup bonus bypasses daily cap
           );
 
-          awarded = applyXpGrantInTransaction(
-            tx,
+          const acc = new XpTransactionAccumulator();
+          awarded = acc.addGrant(
             db,
             ledgerId,
             callerUid,
@@ -839,13 +848,15 @@ export default async function handler(req: any, res: any) {
             ? interests.filter((i) => typeof i === 'string').slice(0, 5)
             : [];
 
-          tx.update(userRef, {
+          acc.setUserExtraFields(callerUid, {
             displayName: displayName.trim(),
             department: department.trim(),
             academicLevel,
             interests: sanitizedInterests,
             onboardingCompletedAt: FieldValue.serverTimestamp(),
           });
+
+          acc.apply(tx, db);
         });
 
         return res.status(200).json({
