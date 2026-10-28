@@ -5,6 +5,7 @@ import {
   GitHubLanguageStat,
   ProjectGitHubMeta,
   ProjectContributor,
+  GitHubPullRequestItem,
 } from '../types';
 
 const GITHUB_API_BASE = 'https://api.github.com';
@@ -664,4 +665,48 @@ export async function fetchGitHubRepoReadmeSummary(
   const description = extractCleanSummaryFromMarkdown(rawMarkdown);
 
   return { description, demoUrl };
+}
+
+/**
+ * Fetches recent Pull Requests (open, merged, closed) for a GitHub repository.
+ */
+export async function fetchRepoPullRequests(
+  repoUrlOrFullName: string,
+  accessToken?: string
+): Promise<GitHubPullRequestItem[]> {
+  const parsed = parseGitHubRepoUrl(repoUrlOrFullName);
+  if (!parsed) return [];
+
+  const { owner, repo } = parsed;
+  const headers = buildHeaders(accessToken);
+
+  try {
+    const res = await fetch(
+      `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+        repo
+      )}/pulls?state=all&sort=created&direction=desc&per_page=10`,
+      { headers }
+    );
+
+    if (!res.ok) return [];
+    const data: any[] = await res.json();
+    if (!Array.isArray(data)) return [];
+
+    return data.map((pr) => ({
+      id: Number(pr.id) || pr.number,
+      number: Number(pr.number),
+      title: String(pr.title || 'Pull Request'),
+      state: pr.state === 'open' ? 'open' : 'closed',
+      merged: Boolean(pr.merged_at),
+      htmlUrl: pr.html_url || `https://github.com/${owner}/${repo}/pull/${pr.number}`,
+      authorUsername: pr.user?.login || 'contributor',
+      authorAvatarUrl: pr.user?.avatar_url || '',
+      authorProfileUrl: pr.user?.html_url || `https://github.com/${pr.user?.login || ''}`,
+      createdAt: pr.created_at || new Date().toISOString(),
+      mergedAt: pr.merged_at || null,
+    }));
+  } catch (err) {
+    console.warn('fetchRepoPullRequests failed:', err);
+    return [];
+  }
 }

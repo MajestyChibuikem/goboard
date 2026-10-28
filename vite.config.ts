@@ -206,6 +206,61 @@ function devApiPlugin(env: Record<string, string>): Plugin {
           }
         });
       });
+
+      server.middlewares.use('/api/quest-check', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: 'Method not allowed' }));
+          return;
+        }
+
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+          try {
+            if (env.GITHUB_TOKEN && !process.env.GITHUB_TOKEN) {
+              process.env.GITHUB_TOKEN = env.GITHUB_TOKEN;
+            }
+            const hasAdminCreds = Boolean(
+              env.FIREBASE_SERVICE_ACCOUNT ||
+              process.env.FIREBASE_SERVICE_ACCOUNT ||
+              (env.FIREBASE_PRIVATE_KEY && env.FIREBASE_CLIENT_EMAIL) ||
+              (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL)
+            );
+
+            if (hasAdminCreds) {
+              const { default: questCheckHandler } = await server.ssrLoadModule('./api/quest-check.ts');
+              const resWrapper = {
+                status(code: number) {
+                  res.statusCode = code;
+                  return this;
+                },
+                json(data: any) {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(data));
+                  return this;
+                }
+              };
+
+              const parsedBody = body ? JSON.parse(body) : {};
+              const reqWrapper = Object.assign(req, { body: parsedBody });
+              return await questCheckHandler(reqWrapper, resWrapper);
+            }
+
+            res.statusCode = 503;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({
+              success: false,
+              error: 'Firebase Admin credentials are not configured in local .env.'
+            }));
+          } catch (e: any) {
+            console.error('Dev quest-check error:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: e.message || 'Server error' }));
+          }
+        });
+      });
     }
   };
 }

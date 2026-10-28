@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Project, Comment, ProjectUpdate, ProjectStatus } from '../types';
+import { Project, Comment, ProjectUpdate, ProjectStatus, GitHubPullRequestItem } from '../types';
 import { generateProjectInsight } from '../services/geminiService';
+import { fetchRepoPullRequests } from '../services/githubService';
 import { getProjectBadges, formatDate } from '../services/utils';
-import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X, GitPullRequest, GitFork, Star, RefreshCw, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X, GitPullRequest, GitMerge, GitFork, Star, RefreshCw, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
@@ -75,6 +76,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [editedImageFile, setEditedImageFile] = useState<File | null>(null);
   const [editedImagePreview, setEditedImagePreview] = useState<string | null>(null);
   const [syncingGitHub, setSyncingGitHub] = useState(false);
+  const [pullRequests, setPullRequests] = useState<GitHubPullRequestItem[]>([]);
+  const [loadingPrs, setLoadingPrs] = useState(false);
   const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const badges = getProjectBadges(project);
@@ -233,15 +236,32 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     }
   };
 
+  const loadPullRequests = async (repoTarget?: string) => {
+    const repo = repoTarget || project.repoUrl || project.githubMeta?.fullName;
+    if (!repo) {
+      setPullRequests([]);
+      return;
+    }
+    setLoadingPrs(true);
+    try {
+      const prs = await fetchRepoPullRequests(repo);
+      setPullRequests(prs);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingPrs(false);
+    }
+  };
+
   const handleSyncGitHubRepo = async (showFeedback = true, repoUrlOverride?: string) => {
     const targetRepoUrl = (repoUrlOverride ?? project.repoUrl)?.trim();
     if (!targetRepoUrl) return;
     setSyncingGitHub(true);
     try {
-      const { githubMeta, contributorUids } = await syncAndSaveProjectGitHub(
-        project.id,
-        targetRepoUrl
-      );
+      const [{ githubMeta, contributorUids }] = await Promise.all([
+        syncAndSaveProjectGitHub(project.id, targetRepoUrl),
+        loadPullRequests(targetRepoUrl),
+      ]);
       onUpdateProject({
         ...project,
         repoUrl: targetRepoUrl,
@@ -249,7 +269,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         contributorUids,
       });
       if (showFeedback) {
-        toast('Synced GitHub repository & contributor list!', 'success');
+        toast('Synced GitHub repository, PRs & contributor list!', 'success');
       }
     } catch (err: any) {
       if (showFeedback) {
@@ -261,6 +281,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   };
 
   useEffect(() => {
+    if (project.repoUrl || project.githubMeta?.fullName) {
+      loadPullRequests(project.repoUrl || project.githubMeta?.fullName);
+    }
     if (project.repoUrl && !project.githubMeta && user) {
       handleSyncGitHubRepo(false);
     }
@@ -864,6 +887,82 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                       <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-3 leading-relaxed">
                         Pushed commits or merged a PR? Connect your GitHub in Profile and click <span className="font-semibold text-neutral-600 dark:text-neutral-300">Sync</span> to appear here.
                       </p>
+                    </div>
+                  )}
+
+                  {/* Pull Request Cards */}
+                  {(project.openToContributions || pullRequests.length > 0) && (
+                    <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <GitPullRequest className="w-3.5 h-3.5 text-emerald-500" />
+                          Pull Requests ({pullRequests.length})
+                        </span>
+                        {loadingPrs && (
+                          <span className="text-[10px] text-neutral-400">Loading...</span>
+                        )}
+                      </div>
+
+                      {pullRequests.length === 0 ? (
+                        <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/40 border border-dashed border-neutral-200 dark:border-neutral-800 text-[11px] text-neutral-500 dark:text-neutral-400 text-center">
+                          No pull requests yet. Be the first to open a PR on GitHub!
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                          {pullRequests.map((pr) => {
+                            const statusLabel = pr.merged
+                              ? 'Merged'
+                              : pr.state === 'open'
+                              ? 'Open'
+                              : 'Closed';
+                            const statusBadgeClass = pr.merged
+                              ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                              : pr.state === 'open'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700';
+
+                            return (
+                              <a
+                                key={pr.id}
+                                href={pr.htmlUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block p-2.5 rounded-xl border border-neutral-150 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-800/40 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all space-y-1.5"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100 line-clamp-1">
+                                    <span className="text-neutral-400 font-mono mr-1">#{pr.number}</span>
+                                    {pr.title}
+                                  </div>
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase border shrink-0 ${statusBadgeClass}`}
+                                  >
+                                    {pr.merged ? (
+                                      <GitMerge className="w-2.5 h-2.5" />
+                                    ) : (
+                                      <GitPullRequest className="w-2.5 h-2.5" />
+                                    )}
+                                    {statusLabel}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {pr.authorAvatarUrl && (
+                                      <img
+                                        src={pr.authorAvatarUrl}
+                                        alt={pr.authorUsername}
+                                        className="w-4 h-4 rounded-full object-cover"
+                                      />
+                                    )}
+                                    <span className="truncate font-medium">@{pr.authorUsername}</span>
+                                  </div>
+                                  <span>{formatDate(pr.createdAt).split(',')[0]}</span>
+                                </div>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

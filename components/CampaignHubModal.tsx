@@ -2,50 +2,54 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CampaignConfig,
-  CourseBountySummary,
-  ExamPaperSubmission,
+  CampaignSubmission,
   Project,
 } from '../types';
+import {
+  ACTIVE_QUESTS,
+  QuestTaskCheckResult,
+} from '../shared/questsConfig';
 import { CampaignHubTab } from './CampaignBanner';
-import { ACADEMIC_LEVELS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 import {
-  normalizeCourseCode,
-  subscribeToCourseBounties,
-  subscribeToUserExamPapers,
-  submitExamPaper,
-  uploadProjectImage,
+  submitCampaignDesign,
+  subscribeToCampaignSubmissions,
+  toggleCampaignSubmissionVote,
 } from '../services/firestoreService';
+import {
+  runQuestChecker,
+  validateCampaignRepo,
+} from '../services/xpClient';
 import {
   X,
   Upload,
   Target,
   FileText,
   Sparkles,
-  Coins,
   CheckCircle2,
   Clock,
   AlertCircle,
   Lock,
-  Search,
-  Camera,
+  Unlock,
   Trash2,
-  ArrowLeft,
   ArrowRight,
   ShieldCheck,
-  Sun,
-  Zap,
-  EyeOff,
   Trophy,
-  ChevronRight,
   ExternalLink,
   Github,
   Rocket,
   Compass,
   GitPullRequest,
   Award,
-  Check,
+  Terminal,
+  BookOpen,
+  Play,
+  Loader2,
+  Palette,
+  Users,
+  Heart,
+  Figma,
 } from 'lucide-react';
 
 interface CampaignHubModalProps {
@@ -60,37 +64,71 @@ interface CampaignHubModalProps {
   onVoteProject?: (e: React.MouseEvent, projectId: string) => void;
 }
 
-interface PageUploadItem {
+interface ScreenshotItem {
   id: string;
   file: File;
   previewUrl: string;
 }
 
-const MAX_PAGES = 6;
-const MAX_FILE_SIZE_MB = 8;
-
 export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   initialTab = 'quests',
-  campaignConfig,
   onClose,
-  onOpenPaydaySetup,
   onRequireAuth,
   onOpenSubmitModal,
   projects = [],
   userVotes = new Set(),
-  onVoteProject,
 }) => {
-  const { user, profile, connectGitHubWithOAuth, connectGitHubByUsername } = useAuth();
+  const { user, profile, connectGitHubWithOAuth, updateLocalProfile } = useAuth();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<CampaignHubTab>(initialTab);
-
-  // GitHub inline connect state for Quest 1
-  const [githubUsernameInput, setGithubUsernameInput] = useState('');
   const [connectingGitHub, setConnectingGitHub] = useState(false);
-  const [showUsernameInput, setShowUsernameInput] = useState(false);
 
-  // Genesis Quests calculations
+  // Active Quest Checker state
+  const [checkingQuestId, setCheckingQuestId] = useState<string | null>(null);
+  const [questCheckOutputs, setQuestCheckOutputs] = useState<
+    Record<
+      string,
+      {
+        allPassed: boolean;
+        xpAwarded: number;
+        repoUrl?: string;
+        results: QuestTaskCheckResult[];
+      }
+    >
+  >({});
+
+  // Campaign Submissions Showcase state
+  const [submissions, setSubmissions] = useState<CampaignSubmission[]>([]);
+  const [votingId, setVotingId] = useState<string | null>(null);
+
+  // Campaign Submission Form state
+  const [teamSize, setTeamSize] = useState<'solo' | 'duo'>('solo');
+  const [partnerUsername, setPartnerUsername] = useState('');
+  const [repoUrl, setRepoUrl] = useState('');
+  const [figmaUrl, setFigmaUrl] = useState('');
+  const [pitchSummary, setPitchSummary] = useState('');
+  const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
+  const [validatingRepo, setValidatingRepo] = useState(false);
+  const [repoValidationInfo, setRepoValidationInfo] = useState<{
+    valid: boolean;
+    wordCount: number;
+    repoFullName: string;
+  } | null>(null);
+  const [submittingDesign, setSubmittingDesign] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeToCampaignSubmissions(
+      (items) => setSubmissions(items),
+      'approved_or_winner',
+      user?.uid
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Starter Checklist & Quest Progress
   const isForgeConnected = Boolean(profile?.githubProfile?.username);
   const userProjects = useMemo(
     () => (user ? projects.filter((p) => p.authorUid === user.uid) : []),
@@ -99,1447 +137,1057 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   const isFirstShipDone = userProjects.length > 0;
   const scoutCount = userVotes ? Math.min(userVotes.size, 3) : 0;
   const isCampusScoutDone = scoutCount >= 3;
-  const openSourceProject = userProjects.find((p) => p.openToContributions);
-  const isOpenSourcePioneerDone = Boolean(openSourceProject);
+  const isOpenSourcePioneerDone = userProjects.some((p) => p.openToContributions);
 
-  const completedQuestsCount =
-    (isForgeConnected ? 1 : 0) +
-    (isFirstShipDone ? 1 : 0) +
-    (isCampusScoutDone ? 1 : 0) +
-    (isOpenSourcePioneerDone ? 1 : 0);
-  const progressPercent = Math.round((completedQuestsCount / 4) * 100);
+  const completedQuests = profile?.completedQuests || [];
+  const isQuest1Done = completedQuests.includes('quest_1_baby_steps');
+  const isQuest2Done = completedQuests.includes('quest_2_shell_basics');
 
-  const totalXpEarned =
-    (isForgeConnected ? 50 : 0) +
-    (isFirstShipDone ? 150 : 0) +
-    (isCampusScoutDone ? 50 : 0) +
-    (isOpenSourcePioneerDone ? 100 : 0);
-  const totalCoinsEarned =
-    (isFirstShipDone ? 50 : 0) + (isCampusScoutDone ? 20 : 0);
+  const userXp = profile?.xp || 0;
+  const isCampaignUnlocked = userXp >= 100 || Boolean(profile?.isAdmin);
+  const campaignXpPercent = Math.min(100, Math.round((userXp / 100) * 100));
 
-  const peerProjectsToScout = useMemo(
-    () =>
-      projects
-        .filter((p) => p.authorUid !== user?.uid && (!userVotes || !userVotes.has(p.id)))
-        .slice(0, 3),
-    [projects, user, userVotes]
-  );
-
-  const handleConnectOAuth = async () => {
+  const handleConnectGitHub = async () => {
     if (!user) {
       onRequireAuth();
       return;
     }
     setConnectingGitHub(true);
     try {
-      const res = await connectGitHubWithOAuth();
-      toast(`Connected @${res.profile.displayUsername}! +50 XP awarded.`, 'success');
+      await connectGitHubWithOAuth();
+      toast('GitHub account connected!', 'success');
     } catch (err: any) {
-      console.error('Failed to connect GitHub OAuth:', err);
-      toast(err.message || 'Failed to connect GitHub.', 'error');
+      toast(err?.message || 'Failed to connect GitHub', 'error');
     } finally {
       setConnectingGitHub(false);
     }
   };
 
-  const handleConnectByUsername = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRunChecker = async (questId: 'quest_1_baby_steps' | 'quest_2_shell_basics') => {
     if (!user) {
       onRequireAuth();
       return;
     }
-    if (!githubUsernameInput.trim()) return;
-    setConnectingGitHub(true);
+    if (!isForgeConnected) {
+      toast('Please link your GitHub account first so the Checker can inspect your GoQuests repo.', 'error');
+      return;
+    }
+
+    setCheckingQuestId(questId);
     try {
-      const res = await connectGitHubByUsername(githubUsernameInput.trim());
-      setGithubUsernameInput('');
-      setShowUsernameInput(false);
-      toast(`Connected @${res.profile.displayUsername}! +50 XP awarded.`, 'success');
+      const res = await runQuestChecker(questId);
+      setQuestCheckOutputs((prev) => ({
+        ...prev,
+        [questId]: {
+          allPassed: res.allPassed,
+          xpAwarded: res.xpAwarded || 0,
+          repoUrl: res.repoUrl,
+          results: res.results || [],
+        },
+      }));
+
+      if (res.allPassed) {
+        const updatedQuests = Array.from(new Set([...completedQuests, questId]));
+        updateLocalProfile({
+          completedQuests: updatedQuests,
+          ...(res.xpAwarded > 0
+            ? {
+                xp: (profile?.xp || 0) + res.xpAwarded,
+                seasonXp: (profile?.seasonXp || 0) + res.xpAwarded,
+              }
+            : {}),
+        });
+
+        if (res.xpAwarded > 0) {
+          toast(`🎉 Quest passed! +${res.xpAwarded} XP awarded!`, 'success');
+        } else {
+          toast('All quest checks passed!', 'success');
+        }
+      } else {
+        toast('Some checks did not pass yet. Review the terminal output below.', 'error');
+      }
     } catch (err: any) {
-      console.error('Failed to connect GitHub by username:', err);
-      toast(err.message || 'Failed to connect GitHub account.', 'error');
+      toast(err?.message || 'Could not run Quest Checker.', 'error');
     } finally {
-      setConnectingGitHub(false);
+      setCheckingQuestId(null);
     }
   };
 
-  // Real-time data
-  const [courseBounties, setCourseBounties] = useState<CourseBountySummary[]>([]);
-  const [userPapers, setUserPapers] = useState<ExamPaperSubmission[]>([]);
-  const [loadingBounties, setLoadingBounties] = useState(true);
+  const handleScreenshotSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-  // Upload Form State
-  const [courseCodeInput, setCourseCodeInput] = useState('');
-  const [courseTitle, setCourseTitle] = useState('');
-  const [level, setLevel] = useState(profile?.academicLevel || ACADEMIC_LEVELS[2]); // Default 300 Level
-  const [semester, setSemester] = useState<'1st Semester' | '2nd Semester'>('1st Semester');
-  const [pages, setPages] = useState<PageUploadItem[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [uploadProgressText, setUploadProgressText] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Tracker Filter State
-  const [trackerSearch, setTrackerSearch] = useState('');
-  const [trackerFilter, setTrackerFilter] = useState<'all' | 'open' | 'full' | 'collected'>('all');
-
-  // Lightbox preview for user's own uploaded pages
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-
-  const maxSlots = campaignConfig.maxSubmissionsPerCourse || 5;
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
-
-  // Subscribe to all courseBounties
-  useEffect(() => {
-    let unsub: (() => void) | undefined;
-    try {
-      unsub = subscribeToCourseBounties((bounties) => {
-        setCourseBounties(bounties);
-        setLoadingBounties(false);
-      });
-    } catch (err) {
-      console.warn('Failed to subscribe to course bounties:', err);
-      setLoadingBounties(false);
-    }
-    return () => unsub?.();
-  }, []);
-
-  // Subscribe to current user's exam papers
-  useEffect(() => {
-    if (!user) {
-      setUserPapers([]);
-      return;
-    }
-    let unsub: (() => void) | undefined;
-    try {
-      unsub = subscribeToUserExamPapers(user.uid, setUserPapers);
-    } catch (err) {
-      console.warn('Failed to subscribe to user exam papers:', err);
-    }
-    return () => unsub?.();
-  }, [user]);
-
-  // Cleanup object URLs on unmount
-  useEffect(() => {
-    return () => {
-      pages.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-    };
-  }, []);
-
-  const normalizedCode = useMemo(
-    () => normalizeCourseCode(courseCodeInput),
-    [courseCodeInput]
-  );
-
-  const matchingBounty = useMemo(
-    () => courseBounties.find((b) => b.courseCode === normalizedCode),
-    [courseBounties, normalizedCode]
-  );
-
-  // Auto-fill course title & level when typing a course code that already exists in tracker
-  useEffect(() => {
-    if (matchingBounty) {
-      if (!courseTitle.trim() && matchingBounty.courseTitle) {
-        setCourseTitle(matchingBounty.courseTitle);
-      }
-      if (matchingBounty.level && ACADEMIC_LEVELS.includes(matchingBounty.level)) {
-        setLevel(matchingBounty.level);
-      }
-    }
-  }, [matchingBounty]);
-
-  const userAlreadySubmittedCourse = useMemo(() => {
-    if (!user || !normalizedCode) return false;
-    if (matchingBounty?.submittedUserIds?.includes(user.uid)) return true;
-    return userPapers.some(
-      (p) => p.courseCode === normalizedCode && p.status !== 'rejected'
-    );
-  }, [user, normalizedCode, matchingBounty, userPapers]);
-
-  const courseSlotState = useMemo(() => {
-    if (!normalizedCode) return { status: 'idle' as const, count: 0 };
-    const count = matchingBounty?.submissionCount || 0;
-    if (matchingBounty?.isCollected) {
-      return { status: 'collected' as const, count };
-    }
-    if (userAlreadySubmittedCourse) {
-      return { status: 'already_submitted' as const, count };
-    }
-    if (count >= maxSlots) {
-      return { status: 'full' as const, count };
-    }
-    if (count > 0) {
-      return { status: 'open' as const, count };
-    }
-    return { status: 'new' as const, count: 0 };
-  }, [normalizedCode, matchingBounty, userAlreadySubmittedCourse, maxSlots]);
-
-  const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    const remainingSlots = MAX_PAGES - pages.length;
-    if (remainingSlots <= 0) {
-      toast(`Maximum ${MAX_PAGES} pages allowed per question paper.`, 'error');
-      e.target.value = '';
+    const remaining = 5 - screenshots.length;
+    if (remaining <= 0) {
+      toast('Maximum 5 screenshots allowed.', 'error');
       return;
     }
 
-    const selectedFiles = Array.from(fileList).slice(0, remainingSlots);
-    const validNewPages: PageUploadItem[] = [];
-
-    for (const file of selectedFiles) {
-      if (!file.type.startsWith('image/')) {
-        toast(`"${file.name}" is not an image file.`, 'error');
+    const toAdd: ScreenshotItem[] = [];
+    for (const file of files.slice(0, remaining)) {
+      if (file.size > 6 * 1024 * 1024) {
+        toast(`${file.name} exceeds 6MB limit.`, 'error');
         continue;
       }
-      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        toast(`"${file.name}" exceeds the ${MAX_FILE_SIZE_MB}MB size limit.`, 'error');
-        continue;
-      }
-      validNewPages.push({
+      toAdd.push({
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         file,
         previewUrl: URL.createObjectURL(file),
       });
     }
 
-    if (validNewPages.length > 0) {
-      setPages((prev) => [...prev, ...validNewPages]);
-    }
-    e.target.value = '';
+    setScreenshots((prev) => [...prev, ...toAdd]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleRemovePage = (id: string) => {
-    setPages((prev) => {
-      const target = prev.find((p) => p.id === id);
+  const removeScreenshot = (id: string) => {
+    setScreenshots((prev) => {
+      const target = prev.find((x) => x.id === id);
       if (target) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((p) => p.id !== id);
+      return prev.filter((x) => x.id !== id);
     });
   };
 
-  const handleMovePage = (index: number, direction: -1 | 1) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= pages.length) return;
-    setPages((prev) => {
-      const copy = [...prev];
-      const [item] = copy.splice(index, 1);
-      copy.splice(newIndex, 0, item);
-      return copy;
-    });
-  };
-
-  const handlePrefillCourse = (
-    code: string,
-    title?: string,
-    courseLevel?: string
-  ) => {
-    if (!user) {
-      onRequireAuth();
-      return;
-    }
-    setCourseCodeInput(code);
-    if (title) setCourseTitle(title);
-    if (courseLevel && ACADEMIC_LEVELS.includes(courseLevel)) {
-      setLevel(courseLevel);
-    }
-    setActiveTab('upload');
-  };
-
-  const handleSubmitPaper = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      onRequireAuth();
+  const handleValidateRepo = async () => {
+    setFormError(null);
+    setRepoValidationInfo(null);
+    if (!repoUrl.trim() || !figmaUrl.trim()) {
+      setFormError('Please enter both your GitHub repository URL and your Figma URL first.');
       return;
     }
 
-    if (!normalizedCode || normalizedCode.length < 3) {
-      toast('Please enter a valid course code (e.g. CSC 301).', 'error');
-      return;
-    }
-    if (!courseTitle.trim()) {
-      toast('Please enter the course title.', 'error');
-      return;
-    }
-    if (pages.length === 0) {
-      toast('Please upload at least 1 clear photo of the question paper.', 'error');
-      return;
-    }
-    if (
-      courseSlotState.status === 'collected' ||
-      courseSlotState.status === 'full' ||
-      courseSlotState.status === 'already_submitted'
-    ) {
-      toast('This course slot is not available for upload.', 'error');
-      return;
-    }
-
-    setSubmitting(true);
+    setValidatingRepo(true);
     try {
-      const uploadedUrls: string[] = [];
-      for (let i = 0; i < pages.length; i++) {
-        setUploadProgressText(`Uploading page ${i + 1} of ${pages.length}...`);
-        const url = await uploadProjectImage(
-          pages[i].file,
-          `exam_${normalizedCode.replace(/\s+/g, '_')}`
-        );
-        uploadedUrls.push(url);
-      }
+      const res = await validateCampaignRepo(repoUrl.trim(), figmaUrl.trim());
+      setRepoValidationInfo({
+        valid: res.valid,
+        wordCount: res.wordCount,
+        repoFullName: res.repoFullName,
+      });
+      toast(`Verified ${res.repoFullName} (${res.wordCount}-word README pitch)!`, 'success');
+    } catch (err: any) {
+      setFormError(err?.message || 'Repository validation failed.');
+    } finally {
+      setValidatingRepo(false);
+    }
+  };
 
-      setUploadProgressText('Locking in your course slot...');
-      await submitExamPaper(
-        {
-          courseCode: normalizedCode,
-          courseTitle: courseTitle.trim(),
-          level,
-          semester,
-          imageUrls: uploadedUrls,
-        },
-        user.uid,
-        profile?.displayName || user.displayName || 'Student',
-        profile?.photoURL || user.photoURL || null
-      );
+  const handleSubmitCampaignDesign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !profile) {
+      onRequireAuth();
+      return;
+    }
+    setFormError(null);
 
-      toast(
-        `🎉 ${normalizedCode} paper uploaded! Your submission is now under review.`,
-        'success'
-      );
+    if (!isCampaignUnlocked) {
+      setFormError('You need at least 100 XP to submit to the GoUni Prayer Book Redesign Campaign.');
+      return;
+    }
 
-      // Clear form and switch to My Submissions
-      pages.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      setPages([]);
-      setCourseCodeInput('');
-      setCourseTitle('');
-      setUploadProgressText('');
+    if (!repoUrl.trim()) {
+      setFormError('Please enter your public GitHub repository URL.');
+      return;
+    }
+    if (!figmaUrl.trim()) {
+      setFormError('Please enter your Figma prototype or design file URL.');
+      return;
+    }
+    if (!pitchSummary.trim() || pitchSummary.trim().length < 30) {
+      setFormError('Please provide a short pitch summary (at least 30 characters) for the showcase card.');
+      return;
+    }
+    if (teamSize === 'duo' && !partnerUsername.trim()) {
+      setFormError('Please enter your duo partner’s @username or display name.');
+      return;
+    }
+    if (screenshots.length === 0) {
+      setFormError('Please upload at least 1 UI screenshot of your GoUni Prayer Book redesign.');
+      return;
+    }
+
+    setSubmittingDesign(true);
+    try {
+      // Ensure repo + README pitch passes server validation
+      const validation = await validateCampaignRepo(repoUrl.trim(), figmaUrl.trim());
+      setRepoValidationInfo({
+        valid: validation.valid,
+        wordCount: validation.wordCount,
+        repoFullName: validation.repoFullName,
+      });
+
+      await submitCampaignDesign({
+        authorUid: user.uid,
+        displayName: profile.displayName || user.displayName || 'Student',
+        authorPhotoURL: profile.photoURL || user.photoURL || null,
+        teamSize,
+        partnerUsername: teamSize === 'duo' ? partnerUsername.trim() : undefined,
+        repoUrl: repoUrl.trim(),
+        figmaUrl: figmaUrl.trim(),
+        pitchSummary: pitchSummary.trim(),
+        screenshotFiles: screenshots.map((s) => s.file),
+      });
+
+      toast('Redesign submitted! Campus admins will review it shortly.', 'success');
+      setRepoUrl('');
+      setFigmaUrl('');
+      setPitchSummary('');
+      setPartnerUsername('');
+      setScreenshots([]);
+      setRepoValidationInfo(null);
       setActiveTab('submissions');
     } catch (err: any) {
-      console.error('Failed to submit exam paper:', err);
-      toast(err?.message || 'Failed to upload exam paper. Please try again.', 'error');
+      setFormError(err?.message || 'Failed to submit redesign.');
     } finally {
-      setSubmitting(false);
-      setUploadProgressText('');
+      setSubmittingDesign(false);
     }
   };
 
-  // Filtered tracker list
-  const filteredBounties = useMemo(() => {
-    return courseBounties.filter((b) => {
-      const matchesSearch =
-        b.courseCode.toLowerCase().includes(trackerSearch.toLowerCase()) ||
-        (b.courseTitle || '').toLowerCase().includes(trackerSearch.toLowerCase()) ||
-        (b.level || '').toLowerCase().includes(trackerSearch.toLowerCase());
+  const handleVoteSubmission = async (submissionId: string) => {
+    if (!user) {
+      onRequireAuth();
+      return;
+    }
+    setVotingId(submissionId);
+    try {
+      await toggleCampaignSubmissionVote(submissionId, user.uid);
+    } catch (err: any) {
+      toast(err?.message || 'Failed to toggle vote', 'error');
+    } finally {
+      setVotingId(null);
+    }
+  };
 
-      if (!matchesSearch) return false;
+  // Reusable Locked 100 XP Vault Component
+  const renderLockedCampaignVault = () => (
+    <div className="p-6 sm:p-8 rounded-3xl bg-neutral-950 text-white border border-amber-500/30 space-y-6 text-center max-w-2xl mx-auto my-4">
+      <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+        <Lock className="w-8 h-8" />
+      </div>
+      <div className="space-y-2">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+          Fog of War • 100 XP Qualification Gate
+        </span>
+        <h3 className="text-2xl font-extrabold tracking-tight">
+          Classified Campus Design Competition
+        </h3>
+        <p className="text-sm text-neutral-400 max-w-lg mx-auto leading-relaxed">
+          Only active builders with at least <strong>100 XP</strong> can view the target application brief, judging rubric, and submit a redesign.
+        </p>
+      </div>
 
-      if (trackerFilter === 'open') {
-        return !b.isCollected && b.submissionCount < maxSlots;
-      }
-      if (trackerFilter === 'full') {
-        return !b.isCollected && b.submissionCount >= maxSlots;
-      }
-      if (trackerFilter === 'collected') {
-        return b.isCollected;
-      }
-      return true;
-    });
-  }, [courseBounties, trackerSearch, trackerFilter, maxSlots]);
-
-  const userSubmissionStats = useMemo(() => {
-    const pending = userPapers.filter((p) => p.status === 'pending').length;
-    const approved = userPapers.filter((p) => p.status === 'approved').length;
-    return {
-      total: userPapers.length,
-      pending,
-      approved,
-      coinsEarned: approved * campaignConfig.rewardPerPaper,
-    };
-  }, [userPapers, campaignConfig.rewardPerPaper]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 14 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 14 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        className="bg-white dark:bg-neutral-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[92vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* ── Gacha Header ── */}
-        <div className="relative bg-gradient-to-r from-[#0f0c29] via-[#1e1b4b] to-[#311042] text-white px-6 py-5 border-b border-indigo-500/30 shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  Season {campaignConfig.seasonNumber} Bounty Hub
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  <Coins className="w-3 h-3 text-amber-400" />
-                  +{campaignConfig.rewardPerPaper} GC (₦{campaignConfig.nairaPer500Coins.toLocaleString()}) / Winner
-                </span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-white">
-                {campaignConfig.title}
-              </h2>
-            </div>
-
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </motion.button>
+      {/* Live XP Progress Bar */}
+      <div className="max-w-md mx-auto bg-neutral-900 p-4 rounded-2xl border border-neutral-800 space-y-3 text-left">
+        <div className="flex items-center justify-between text-xs font-bold">
+          <span className="text-amber-400">Your Qualification Progress</span>
+          <span>{userXp} / 100 XP ({campaignXpPercent}%)</span>
+        </div>
+        <div className="w-full h-3 bg-neutral-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-500"
+            style={{ width: `${campaignXpPercent}%` }}
+          />
+        </div>
+        <div className="space-y-1.5 pt-1 text-xs text-neutral-300">
+          <div className="flex items-center justify-between">
+            <span>1. Complete Onboarding Setup</span>
+            <span className="font-mono font-bold text-emerald-400">+25 XP</span>
           </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex flex-wrap items-center gap-2 mt-5">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab('quests')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'quests'
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-neutral-950 shadow-md'
-                  : 'bg-white/10 text-indigo-100 hover:bg-white/15'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              Genesis Quests
-              <span
-                className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
-                  activeTab === 'quests'
-                    ? 'bg-neutral-950/15 text-neutral-950'
-                    : 'bg-white/15 text-white'
-                }`}
-              >
-                {completedQuestsCount}/4
-              </span>
-            </motion.button>
-
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab('upload')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'upload'
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-neutral-950 shadow-md'
-                  : 'bg-white/10 text-indigo-100 hover:bg-white/15'
-              }`}
-            >
-              <Upload className="w-4 h-4" />
-              Upload Exam Paper
-            </motion.button>
-
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab('tracker')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'tracker'
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-neutral-950 shadow-md'
-                  : 'bg-white/10 text-indigo-100 hover:bg-white/15'
-              }`}
-            >
-              <Target className="w-4 h-4" />
-              5-Slot Course Tracker
-              <span
-                className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
-                  activeTab === 'tracker'
-                    ? 'bg-neutral-950/15 text-neutral-950'
-                    : 'bg-white/15 text-white'
-                }`}
-              >
-                {courseBounties.length}
-              </span>
-            </motion.button>
-
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (!user) {
-                  onRequireAuth();
-                  return;
-                }
-                setActiveTab('submissions');
-              }}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'submissions'
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-neutral-950 shadow-md'
-                  : 'bg-white/10 text-indigo-100 hover:bg-white/15'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              My Uploads
-              {user && (
-                <span
-                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
-                    activeTab === 'submissions'
-                      ? 'bg-neutral-950/15 text-neutral-950'
-                      : 'bg-white/15 text-white'
-                  }`}
-                >
-                  {userPapers.length}
-                </span>
-              )}
-            </motion.button>
+          <div className="flex items-center justify-between">
+            <span>2. Pass Quest 01: Baby Steps (GoQuests Repo)</span>
+            <span className={`font-mono font-bold ${isQuest1Done ? 'text-emerald-400' : 'text-amber-300'}`}>
+              {isQuest1Done ? '✓ +25 XP' : '+25 XP'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>3. Pass Quest 02: 0x00. Shell Basics</span>
+            <span className={`font-mono font-bold ${isQuest2Done ? 'text-emerald-400' : 'text-amber-300'}`}>
+              {isQuest2Done ? '✓ +50 XP' : '+50 XP'}
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* ── Modal Body ── */}
-        <div className="p-5 sm:p-7 overflow-y-auto flex-grow space-y-6 bg-[#fafafa] dark:bg-neutral-950">
-          {/* =========================================================
-              TAB 0: GENESIS BUILDER QUESTS ("THE BASICS")
-             ========================================================= */}
+      <button
+        type="button"
+        onClick={() => setActiveTab('quests')}
+        className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-sm transition-all inline-flex items-center gap-2 cursor-pointer shadow-lg"
+      >
+        <Terminal className="w-4 h-4" />
+        Go to Quests & Auto-Grader
+        <ArrowRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-neutral-950 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col overflow-hidden"
+      >
+        {/* Top Modal Header */}
+        <div className="p-5 sm:p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-4 bg-neutral-50/70 dark:bg-neutral-900/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 flex items-center justify-center font-black shadow-xs">
+              <Terminal className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-extrabold text-neutral-900 dark:text-white">
+                  GoQuests & Design Campaign Hub
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                  {userXp} XP
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Complete technical GitHub quests to unlock the GoUni Prayer Book Redesign Sprint
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl bg-neutral-200/70 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="px-5 sm:px-6 pt-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2 overflow-x-auto bg-neutral-50/40 dark:bg-neutral-900/30">
+          {[
+            { id: 'quests' as CampaignHubTab, label: 'GoQuests & Checker', icon: Terminal },
+            {
+              id: 'tracker' as CampaignHubTab,
+              label: isCampaignUnlocked ? 'Prayer Book Brief' : '🔒 Design Brief (100 XP)',
+              icon: Target,
+            },
+            {
+              id: 'upload' as CampaignHubTab,
+              label: isCampaignUnlocked ? 'Submit Redesign' : '🔒 Submit Entry',
+              icon: Palette,
+            },
+            {
+              id: 'submissions' as CampaignHubTab,
+              label: `Showcase (${submissions.length})`,
+              icon: Trophy,
+            },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                  active
+                    ? 'border-neutral-900 dark:border-white text-neutral-900 dark:text-white'
+                    : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+          {/* ─────────────────────────────────────────────────────────────────
+              TAB 1: GOQUESTS & AUTOMATED GITHUB CHECKER
+             ───────────────────────────────────────────────────────────────── */}
           {activeTab === 'quests' && (
-            <div className="space-y-6">
-              {/* Top Milestone Summary Banner */}
-              <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-950 to-indigo-950 text-white border border-neutral-800 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-                <div className="space-y-2 max-w-xl z-10">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                      <Sparkles className="w-3 h-3 text-amber-400" />
-                      Genesis Questline • The Basics
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                      <Coins className="w-3 h-3 text-amber-400" />
-                      350 XP • 70 GoCoins Total Pool
-                    </span>
+            <div className="space-y-8">
+              {/* GitHub Connection Banner if not connected */}
+              {!isForgeConnected && (
+                <div className="p-4 rounded-2xl bg-neutral-900 text-white border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Github className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">Connect GitHub to Enable the Auto-Grader</div>
+                      <div className="text-xs text-neutral-400">
+                        Our server inspects your public <code className="text-amber-300">GoQuests</code> repository to grade your scripts and award XP.
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    Welcome to the Builder Network
+                  <button
+                    type="button"
+                    onClick={handleConnectGitHub}
+                    disabled={connectingGitHub}
+                    className="px-4 py-2.5 rounded-xl bg-white text-neutral-950 font-bold text-xs hover:bg-neutral-200 transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+                  >
+                    {connectingGitHub ? <Loader2 className="w-4 h-4 animate-spin" /> : <Github className="w-4 h-4" />}
+                    Connect GitHub
+                  </button>
+                </div>
+              )}
+
+              {/* Active Technical Quest Chain */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
+                      <Terminal className="w-5 h-5 text-amber-500" />
+                      Active Technical Quest Chain
+                    </h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Complete quests in order. Each quest is graded live against your <code className="font-mono font-bold">GoQuests</code> GitHub repository.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                    {(isQuest1Done ? 1 : 0) + (isQuest2Done ? 1 : 0)} / 2 Completed
+                  </span>
+                </div>
+
+                {ACTIVE_QUESTS.map((quest) => {
+                  const isCompleted = completedQuests.includes(quest.id);
+                  const isLocked =
+                    quest.prerequisiteQuestId !== null &&
+                    !completedQuests.includes(quest.prerequisiteQuestId);
+                  const checkOutput = questCheckOutputs[quest.id];
+                  const isChecking = checkingQuestId === quest.id;
+
+                  if (isLocked) {
+                    // Fog of War Locked Card
+                    return (
+                      <div
+                        key={quest.id}
+                        className="p-6 rounded-2xl bg-neutral-950 text-white border border-neutral-800 relative overflow-hidden"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-2 max-w-xl">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                                <Lock className="w-3 h-3" /> {quest.numberLabel} • Fog of War
+                              </span>
+                              <span className="text-xs font-bold text-emerald-400">
+                                +{quest.xpReward} XP
+                              </span>
+                            </div>
+                            <h4 className="text-lg font-extrabold text-white">{quest.title}</h4>
+                            <p className="text-xs text-neutral-400 leading-relaxed">
+                              {quest.fogOfWarTeaser}
+                            </p>
+                          </div>
+                          <div className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-neutral-400 flex items-center gap-2 shrink-0">
+                            <Lock className="w-4 h-4 text-amber-400" />
+                            Pass Quest 01 to Unlock
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Unlocked Quest Card
+                  return (
+                    <div
+                      key={quest.id}
+                      className={`p-5 sm:p-6 rounded-2xl border transition-all space-y-5 ${
+                        isCompleted
+                          ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/70'
+                          : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-xs'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-neutral-900 dark:bg-white text-white dark:text-neutral-950">
+                              {quest.numberLabel}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                              +{quest.xpReward} XP
+                            </span>
+                            <span className="text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+                              Repo: <strong>{quest.targetRepoName}</strong>
+                            </span>
+                            {isCompleted && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Completed
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-lg font-extrabold text-neutral-900 dark:text-white">
+                            {quest.title}
+                          </h4>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                            {quest.overview}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRunChecker(quest.id)}
+                          disabled={isChecking}
+                          className="px-4 py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-950 font-extrabold text-xs transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm disabled:opacity-60"
+                        >
+                          {isChecking ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Checking GitHub...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              {isCompleted ? 'Re-Run Checker' : 'Run Checker'}
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Curated Learning Resources */}
+                      {quest.learningResources && quest.learningResources.length > 0 && (
+                        <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200/80 dark:border-neutral-800 space-y-2">
+                          <div className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                            <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+                            Recommended Study Materials (Read Before Coding)
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {quest.learningResources.map((res) => (
+                              <a
+                                key={res.url}
+                                href={res.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2.5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-amber-500/50 transition-all flex items-center justify-between gap-2 group"
+                              >
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                                    {res.title}
+                                  </div>
+                                  <div className="text-[10px] text-neutral-500">{res.tag}</div>
+                                </div>
+                                <ExternalLink className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tasks List */}
+                      <div className="space-y-2.5">
+                        {quest.tasks.map((task) => {
+                          const taskResult = checkOutput?.results.find((r) => r.taskId === task.id);
+                          return (
+                            <div
+                              key={task.id}
+                              className="p-3.5 rounded-xl bg-neutral-50/80 dark:bg-neutral-950/70 border border-neutral-200/80 dark:border-neutral-800 space-y-2"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+                                    {task.number}
+                                  </span>
+                                  <span className="text-xs font-bold text-neutral-900 dark:text-white">
+                                    {task.title}
+                                  </span>
+                                </div>
+                                <code className="text-[11px] font-mono px-2 py-0.5 rounded bg-neutral-900 text-amber-300">
+                                  {task.filePath}
+                                </code>
+                              </div>
+                              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                                {task.instructions}
+                              </p>
+
+                              {taskResult && (
+                                <div
+                                  className={`p-2.5 rounded-lg text-xs font-mono flex items-start gap-2 ${
+                                    taskResult.passed
+                                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                      : 'bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/30'
+                                  }`}
+                                >
+                                  {taskResult.passed ? (
+                                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                                  )}
+                                  <span>{taskResult.reason}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Starter Platform Checklist (No Deadline) */}
+              <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                <div>
+                  <h3 className="text-sm font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                    Starter Platform Checklist (Always Open)
                   </h3>
-                  <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                    Complete these 4 foundational milestones to verify your developer identity, launch your first open-source project, review classmate projects, and claim GoCoins.
+                  <p className="text-xs text-neutral-500">
+                    General GoBoard milestones you can complete at your own pace.
                   </p>
                 </div>
 
-                <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 shrink-0 w-full md:w-64 space-y-3 z-10">
-                  <div className="flex items-center justify-between text-xs font-bold text-neutral-200">
-                    <span>Quest Progress</span>
-                    <span className="text-amber-400 tabular-nums">
-                      {completedQuestsCount} of 4 ({progressPercent}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 bg-neutral-800 rounded-full overflow-hidden p-0.5 border border-white/10">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progressPercent}%` }}
-                      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                      className="h-full rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-neutral-300 pt-1 border-t border-white/10">
-                    <span>Claimed Rewards:</span>
-                    <span className="font-extrabold text-white">
-                      +{totalXpEarned} XP • {totalCoinsEarned} GC
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 4 Detailed Quest Cards */}
-              <div className="space-y-4">
-                {/* ── Quest 1: Connect Your Forge ── */}
-                <div
-                  className={`p-5 rounded-2xl border transition-all ${
-                    isForgeConnected
-                      ? 'bg-white dark:bg-neutral-900 border-emerald-300 dark:border-emerald-700 shadow-sm'
-                      : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-3.5">
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                          isForgeConnected
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                            : 'bg-neutral-900 dark:bg-neutral-800 text-white'
-                        }`}
-                      >
-                        {isForgeConnected ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        ) : (
-                          <Github className="w-5 h-5" />
-                        )}
-                      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Github className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
                       <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                            1. Connect Your Forge
-                          </h4>
-                          <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60">
-                            +50 XP • Builder Identity
-                          </span>
-                          {isForgeConnected && (
-                            <span className="text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
-                              ✓ Completed
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                          Link your GitHub profile so your public repositories, languages, and commit activity power your GoBoard identity.
-                        </p>
+                        <div className="text-xs font-bold text-neutral-900 dark:text-white">Connect Your Forge</div>
+                        <div className="text-[11px] text-neutral-500">Link your GitHub account</div>
                       </div>
                     </div>
-
-                    <div className="sm:self-center shrink-0">
-                      {isForgeConnected ? (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                          <Github className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
-                          <span>@{profile?.githubProfile?.displayUsername || profile?.githubProfile?.username}</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleConnectOAuth}
-                            disabled={connectingGitHub}
-                            className="px-3.5 py-2 rounded-xl bg-neutral-950 hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-                          >
-                            <Github className="w-4 h-4" />
-                            {connectingGitHub ? 'Connecting...' : 'Connect via GitHub'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowUsernameInput(!showUsernameInput)}
-                            className="px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold transition-all cursor-pointer"
-                          >
-                            {showUsernameInput ? 'Cancel' : 'Use Username'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Optional Username Input Drawer */}
-                  {showUsernameInput && !isForgeConnected && (
-                    <form
-                      onSubmit={handleConnectByUsername}
-                      className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center gap-2"
-                    >
-                      <input
-                        type="text"
-                        placeholder="Enter GitHub username (e.g. torvalds)"
-                        value={githubUsernameInput}
-                        onChange={(e) => setGithubUsernameInput(e.target.value)}
-                        className="flex-grow px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                      />
+                    {isForgeConnected ? (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">✓ Linked</span>
+                    ) : (
                       <button
-                        type="submit"
-                        disabled={connectingGitHub || !githubUsernameInput.trim()}
-                        className="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                        type="button"
+                        onClick={handleConnectGitHub}
+                        className="px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 text-xs font-bold cursor-pointer"
                       >
-                        {connectingGitHub ? 'Connecting...' : 'Link'}
+                        Connect
                       </button>
-                    </form>
-                  )}
-                </div>
-
-                {/* ── Quest 2: First Ship ── */}
-                <div
-                  className={`p-5 rounded-2xl border transition-all ${
-                    isFirstShipDone
-                      ? 'bg-white dark:bg-neutral-900 border-emerald-300 dark:border-emerald-700 shadow-sm'
-                      : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-3.5">
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                          isFirstShipDone
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                            : 'bg-amber-500 text-white'
-                        }`}
-                      >
-                        {isFirstShipDone ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        ) : (
-                          <Rocket className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                            2. First Ship
-                          </h4>
-                          <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60">
-                            +150 XP • 50 GoCoins
-                          </span>
-                          {isFirstShipDone && (
-                            <span className="text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
-                              ✓ Completed
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                          Submit your first project backed by a verified GitHub repository. Pick from all your public repos with 1-click auto-fill!
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="sm:self-center shrink-0">
-                      {isFirstShipDone ? (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                          <Rocket className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span className="truncate max-w-[160px]">{userProjects[0]?.title}</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            if (onOpenSubmitModal) onOpenSubmitModal();
-                          }}
-                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-105 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                        >
-                          <Rocket className="w-4 h-4" />
-                          Ship Project via GitHub
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Quest 3: Campus Scout ── */}
-                <div
-                  className={`p-5 rounded-2xl border transition-all ${
-                    isCampusScoutDone
-                      ? 'bg-white dark:bg-neutral-900 border-emerald-300 dark:border-emerald-700 shadow-sm'
-                      : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-3.5">
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                          isCampusScoutDone
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                            : 'bg-blue-500 text-white'
-                        }`}
-                      >
-                        {isCampusScoutDone ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        ) : (
-                          <Compass className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                            3. Campus Scout
-                          </h4>
-                          <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800/60">
-                            +50 XP • 20 GoCoins
-                          </span>
-                          <span
-                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                              isCampusScoutDone
-                                ? 'text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60'
-                                : 'text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60'
-                            }`}
-                          >
-                            {scoutCount} / 3 Upvoted
-                          </span>
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                          Upvote and review 3 classmate projects on GoBoard to help standout ideas rise to the campus leaderboard.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="sm:self-center shrink-0">
-                      {isCampusScoutDone ? (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span>3/3 Scouted</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            const feed = document.getElementById('project-grid-feed');
-                            if (feed) feed.scrollIntoView({ behavior: 'smooth' });
-                            else window.scrollTo({ top: 600, behavior: 'smooth' });
-                          }}
-                          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                        >
-                          <Compass className="w-4 h-4" />
-                          Explore Projects ({scoutCount}/3)
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </div>
 
-                  {/* 1-Click Scout Quick Upvote Recommendations */}
-                  {!isCampusScoutDone && peerProjectsToScout.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-                      <div className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-2">
-                        Quick Scout — Upvote Classmate Work:
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        {peerProjectsToScout.map((p) => (
-                          <div
-                            key={p.id}
-                            className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">
-                                {p.title}
-                              </div>
-                              <div className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
-                                by {p.displayName || p.studentName}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                if (onVoteProject) onVoteProject(e, p.id);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 hover:bg-neutral-900 dark:hover:bg-neutral-700 hover:text-white text-neutral-800 dark:text-neutral-200 text-[11px] font-bold border border-neutral-200 dark:border-neutral-700 shadow-2xs transition-all cursor-pointer shrink-0"
-                            >
-                              👍 Vote
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Quest 4: Open Source Pioneer ── */}
-                <div
-                  className={`p-5 rounded-2xl border transition-all ${
-                    isOpenSourcePioneerDone
-                      ? 'bg-white dark:bg-neutral-900 border-emerald-300 dark:border-emerald-700 shadow-sm'
-                      : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-3.5">
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                          isOpenSourcePioneerDone
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                            : 'bg-purple-600 text-white'
-                        }`}
-                      >
-                        {isOpenSourcePioneerDone ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        ) : (
-                          <GitPullRequest className="w-5 h-5" />
-                        )}
-                      </div>
+                  <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Rocket className="w-5 h-5 text-amber-500" />
                       <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                            4. Open Source Pioneer
-                          </h4>
-                          <span className="text-[10px] font-bold text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800/60">
-                            +100 XP • Contributor Badge
-                          </span>
-                          {isOpenSourcePioneerDone && (
-                            <span className="text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
-                              ✓ Completed
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                          Mark a project &quot;Open to PRs & Contributions&quot; to invite classmates to submit pull requests, open issues, and collaborate.
-                        </p>
+                        <div className="text-xs font-bold text-neutral-900 dark:text-white">First Ship (+150 XP)</div>
+                        <div className="text-[11px] text-neutral-500">Submit your first project</div>
                       </div>
                     </div>
+                    {isFirstShipDone ? (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">✓ Shipped</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          if (onOpenSubmitModal) onOpenSubmitModal();
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-xs font-bold cursor-pointer"
+                      >
+                        Ship
+                      </button>
+                    )}
+                  </div>
 
-                    <div className="sm:self-center shrink-0">
-                      {isOpenSourcePioneerDone ? (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                          <GitPullRequest className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                          <span className="truncate max-w-[160px]">{openSourceProject?.title}</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            if (onOpenSubmitModal) onOpenSubmitModal();
-                          }}
-                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                        >
-                          <GitPullRequest className="w-4 h-4" />
-                          Ship with Open to PRs
-                        </button>
-                      )}
+                  <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Compass className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <div className="text-xs font-bold text-neutral-900 dark:text-white">Campus Scout</div>
+                        <div className="text-[11px] text-neutral-500">Upvote 3 student projects ({scoutCount}/3)</div>
+                      </div>
                     </div>
+                    <span className="text-xs font-bold text-neutral-500">
+                      {isCampusScoutDone ? '✓ Done' : `${scoutCount}/3`}
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <GitPullRequest className="w-5 h-5 text-purple-500" />
+                      <div>
+                        <div className="text-xs font-bold text-neutral-900 dark:text-white">Open Source Pioneer</div>
+                        <div className="text-[11px] text-neutral-500">Mark a project Open to PRs</div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-neutral-500">
+                      {isOpenSourcePioneerDone ? '✓ Active' : 'Pending'}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* =========================================================
-              TAB 1: UPLOAD EXAM PAPER
-             ========================================================= */}
-          {activeTab === 'upload' && (
-            <form onSubmit={handleSubmitPaper} className="space-y-6">
-              {/* Winner Criteria & Privacy Callout */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-neutral-900 dark:text-white">1. Speed Matters</div>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
-                      Up to {maxSlots} uploads per course. Earlier timestamps win tie-breakers.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <Sun className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-neutral-900 dark:text-white">2. Clear Lighting</div>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
-                      Admin picks the sharpest, most readable scan out of the {maxSlots} slots.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <EyeOff className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-neutral-900 dark:text-white">3. Strictly Private</div>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
-                      Papers are never public to other students — only reviewed by admins.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Course Code + Live 5-Slot Status Check */}
-              <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
-                        Course Code *
-                      </label>
-                      {normalizedCode && (
-                        <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-800">
-                          Normalized: {normalizedCode}
-                        </span>
-                      )}
+          {/* ─────────────────────────────────────────────────────────────────
+              TAB 2: PRAYER BOOK DESIGN BRIEF & 100-POINT RUBRIC
+             ───────────────────────────────────────────────────────────────── */}
+          {activeTab === 'tracker' && (
+            <div>
+              {!isCampaignUnlocked ? (
+                renderLockedCampaignVault()
+              ) : (
+                <div className="space-y-6">
+                  <div className="p-6 rounded-2xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 text-white border border-neutral-800 space-y-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+                      <Unlock className="w-3.5 h-3.5" /> 100 XP Vault Declassified • 3-Week Design Sprint
                     </div>
-                    <input
-                      type="text"
-                      value={courseCodeInput}
-                      onChange={(e) => setCourseCodeInput(e.target.value)}
-                      placeholder="Type any course (e.g. CSC 301, GST 102)"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm font-semibold uppercase placeholder:normal-case placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
-                      Course Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={courseTitle}
-                      onChange={(e) => setCourseTitle(e.target.value)}
-                      placeholder="e.g. Data Structures & Algorithms"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Live Course Slot Availability Indicator */}
-                {normalizedCode && (
-                  <div
-                    className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      courseSlotState.status === 'new'
-                        ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
-                        : courseSlotState.status === 'open'
-                        ? 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
-                        : courseSlotState.status === 'already_submitted'
-                        ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200'
-                        : 'bg-red-50/70 dark:bg-red-950/40 border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-200'
-                    }`}
-                  >
-                    <div className="flex items-start sm:items-center gap-2.5">
-                      {courseSlotState.status === 'new' && (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
-                      )}
-                      {courseSlotState.status === 'open' && (
-                        <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
-                      )}
-                      {courseSlotState.status === 'already_submitted' && (
-                        <AlertCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5 sm:mt-0" />
-                      )}
-                      {(courseSlotState.status === 'full' ||
-                        courseSlotState.status === 'collected') && (
-                        <Lock className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5 sm:mt-0" />
-                      )}
-
-                      <div className="text-xs">
-                        {courseSlotState.status === 'new' && (
-                          <span>
-                            <strong>{normalizedCode} is wide open!</strong> 0/{maxSlots} uploads so far — you&apos;ll lock in <strong>Slot #1</strong>.
-                          </span>
-                        )}
-                        {courseSlotState.status === 'open' && (
-                          <span>
-                            <strong>
-                              {courseSlotState.count}/{maxSlots} slots filled for {normalizedCode}.
-                            </strong>{' '}
-                            You can submit for <strong>Slot #{courseSlotState.count + 1}</strong> — make sure your photo is crystal clear!
-                          </span>
-                        )}
-                        {courseSlotState.status === 'already_submitted' && (
-                          <span>
-                            <strong>You already uploaded a paper for {normalizedCode}.</strong> Only 1 upload per student per course is allowed.
-                          </span>
-                        )}
-                        {courseSlotState.status === 'full' && (
-                          <span>
-                            <strong>All {maxSlots}/{maxSlots} slots for {normalizedCode} are currently full</strong> and under admin review.
-                          </span>
-                        )}
-                        {courseSlotState.status === 'collected' && (
-                          <span>
-                            <strong>{normalizedCode} has already been collected!</strong> A winning paper was approved for this course.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 5-Slot Visual Pips */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {Array.from({ length: maxSlots }).map((_, idx) => {
-                        const filled = idx < courseSlotState.count;
-                        return (
-                          <div
-                            key={idx}
-                            title={`Slot ${idx + 1}`}
-                            className={`w-6 h-2.5 rounded-full transition-all ${
-                              courseSlotState.status === 'collected'
-                                ? 'bg-emerald-500'
-                                : filled
-                                ? 'bg-amber-500'
-                                : 'bg-neutral-200 dark:bg-neutral-700'
-                            }`}
-                          />
-                        );
-                      })}
-                      <span className="text-[11px] font-bold ml-1 tabular-nums">
-                        {courseSlotState.count}/{maxSlots}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Level & Semester */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
-                      Academic Level
-                    </label>
-                    <select
-                      value={level}
-                      onChange={(e) => setLevel(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    >
-                      {ACADEMIC_LEVELS.map((lvl) => (
-                        <option key={lvl} value={lvl}>
-                          {lvl}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1.5">
-                      Semester
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['1st Semester', '2nd Semester'] as const).map((sem) => (
-                        <button
-                          type="button"
-                          key={sem}
-                          onClick={() => setSemester(sem)}
-                          className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                            semester === sem
-                              ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100'
-                              : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-750'
-                          }`}
-                        >
-                          {sem}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-Page Photo Uploader */}
-              <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
-                      Question Paper Pages ({pages.length}/{MAX_PAGES}) *
+                    <h3 className="text-2xl font-extrabold">
+                      Target App: The GoUni Prayer Book
                     </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      Upload all pages of the exam paper in order. Ensure good lighting and no blurry text.
+                    <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
+                      Every student at Godfrey Okoye University uses the GoUni Prayer Book for daily Angelus, morning/night prayers, campus Mass responses, and hymns. Your challenge is to redesign it into a calm, legible, offline-first mobile experience that students genuinely love opening every day.
                     </p>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleSelectFiles}
-                    className="hidden"
-                  />
-                  {pages.length < MAX_PAGES && (
+
+                  {/* Core Screens Required */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3">
+                      <h4 className="text-sm font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-amber-500" />
+                        Required Screens & Flows (Min 4 Screens)
+                      </h4>
+                      <ul className="space-y-2 text-xs text-neutral-600 dark:text-neutral-400">
+                        <li>• <strong>1. Smart Home / Daily Routine:</strong> Quick-launch card based on time of day (Morning Prayer, 12pm Angelus, Night Prayer).</li>
+                        <li>• <strong>2. Distraction-Free Prayer Reader:</strong> High-contrast typography, font-size controls, dark/chalice mode, and response highlighting (Leader vs. All).</li>
+                        <li>• <strong>3. Instant Search & Bookmarks:</strong> Fast filtering across prayers, novenas, hymns, and Order of Mass.</li>
+                        <li>• <strong>4. Campus Chapel & Audio/Chant Mode:</strong> Optional liturgical calendar or audio accompaniment view.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3">
+                      <h4 className="text-sm font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
+                        <Award className="w-4 h-4 text-emerald-500" />
+                        100-Point Judging Rubric (No Bonus for Code)
+                      </h4>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between p-2 rounded-lg bg-neutral-50 dark:bg-neutral-950">
+                          <span className="font-semibold">1. UX Problem Solving & Navigation</span>
+                          <span className="font-extrabold text-amber-600">35 pts</span>
+                        </div>
+                        <div className="flex justify-between p-2 rounded-lg bg-neutral-50 dark:bg-neutral-950">
+                          <span className="font-semibold">2. Visual Craft, Typography & Accessibility</span>
+                          <span className="font-extrabold text-amber-600">25 pts</span>
+                        </div>
+                        <div className="flex justify-between p-2 rounded-lg bg-neutral-50 dark:bg-neutral-950">
+                          <span className="font-semibold">3. Figma Prototype & README Pitch Clarity</span>
+                          <span className="font-extrabold text-amber-600">20 pts</span>
+                        </div>
+                        <div className="flex justify-between p-2 rounded-lg bg-neutral-50 dark:bg-neutral-950">
+                          <span className="font-semibold">4. Verified Student Community Votes</span>
+                          <span className="font-extrabold text-amber-600">20 pts</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">
+                        Note: Whether your GitHub repo contains only your <code className="font-mono">README.md</code> pitch + Figma link or frontend code, all entries are judged strictly on the 100-point UI/UX rubric above.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                      onClick={() => setActiveTab('upload')}
+                      className="px-5 py-2.5 rounded-xl bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 font-extrabold text-xs sm:text-sm inline-flex items-center gap-2 cursor-pointer"
                     >
-                      <Camera className="w-4 h-4" />
-                      Add Page Photos
+                      Proceed to Submission Form <ArrowRight className="w-4 h-4" />
                     </button>
-                  )}
+                  </div>
                 </div>
+              )}
+            </div>
+          )}
 
-                {pages.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-10 border-2 border-dashed border-neutral-200 dark:border-neutral-700 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-2xl bg-neutral-50/60 dark:bg-neutral-850/60 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/20 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                      <Camera className="w-6 h-6" />
+          {/* ─────────────────────────────────────────────────────────────────
+              TAB 3: SUBMIT REDESIGN FORM
+             ───────────────────────────────────────────────────────────────── */}
+          {activeTab === 'upload' && (
+            <div>
+              {!isCampaignUnlocked ? (
+                renderLockedCampaignVault()
+              ) : (
+                <form onSubmit={handleSubmitCampaignDesign} className="space-y-5 max-w-2xl mx-auto">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-neutral-900 dark:text-white">
+                      Submit Your GoUni Prayer Book Redesign
+                    </h3>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Create a public GitHub repository containing your written pitch (at least 80 words in <code className="font-mono">README.md</code>) and your Figma prototype link.
+                    </p>
+                  </div>
+
+                  {formError && (
+                    <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-300 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{formError}</span>
                     </div>
-                    <div className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
-                      Click to snap or select exam paper photos
+                  )}
+
+                  {/* Solo vs Duo */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setTeamSize('solo')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        teamSize === 'solo'
+                          ? 'border-neutral-900 dark:border-white bg-neutral-900/5 dark:bg-white/10'
+                          : 'border-neutral-200 dark:border-neutral-800'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold text-neutral-900 dark:text-white">Solo Designer</div>
+                      <div className="text-[11px] text-neutral-500">Competing individually (1 member)</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeamSize('duo')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        teamSize === 'duo'
+                          ? 'border-neutral-900 dark:border-white bg-neutral-900/5 dark:bg-white/10'
+                          : 'border-neutral-200 dark:border-neutral-800'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold text-neutral-900 dark:text-white">Duo Team (Max 2)</div>
+                      <div className="text-[11px] text-neutral-500">Collaborate with 1 campus partner</div>
+                    </button>
+                  </div>
+
+                  {teamSize === 'duo' && (
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                        Partner’s GitHub @username or GoBoard Display Name
+                      </label>
+                      <input
+                        type="text"
+                        value={partnerUsername}
+                        onChange={(e) => setPartnerUsername(e.target.value)}
+                        placeholder="e.g. @chidi_ux"
+                        className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm"
+                      />
                     </div>
-                    <div className="text-xs text-neutral-400 dark:text-neutral-500">
-                      Supports JPG, PNG, WebP • Up to {MAX_PAGES} pages ({MAX_FILE_SIZE_MB}MB max per photo)
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                        Public GitHub Repository URL (with README Pitch)
+                      </label>
+                      <input
+                        type="url"
+                        value={repoUrl}
+                        onChange={(e) => {
+                          setRepoUrl(e.target.value);
+                          setRepoValidationInfo(null);
+                        }}
+                        placeholder="https://github.com/username/gouni-prayer-book"
+                        className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm"
+                      />
                     </div>
-                  </button>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {pages.map((page, idx) => (
-                      <div
-                        key={page.id}
-                        className="relative group rounded-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-neutral-100 dark:bg-neutral-800 aspect-[3/4] flex flex-col justify-between"
-                      >
-                        <img
-                          src={page.previewUrl}
-                          alt={`Page ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-x-0 top-0 p-2 bg-gradient-to-b from-black/70 to-transparent flex items-center justify-between">
-                          <span className="px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-extrabold">
-                            Page {idx + 1}
-                          </span>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                        Figma Design / Interactive Prototype URL
+                      </label>
+                      <input
+                        type="url"
+                        value={figmaUrl}
+                        onChange={(e) => {
+                          setFigmaUrl(e.target.value);
+                          setRepoValidationInfo(null);
+                        }}
+                        placeholder="https://www.figma.com/file/..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                    <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                      {repoValidationInfo ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                          ✓ Verified {repoValidationInfo.repoFullName} ({repoValidationInfo.wordCount} words in README.md)
+                        </span>
+                      ) : (
+                        <span>Pre-verify that your GitHub repo is public and has an 80+ word README pitch.</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleValidateRepo}
+                      disabled={validatingRepo}
+                      className="px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 text-xs font-bold shrink-0 cursor-pointer"
+                    >
+                      {validatingRepo ? 'Checking...' : 'Verify Repo'}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                      Short Showcase Summary (2–3 sentences on what you improved)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={pitchSummary}
+                      onChange={(e) => setPitchSummary(e.target.value)}
+                      placeholder="Explain how your redesign improves readability, daily Angelus access, and offline navigation..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm"
+                    />
+                  </div>
+
+                  {/* Screenshots Upload */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                      UI Mockup Screenshots (1 to 5 images)
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      onChange={handleScreenshotSelect}
+                      className="hidden"
+                    />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {screenshots.map((item) => (
+                        <div key={item.id} className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 h-28">
+                          <img src={item.previewUrl} alt="Preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => handleRemovePage(page.id)}
-                            className="p-1 rounded-lg bg-red-500/90 hover:bg-red-600 text-white transition-colors cursor-pointer"
-                            title="Remove page"
+                            onClick={() => removeScreenshot(item.id)}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/70 text-white hover:bg-red-600 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-
-                        {pages.length > 1 && (
-                          <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              disabled={idx === 0}
-                              onClick={() => handleMovePage(idx, -1)}
-                              className="p-1 rounded-lg bg-white/20 hover:bg-white/30 disabled:opacity-30 text-white backdrop-blur-xs cursor-pointer"
-                              title="Move earlier"
-                            >
-                              <ArrowLeft className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={idx === pages.length - 1}
-                              onClick={() => handleMovePage(idx, 1)}
-                              className="p-1 rounded-lg bg-white/20 hover:bg-white/30 disabled:opacity-30 text-white backdrop-blur-xs cursor-pointer"
-                              title="Move later"
-                            >
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                      {screenshots.length < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-28 rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 flex flex-col items-center justify-center gap-1 text-xs font-bold text-neutral-500 cursor-pointer"
+                        >
+                          <Upload className="w-5 h-5" />
+                          <span>Add Screen</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Submit Footer */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>
-                    Remember to complete your{' '}
-                    <button
-                      type="button"
-                      onClick={onOpenPaydaySetup}
-                      className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                    >
-                      Student ID & Bank Setup
-                    </button>{' '}
-                    before Payday!
-                  </span>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={
-                    submitting ||
-                    !normalizedCode ||
-                    !courseTitle.trim() ||
-                    pages.length === 0 ||
-                    courseSlotState.status === 'collected' ||
-                    courseSlotState.status === 'full' ||
-                    courseSlotState.status === 'already_submitted'
-                  }
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 text-neutral-950 font-extrabold text-sm shadow-lg shadow-amber-500/20 hover:brightness-105 disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                >
-                  <Upload className="w-4 h-4 stroke-[2.5]" />
-                  {submitting
-                    ? uploadProgressText || 'Submitting...'
-                    : `Submit Paper (+${campaignConfig.rewardPerPaper} GC Bounty)`}
-                </button>
-              </div>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={submittingDesign}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold text-sm shadow-md hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {submittingDesign ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Validating & Uploading Redesign...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Submit GoUni Prayer Book Redesign
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
           )}
 
-          {/* =========================================================
-              TAB 2: 5-SLOT COURSE BOUNTY TRACKER
-             ========================================================= */}
-          {activeTab === 'tracker' && (
-            <div className="space-y-5">
-              {/* Open Course Info Banner */}
-              <div className="bg-indigo-950 text-white p-4 rounded-2xl border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <div className="text-xs font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Don&apos;t see your course listed below?
-                  </div>
-                  <p className="text-xs text-indigo-100/90">
-                    Every GoUni exam course has {maxSlots} open slots! Type any course code in the upload tab to be the first uploader.
+          {/* ─────────────────────────────────────────────────────────────────
+              TAB 4: SUBMISSIONS SHOWCASE
+             ───────────────────────────────────────────────────────────────── */}
+          {activeTab === 'submissions' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white">
+                    GoUni Prayer Book Redesign Showcase
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Upvote your favorite student UI/UX redesigns (counts for 20% of the final score).
                   </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('upload')}
-                  className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-extrabold text-xs shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload New Course
-                </button>
-              </div>
-
-              {/* Search & Filter Controls */}
-              <div className="flex flex-col sm:flex-row gap-3 justify-between">
-                <div className="relative flex-grow">
-                  <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={trackerSearch}
-                    onChange={(e) => setTrackerSearch(e.target.value)}
-                    placeholder="Search tracked courses by code, title, or level..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1 bg-white dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200 dark:border-neutral-800 shrink-0 overflow-x-auto">
-                  {(
-                    [
-                      { id: 'all', label: 'All' },
-                      { id: 'open', label: 'Open Slots' },
-                      { id: 'full', label: 'Full (5/5)' },
-                      { id: 'collected', label: 'Collected' },
-                    ] as const
-                  ).map((f) => (
-                    <button
-                      type="button"
-                      key={f.id}
-                      onClick={() => setTrackerFilter(f.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        trackerFilter === f.id
-                          ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
-                          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
                 </div>
               </div>
 
-              {/* Course Bounty Grid */}
-              {loadingBounties ? (
-                <div className="py-16 text-center text-sm text-neutral-400">
-                  Loading course slot tracker...
-                </div>
-              ) : filteredBounties.length === 0 ? (
-                <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-10 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
-                    <Target className="w-6 h-6" />
+              {submissions.length === 0 ? (
+                <div className="p-10 text-center rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 space-y-2">
+                  <Palette className="w-8 h-8 text-neutral-400 mx-auto" />
+                  <div className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
+                    No redesigns in the showcase yet
                   </div>
-                  <div className="text-base font-bold text-neutral-900 dark:text-white">
-                    {trackerSearch
-                      ? `No tracked courses matching "${trackerSearch}"`
-                      : 'No courses have been uploaded yet'}
-                  </div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                    {trackerSearch
-                      ? 'That means 0/5 slots are taken for that course! Click below to upload it and claim Slot #1.'
-                      : 'Be the first student to upload an exam question paper this season and claim Slot #1!'}
+                  <p className="text-xs text-neutral-500">
+                    Unlock 100 XP via GoQuests and be the first to submit your GoUni Prayer Book redesign!
                   </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handlePrefillCourse(
-                        trackerSearch ? normalizeCourseCode(trackerSearch) : ''
-                      )
-                    }
-                    className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    {trackerSearch
-                      ? `Upload ${normalizeCourseCode(trackerSearch)} (Slot #1)`
-                      : 'Upload First Exam Paper'}
-                  </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {filteredBounties.map((bounty) => {
-                    const count = bounty.submissionCount || 0;
-                    const isFull = count >= maxSlots && !bounty.isCollected;
-                    const hasUserSubmitted =
-                      !!user &&
-                      (bounty.submittedUserIds?.includes(user.uid) ||
-                        userPapers.some(
-                          (p) =>
-                            p.courseCode === bounty.courseCode &&
-                            p.status !== 'rejected'
-                        ));
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {submissions.map((sub) => {
+                    const hasVoted = user ? (sub.votedUserIds || []).includes(user.uid) : false;
                     return (
                       <div
-                        key={bounty.courseCode}
-                        className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 flex flex-col justify-between gap-3 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all"
+                        key={sub.id}
+                        className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden flex flex-col justify-between shadow-xs"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-black text-neutral-900 dark:text-white">
-                                {bounty.courseCode}
-                              </span>
-                              {bounty.level && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-                                  {bounty.level}
+                        <div>
+                          {sub.screenshots?.[0] && (
+                            <div className="h-44 bg-neutral-100 dark:bg-neutral-800 relative overflow-hidden">
+                              <img
+                                src={sub.screenshots[0]}
+                                alt={sub.displayName}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-black/75 text-white backdrop-blur-xs">
+                                  {sub.teamSize === 'duo'
+                                    ? `Duo • +@${sub.partnerUsername}`
+                                    : 'Solo Entry'}
                                 </span>
-                              )}
+                                {sub.status !== 'approved' && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500 text-neutral-950">
+                                    {sub.status}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-xs text-neutral-600 dark:text-neutral-300 font-medium mt-0.5 line-clamp-1">
-                              {bounty.courseTitle || 'Exam Question Paper'}
-                            </div>
-                          </div>
-
-                          {/* Status Badge */}
-                          {bounty.isCollected ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shrink-0">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Collected
-                            </span>
-                          ) : isFull ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 flex items-center gap-1 shrink-0">
-                              <Lock className="w-3 h-3" />
-                              {maxSlots}/{maxSlots} Full
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1 shrink-0">
-                              <Clock className="w-3 h-3" />
-                              {maxSlots - count} Slot{maxSlots - count !== 1 ? 's' : ''} Left
-                            </span>
                           )}
+
+                          <div className="p-4 space-y-2">
+                            <div className="text-sm font-extrabold text-neutral-900 dark:text-white">
+                              {sub.displayName}
+                              {sub.teamSize === 'duo' && sub.partnerUsername
+                                ? ` & @${sub.partnerUsername}`
+                                : ''}
+                            </div>
+                            <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-3">
+                              {sub.pitchSummary}
+                            </p>
+                          </div>
                         </div>
 
-                        {/* 5-Pip Progress Bar & Action */}
-                        <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            {Array.from({ length: maxSlots }).map((_, idx) => (
-                              <div
-                                key={idx}
-                                className={`w-5 h-2 rounded-full ${
-                                  bounty.isCollected
-                                    ? 'bg-emerald-500'
-                                    : idx < count
-                                    ? 'bg-amber-500'
-                                    : 'bg-neutral-200 dark:bg-neutral-700'
-                                }`}
-                              />
-                            ))}
-                            <span className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 ml-1 tabular-nums">
-                              {count}/{maxSlots} under review
-                            </span>
+                        <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={sub.figmaUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-xs font-bold flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" /> Figma
+                            </a>
+                            <a
+                              href={sub.repoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-xs font-bold flex items-center gap-1"
+                            >
+                              <Github className="w-3.5 h-3.5" /> Pitch Repo
+                            </a>
                           </div>
 
-                          {hasUserSubmitted ? (
-                            <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg">
-                              ✓ You Submitted
-                            </span>
-                          ) : !bounty.isCollected && !isFull ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handlePrefillCourse(
-                                  bounty.courseCode,
-                                  bounty.courseTitle,
-                                  bounty.level
-                                )
-                              }
-                              className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                            >
-                              Upload Slot #{count + 1}
-                              <ChevronRight className="w-3 h-3" />
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            disabled={votingId === sub.id || sub.status === 'pending'}
+                            onClick={() => handleVoteSubmission(sub.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-all ${
+                              hasVoted
+                                ? 'bg-amber-500 text-neutral-950'
+                                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                            }`}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${hasVoted ? 'fill-current' : ''}`} />
+                            {sub.likes}
+                          </button>
                         </div>
                       </div>
                     );
@@ -1548,228 +1196,8 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
               )}
             </div>
           )}
-
-          {/* =========================================================
-              TAB 3: MY UPLOADS / SUBMISSIONS
-             ========================================================= */}
-          {activeTab === 'submissions' && (
-            <div className="space-y-5">
-              {/* Summary Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
-                  <div className="text-[11px] font-semibold text-neutral-400 uppercase">
-                    My Uploads
-                  </div>
-                  <div className="text-xl font-black text-neutral-900 dark:text-white mt-0.5">
-                    {userSubmissionStats.total}
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
-                  <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase">
-                    Under Review
-                  </div>
-                  <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
-                    {userSubmissionStats.pending}
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
-                  <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase">
-                    Winning Papers
-                  </div>
-                  <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {userSubmissionStats.approved}
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 p-3.5 rounded-2xl border border-amber-200/80 dark:border-amber-800/60">
-                  <div className="text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase">
-                    Paper Rewards
-                  </div>
-                  <div className="text-xl font-black text-amber-900 dark:text-amber-200 mt-0.5 flex items-center gap-1">
-                    <Coins className="w-4 h-4 text-amber-500" />
-                    {userSubmissionStats.coinsEarned.toLocaleString()} GC
-                  </div>
-                </div>
-              </div>
-
-              {userPapers.length === 0 ? (
-                <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-10 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <div className="text-base font-bold text-neutral-900 dark:text-white">
-                    You haven&apos;t uploaded any exam papers yet
-                  </div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                    Each approved exam question paper earns you{' '}
-                    <strong>{campaignConfig.rewardPerPaper} GoCoins</strong> (₦
-                    {campaignConfig.nairaPer500Coins.toLocaleString()}) paid out on Payday!
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('upload')}
-                    className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Upload Your First Paper
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {userPapers.map((paper) => (
-                    <div
-                      key={paper.id}
-                      className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 space-y-3"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-black text-neutral-900 dark:text-white">
-                              {paper.courseCode}
-                            </span>
-                            <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                              {paper.courseTitle}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[10px] font-bold">
-                              Slot #{paper.slotNumber} of {maxSlots}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-neutral-400 mt-0.5">
-                            {paper.level} • {paper.semester} • Uploaded{' '}
-                            {new Date(paper.createdAt).toLocaleString()}
-                          </div>
-                        </div>
-
-                        {/* Submission Status Pill */}
-                        <div className="shrink-0">
-                          {paper.status === 'pending' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                              <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                              Under Review
-                            </span>
-                          )}
-                          {paper.status === 'approved' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                              <Trophy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              Winner (+{campaignConfig.rewardPerPaper} GC)
-                            </span>
-                          )}
-                          {paper.status === 'not_selected' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
-                              <Lock className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-                              Closed (Another Scan Won)
-                            </span>
-                          )}
-                          {paper.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-                              <AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-                              Not Accepted
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {paper.status === 'rejected' && (
-                        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200/80 dark:border-red-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="text-xs text-red-800 dark:text-red-300">
-                            <strong>Reason:</strong>{' '}
-                            {paper.rejectionReason ||
-                              'Image was blurry or unreadable. Your slot has been reopened.'}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handlePrefillCourse(
-                                paper.courseCode,
-                                paper.courseTitle,
-                                paper.level
-                              )
-                            }
-                            className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shrink-0 cursor-pointer"
-                          >
-                            Re-upload Clearer Scan
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Private Page Thumbnails (Only visible to the uploader & admins) */}
-                      {paper.imageUrls && paper.imageUrls.length > 0 && (
-                        <div className="flex items-center gap-2 overflow-x-auto pt-1">
-                          {paper.imageUrls.map((url, idx) => (
-                            <button
-                              type="button"
-                              key={idx}
-                              onClick={() => setPreviewImageUrl(url)}
-                              className="relative w-16 h-20 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 group shrink-0 cursor-pointer"
-                              title={`View Page ${idx + 1}`}
-                            >
-                              <img
-                                src={url}
-                                alt={`Page ${idx + 1}`}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              />
-                              <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-bold">
-                                P{idx + 1}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </motion.div>
-
-      {/* Lightbox for inspecting own uploaded page */}
-      <AnimatePresence>
-        {previewImageUrl && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={() => setPreviewImageUrl(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.2 }}
-              className="relative max-w-3xl max-h-[90vh] bg-neutral-900 rounded-2xl overflow-hidden border border-white/15"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-4 py-2.5 bg-black/60 text-white text-xs">
-                <span className="font-bold">Exam Paper Page Preview</span>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={previewImageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                  >
-                    Open Full Size <ExternalLink className="w-3 h-3" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewImageUrl(null)}
-                    className="p-1 rounded-lg bg-white/10 hover:bg-white/20 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <img
-                src={previewImageUrl}
-                alt="Exam paper page"
-                className="max-h-[82vh] w-auto object-contain mx-auto"
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };

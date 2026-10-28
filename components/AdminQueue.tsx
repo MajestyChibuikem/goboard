@@ -5,6 +5,7 @@ import {
   CampaignConfig,
   ExamPaperSubmission,
   PayoutRecord,
+  CampaignSubmission,
 } from '../types';
 import {
   subscribeToPendingProjects,
@@ -26,6 +27,10 @@ import {
   subscribeToUsersWithGoCoins,
   markStudentAsPaid,
   subscribeToPayoutHistory,
+  subscribeToCampaignSubmissions,
+  approveCampaignSubmission,
+  rejectCampaignSubmission,
+  markCampaignSubmissionWinner,
   DEFAULT_CAMPAIGN_CONFIG,
 } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
@@ -67,6 +72,7 @@ interface AdminQueueProps {
 }
 
 type AdminTab =
+  | 'design-campaign'
   | 'exam-papers'
   | 'id-verification'
   | 'payday'
@@ -80,7 +86,13 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
   const { profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<AdminTab>('exam-papers');
+  const [activeTab, setActiveTab] = useState<AdminTab>('design-campaign');
+
+  // ── GoUni Prayer Book Redesign Campaign submissions state ──
+  const [campaignSubmissions, setCampaignSubmissions] = useState<CampaignSubmission[]>([]);
+  const [campaignProcessingId, setCampaignProcessingId] = useState<string | null>(null);
+  const [campaignRejectId, setCampaignRejectId] = useState<string | null>(null);
+  const [campaignRejectReason, setCampaignRejectReason] = useState('');
 
   // ── Projects queue state ──
   const [pendingProjects, setPendingProjects] = useState<Project[]>([]);
@@ -199,6 +211,11 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
   useEffect(() => {
     const unsub = subscribeToPayoutHistory(setPayoutHistory);
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeToCampaignSubmissions(setCampaignSubmissions, 'all');
     return () => unsub();
   }, []);
 
@@ -615,10 +632,55 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
     }
   };
 
+  const handleApproveCampaignSub = async (submissionId: string) => {
+    if (!profile) return;
+    setCampaignProcessingId(submissionId);
+    try {
+      await approveCampaignSubmission(submissionId, profile.uid);
+      toast('Campaign submission approved! (+50 XP awarded)', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to approve submission', 'error');
+    } finally {
+      setCampaignProcessingId(null);
+    }
+  };
+
+  const handleRejectCampaignSub = async (submissionId: string) => {
+    if (!profile) return;
+    setCampaignProcessingId(submissionId);
+    try {
+      await rejectCampaignSubmission(submissionId, profile.uid, campaignRejectReason);
+      toast('Campaign submission rejected.', 'success');
+      setCampaignRejectId(null);
+      setCampaignRejectReason('');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to reject submission', 'error');
+    } finally {
+      setCampaignProcessingId(null);
+    }
+  };
+
+  const handleCrownCampaignWinner = async (submissionId: string) => {
+    if (!profile) return;
+    setCampaignProcessingId(submissionId);
+    try {
+      await markCampaignSubmissionWinner(submissionId, profile.uid);
+      toast('🏆 Crowned as GoUni Prayer Book Redesign Winner!', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to mark winner', 'error');
+    } finally {
+      setCampaignProcessingId(null);
+    }
+  };
+
+  const pendingCampaignCount = campaignSubmissions.filter(
+    (s) => s.status === 'pending'
+  ).length;
   const pendingPaperCount = examPapers.filter(
     (p) => p.status === 'pending'
   ).length;
   const totalPending =
+    pendingCampaignCount +
     pendingPaperCount +
     pendingVerifications.length +
     pendingProjects.length +
@@ -666,6 +728,29 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
 
       {/* Tab switcher */}
       <div className="flex flex-wrap items-center gap-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-1.5 rounded-2xl mb-6 w-fit">
+        <button
+          onClick={() => setActiveTab('design-campaign')}
+          className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
+            activeTab === 'design-campaign'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+          }`}
+        >
+          <Trophy className="w-3.5 h-3.5" />
+          Prayer Book Campaign
+          {pendingCampaignCount > 0 && (
+            <span
+              className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'design-campaign'
+                  ? 'bg-amber-400 text-neutral-950'
+                  : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+              }`}
+            >
+              {pendingCampaignCount}
+            </span>
+          )}
+        </button>
+
         <button
           onClick={() => setActiveTab('exam-papers')}
           className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
@@ -781,6 +866,172 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
           )}
         </button>
       </div>
+
+      {/* =====================================================================
+          TAB 0: GOUNI PRAYER BOOK REDESIGN CAMPAIGN SUBMISSIONS
+         ===================================================================== */}
+      {activeTab === 'design-campaign' && (
+        <div className="space-y-4">
+          {campaignSubmissions.length === 0 ? (
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-10 text-center space-y-2">
+              <Trophy className="w-8 h-8 text-amber-500 mx-auto" />
+              <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
+                No GoUni Prayer Book Redesign Submissions Yet
+              </h3>
+              <p className="text-xs text-neutral-500">
+                Entries submitted by qualified (100+ XP) students will appear here for review.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {campaignSubmissions.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 flex flex-col justify-between gap-4 shadow-xs"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-bold text-neutral-900 dark:text-white">
+                          {sub.displayName}
+                          {sub.teamSize === 'duo' && sub.partnerUsername
+                            ? ` & @${sub.partnerUsername}`
+                            : ''}
+                        </div>
+                        <div className="text-[11px] text-neutral-400">
+                          {sub.teamSize === 'duo' ? 'Duo Team' : 'Solo Entry'} • {formatDate(sub.createdAt)} • {sub.likes} votes
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                          sub.status === 'winner'
+                            ? 'bg-amber-400 text-neutral-950'
+                            : sub.status === 'approved'
+                            ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                            : sub.status === 'rejected'
+                            ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                            : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                        }`}
+                      >
+                        {sub.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                      {sub.pitchSummary}
+                    </p>
+
+                    {sub.screenshots && sub.screenshots.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {sub.screenshots.map((imgUrl, idx) => (
+                          <button
+                            key={imgUrl}
+                            type="button"
+                            onClick={() => {
+                              setLightboxImages(sub.screenshots);
+                              setLightboxIndex(idx);
+                              setLightboxCaption(`${sub.displayName} — GoUni Prayer Book Redesign`);
+                            }}
+                            className="w-20 h-16 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 shrink-0 cursor-pointer"
+                          >
+                            <img src={imgUrl} alt="Mockup" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={sub.figmaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-xs font-bold inline-flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Inspect Figma
+                      </a>
+                      <a
+                        href={sub.repoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-xs font-bold inline-flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Inspect GitHub README Pitch
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Admin Actions */}
+                  <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+                    {campaignRejectId === sub.id ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={campaignRejectReason}
+                          onChange={(e) => setCampaignRejectReason(e.target.value)}
+                          placeholder="Reason for rejection..."
+                          className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setCampaignRejectId(null);
+                              setCampaignRejectReason('');
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleRejectCampaignSub(sub.id)}
+                            isLoading={campaignProcessingId === sub.id}
+                          >
+                            Confirm Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {sub.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleApproveCampaignSub(sub.id)}
+                            isLoading={campaignProcessingId === sub.id}
+                          >
+                            <Check className="w-3.5 h-3.5 mr-1" /> Approve (+50 XP)
+                          </Button>
+                        )}
+                        {sub.status === 'approved' && (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleCrownCampaignWinner(sub.id)}
+                            isLoading={campaignProcessingId === sub.id}
+                          >
+                            <Trophy className="w-3.5 h-3.5 mr-1" /> Crown Winner
+                          </Button>
+                        )}
+                        {sub.status !== 'rejected' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCampaignRejectId(sub.id)}
+                          >
+                            <X className="w-3.5 h-3.5 mr-1" /> Reject
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* =====================================================================
           TAB 1: COURSE-GROUPED EXAM PAPER REVIEW (5-SLOT COMPARISON)

@@ -26,7 +26,7 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension' | 'paper_approved' | 'paper_closed' | 'id_verified' | 'id_rejected' | 'payday_paid';
+  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension' | 'paper_approved' | 'paper_closed' | 'id_verified' | 'id_rejected' | 'payday_paid' | 'campaign_approved' | 'campaign_rejected';
   userId: string;
   triggerUid: string;
   triggerDisplayName: string;
@@ -345,6 +345,44 @@ export interface ProjectGitHubMeta {
   lastCommitMessage?: string | null;
   contributors: ProjectContributor[];
   lastSyncedAt: string;
+}
+
+export interface GitHubPullRequestItem {
+  id: number;
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  merged: boolean;
+  htmlUrl: string;
+  authorUsername: string;
+  authorAvatarUrl: string;
+  authorProfileUrl: string;
+  createdAt: string;
+  mergedAt?: string | null;
+}
+
+export type CampaignSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'winner';
+
+export interface CampaignSubmission {
+  id: string;
+  campaignId: string; // e.g. "prayer_book_s1"
+  authorUid: string;
+  displayName: string;
+  authorPhotoURL?: string | null;
+  teamSize: 'solo' | 'duo';
+  partnerUsername?: string | null;
+  partnerUid?: string | null;
+  repoUrl: string;
+  figmaUrl: string;
+  pitchSummary: string;
+  screenshots: string[]; // 1 to 5 URLs
+  likes: number;
+  votedUserIds?: string[];
+  status: CampaignSubmissionStatus;
+  rejectionReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
 }
 
 export type SortOption = 'newest' | 'votes' | 'comments';

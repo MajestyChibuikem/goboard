@@ -81,3 +81,85 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
     return { success: false, awarded: 0, error: err.message };
   }
 }
+
+export async function runQuestChecker(questId: 'quest_1_baby_steps' | 'quest_2_shell_basics') {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Please sign in to run the Quest Checker.');
+  }
+
+  const idToken = await currentUser.getIdToken();
+  const response = await fetch('/api/quest-check', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ action: 'check_quest', questId }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false) {
+    throw new Error(data.error || `Quest check failed (${response.status})`);
+  }
+  return data;
+}
+
+export async function validateCampaignRepo(repoUrl: string, figmaUrl: string) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Please sign in first.');
+  }
+
+  const idToken = await currentUser.getIdToken();
+  const response = await fetch('/api/quest-check', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      action: 'validate_campaign_repo',
+      repoUrl,
+      figmaUrl,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false) {
+    throw new Error(data.error || 'Repository validation failed.');
+  }
+  return data as {
+    success: boolean;
+    valid: boolean;
+    wordCount: number;
+    repoFullName: string;
+    repoHtmlUrl: string;
+  };
+}
+
+export async function approveCampaignSubmissionOnServer(submissionId: string) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Not authenticated.');
+  }
+
+  const idToken = await currentUser.getIdToken();
+  const response = await fetch('/api/quest-check', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      action: 'approve_campaign_submission',
+      submissionId,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false) {
+    throw new Error(data.error || 'Failed to approve campaign submission.');
+  }
+  return data as { success: boolean; awarded: number };
+}

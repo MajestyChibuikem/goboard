@@ -92,6 +92,7 @@ rules_version = '2';
 //   - lastRewardedCodingDate: string (IMMUTABLE by clients)
 //   - githubSyncedAt: timestamp (IMMUTABLE by clients)
 //   - interests: list of strings (optional)
+//   - completedQuests: list of strings (IMMUTABLE by clients)
 //
 // Subcollection: /users/{userId}/notifications/{notifId}
 // Fields:
@@ -166,6 +167,27 @@ rules_version = '2';
 //   - date: string
 //   - total: number
 //   - updatedAt: timestamp
+//
+// Collection: /campaignSubmissions/{submissionId}
+// Fields:
+//   - campaignId: string ('prayer_book_s1')
+//   - authorUid: string (immutable creator UID)
+//   - displayName: string
+//   - authorPhotoURL: string or null (optional)
+//   - teamSize: string ('solo' | 'duo')
+//   - partnerUsername: string or null (optional)
+//   - partnerUid: string or null (optional)
+//   - repoUrl: string
+//   - figmaUrl: string
+//   - pitchSummary: string
+//   - screenshots: list of strings (1 to 5 URLs)
+//   - likes: number
+//   - votedUserIds: list of strings
+//   - status: string ('pending' | 'approved' | 'rejected' | 'winner')
+//   - rejectionReason: string (optional)
+//   - createdAt: timestamp
+//   - reviewedAt: string (optional)
+//   - reviewedBy: string (optional)
 //
 // Collection: /settings/{docId}
 // Fields:
@@ -439,6 +461,50 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Campaign Submissions (Season 1) ──
+
+    match /campaignSubmissions/{submissionId} {
+      allow read: if resource.data.status in ['approved', 'winner'] || (
+        isSignedIn() && (
+          resource.data.authorUid == request.auth.uid ||
+          isAdmin()
+        )
+      );
+
+      allow create: if isSignedIn() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.likes == 0 &&
+        request.resource.data.get('votedUserIds', []) == [] &&
+        request.resource.data.teamSize in ['solo', 'duo'] &&
+        request.resource.data.screenshots is list &&
+        request.resource.data.screenshots.size() >= 1 &&
+        request.resource.data.screenshots.size() <= 5 &&
+        request.resource.data.repoUrl is string &&
+        request.resource.data.repoUrl.size() > 0 &&
+        request.resource.data.figmaUrl is string &&
+        request.resource.data.figmaUrl.size() > 0 &&
+        (
+          isAdmin() ||
+          (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('xp', 0) >= 100
+          )
+        );
+
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.status in ['approved', 'winner'] &&
+          affectedKeys().hasOnly(['likes', 'votedUserIds']) &&
+          request.resource.data.votedUserIds is list &&
+          math.abs(request.resource.data.likes - resource.data.likes) == 1
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
     // ── Users & Subcollections ──
 
     match /users/{userId} {
@@ -458,6 +524,7 @@ service cloud.firestore {
         request.resource.data.get('commentXpToday', 0) == 0 &&
         request.resource.data.get('lastCommentXpDate', '') == '' &&
         request.resource.data.get('githubProfile', null) == null &&
+        request.resource.data.get('completedQuests', []) == [] &&
         !('onboardingCompletedAt' in request.resource.data) &&
         !('lastRewardedCodingDate' in request.resource.data) &&
         !('githubSyncedAt' in request.resource.data);
@@ -468,12 +535,13 @@ service cloud.firestore {
         // Owner updating profile
         (
           isOwner(userId) &&
-          // Cannot promote to admin, alter joinedAt, self-mint GoCoins, or modify server-authoritative XP, streak, onboarding, and GitHub sync fields
+          // Cannot promote to admin, alter joinedAt, self-mint GoCoins, or modify server-authoritative XP, streak, onboarding, GitHub sync, and quests fields
           !affectedKeys().hasAny([
             'isAdmin', 'joinedAt', 'goCoins', 'totalGoCoinsEarned',
             'xp', 'seasonXp', 'streakDays', 'lastLoginDate',
             'commentXpToday', 'lastCommentXpDate',
-            'onboardingCompletedAt', 'lastRewardedCodingDate', 'githubSyncedAt'
+            'onboardingCompletedAt', 'lastRewardedCodingDate', 'githubSyncedAt',
+            'completedQuests'
           ]) &&
           // Cannot self-verify Student ID; can only keep status unchanged or set to 'pending' on ID upload
           (

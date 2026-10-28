@@ -59,9 +59,10 @@ export interface UserProfile {
   // GitHub Integration
   githubProfile?: GitHubProfileData | null;
   githubUsernameLower?: string | null;
-  // Onboarding
+  // Onboarding & Quests
   onboardingCompletedAt?: string | null;
   interests?: string[];
+  completedQuests?: string[];
 }
 
 interface AuthContextType {
@@ -137,9 +138,10 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       // GitHub Integration
       githubProfile: data.githubProfile || null,
       githubUsernameLower: data.githubUsernameLower || null,
-      // Onboarding
+      // Onboarding & Quests
       onboardingCompletedAt: data.onboardingCompletedAt?.toDate?.()?.toISOString() || data.onboardingCompletedAt || null,
       interests: Array.isArray(data.interests) ? data.interests : [],
+      completedQuests: Array.isArray(data.completedQuests) ? data.completedQuests : [],
     };
   }
 
@@ -417,6 +419,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ? data.onboardingCompletedAt?.toDate?.()?.toISOString() || data.onboardingCompletedAt || null
                   : base.onboardingCompletedAt ?? null,
               interests: Array.isArray(data.interests) ? data.interests : base.interests ?? [],
+              completedQuests: Array.isArray(data.completedQuests)
+                ? data.completedQuests
+                : base.completedQuests ?? [],
             };
           });
         }
@@ -429,14 +434,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsubProfile;
   }, [user]);
 
-  // Sign in with Google using same-window redirect (no popup window)
+  // Globally ensure #loading-screen is dismissed once auth state resolves on any route
+  useEffect(() => {
+    if (!loading) {
+      const loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        loadingScreen.classList.add('hidden');
+        setTimeout(() => {
+          try {
+            loadingScreen.remove();
+          } catch (e) {}
+        }, 400);
+      }
+    }
+  }, [loading]);
+
+  // Sign in with Google using Popup first, falling back to Redirect if popup is blocked
   const signInWithGoogle = async () => {
-    await signInWithRedirect(auth, googleProvider);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+      throw err;
+    }
   };
 
-  // Sign in with GitHub using same-window redirect (no popup window)
+  // Sign in with GitHub using Popup first, falling back to Redirect if popup is blocked
   const signInWithGitHub = async () => {
-    await signInWithRedirect(auth, githubProvider);
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken;
+      if (result.user) {
+        fetchGitHubUserBundle({ accessToken }, true)
+          .then((ghData) => saveUserGitHubProfile(result.user.uid, ghData))
+          .then(({ updatedProfile }) => {
+            setProfile((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    githubProfile: updatedProfile,
+                    githubUsernameLower: updatedProfile.username.toLowerCase(),
+                  }
+                : prev
+            );
+          })
+          .catch((ghErr) => console.warn('Auto-sync GitHub after popup sign-in failed:', ghErr));
+      }
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        await signInWithRedirect(auth, githubProvider);
+        return;
+      }
+      throw err;
+    }
   };
 
   const updateProfilePhoto = async (file: File) => {
@@ -455,7 +517,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Connect GitHub in the same window via redirect (or reauthenticate)
+  // Connect GitHub via Popup first (so multi-step wizards like /welcome never reload), with Redirect fallback
   const connectGitHubWithOAuth = async (): Promise<{ profile: GitHubProfileData; xpAwarded: number }> => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -463,15 +525,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const alreadyLinked = currentUser.providerData.some((p) => p.providerId === 'github.com');
-    if (alreadyLinked) {
-      await reauthenticateWithRedirect(currentUser, githubProvider);
-    } else {
-      await linkWithRedirect(currentUser, githubProvider);
-    }
 
-    // Since the browser redirects in the same window to GitHub,
-    // execution pauses until page returns with getRedirectResult
-    return { profile: profile?.githubProfile!, xpAwarded: 0 };
+    try {
+      const result = alreadyLinked
+        ? await reauthenticateWithPopup(currentUser, githubProvider)
+        : await linkWithPopup(currentUser, githubProvider);
+
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken;
+      const ghData = await fetchGitHubUserBundle(
+        {
+          accessToken,
+          customPinnedRepoNames: profile?.githubProfile?.customPinnedRepoNames,
+        },
+        true,
+        profile?.githubProfile?.lastRewardedCodingDate
+      );
+
+      const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              githubProfile: updatedProfile,
+              githubUsernameLower: updatedProfile.username.toLowerCase(),
+            }
+          : prev
+      );
+
+      return { profile: updatedProfile, xpAwarded };
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        if (alreadyLinked) {
+          await reauthenticateWithRedirect(currentUser, githubProvider);
+        } else {
+          await linkWithRedirect(currentUser, githubProvider);
+        }
+        return { profile: profile?.githubProfile!, xpAwarded: 0 };
+      }
+      if (code === 'auth/credential-already-in-use') {
+        throw new Error('This GitHub account is already linked to another GoBoard user.');
+      }
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        throw new Error('GitHub connection popup was closed before completing.');
+      }
+      throw err;
+    }
   };
 
   const connectGitHubByUsername = async (

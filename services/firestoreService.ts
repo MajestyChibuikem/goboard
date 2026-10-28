@@ -22,7 +22,7 @@ import {
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { reportXpEvent } from './xpClient';
+import { reportXpEvent, approveCampaignSubmissionOnServer } from './xpClient';
 import {
   Project,
   Comment,
@@ -41,6 +41,7 @@ import {
   GitHubProfileData,
   ProjectGitHubMeta,
   ProjectContributor,
+  CampaignSubmission,
 } from '../types';
 import { generateSlug, cleanOldFirebaseUrl, getRank } from './utils';
 import { fetchGitHubRepoMetadata, parseGitHubRepoUrl } from './githubService';
@@ -53,6 +54,7 @@ const votesCol = collection(db, 'votes');
 const examPapersCol = collection(db, 'examPapers');
 const courseBountiesCol = collection(db, 'courseBounties');
 const payoutsCol = collection(db, 'payouts');
+const campaignSubmissionsCol = collection(db, 'campaignSubmissions');
 const campaignConfigDoc = doc(db, 'settings', 'campaignConfig');
 
 // ─── Helpers ───
@@ -2060,6 +2062,19 @@ export async function updateDiscordProfile(
   await updateDoc(userRef, profileData);
 }
 
+export async function saveOnboardingDraftFields(
+  userId: string,
+  fields: {
+    displayName?: string;
+    department?: string;
+    academicLevel?: string;
+    interests?: string[];
+  }
+): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, fields);
+}
+
 export async function markStudentAsPaid(
   studentUid: string,
   adminUid: string,
@@ -2363,6 +2378,260 @@ export function subscribeToTopGitHubBuilders(
       callback([]);
     }
   );
+}
+
+// ─── GoUni Prayer Book Redesign Campaign Submissions ───
+
+function campaignSubmissionFromDoc(docSnap: any): CampaignSubmission {
+  const d = docSnap.data();
+  return {
+    id: docSnap.id,
+    campaignId: d.campaignId || 'prayer_book_s1',
+    authorUid: d.authorUid || '',
+    displayName: d.displayName || 'Student',
+    authorPhotoURL: cleanOldFirebaseUrl(d.authorPhotoURL) || null,
+    teamSize: d.teamSize === 'duo' ? 'duo' : 'solo',
+    partnerUsername: d.partnerUsername || null,
+    partnerUid: d.partnerUid || null,
+    repoUrl: d.repoUrl || '',
+    figmaUrl: d.figmaUrl || '',
+    pitchSummary: d.pitchSummary || '',
+    screenshots: Array.isArray(d.screenshots)
+      ? (d.screenshots.map(cleanOldFirebaseUrl).filter(Boolean) as string[])
+      : [],
+    likes: Number(d.likes) || 0,
+    votedUserIds: Array.isArray(d.votedUserIds) ? d.votedUserIds : [],
+    status: d.status || 'pending',
+    rejectionReason: d.rejectionReason || undefined,
+    createdAt: tsToISO(d.createdAt),
+    reviewedAt: d.reviewedAt || undefined,
+    reviewedBy: d.reviewedBy || undefined,
+  };
+}
+
+export async function submitCampaignDesign(params: {
+  authorUid: string;
+  displayName: string;
+  authorPhotoURL?: string | null;
+  teamSize: 'solo' | 'duo';
+  partnerUsername?: string;
+  repoUrl: string;
+  figmaUrl: string;
+  pitchSummary: string;
+  screenshotFiles: File[];
+}): Promise<string> {
+  // Check if user already submitted a pending/approved entry for prayer_book_s1
+  const existingQ = query(
+    campaignSubmissionsCol,
+    where('authorUid', '==', params.authorUid),
+    where('campaignId', '==', 'prayer_book_s1')
+  );
+  const existingSnap = await getDocs(existingQ);
+  const activeExisting = existingSnap.docs.find(
+    (d) => d.data().status === 'pending' || d.data().status === 'approved' || d.data().status === 'winner'
+  );
+  if (activeExisting) {
+    throw new Error('You already have an active submission for the GoUni Prayer Book Redesign Campaign.');
+  }
+
+  // Upload screenshots to Cloudinary
+  const uploadedUrls: string[] = [];
+  for (const file of params.screenshotFiles.slice(0, 5)) {
+    const url = await uploadToCloudinary(file);
+    uploadedUrls.push(url);
+  }
+
+  // Resolve partnerUid if duo
+  let partnerUid: string | null = null;
+  const cleanPartner = (params.partnerUsername || '').replace(/^@/, '').trim();
+  if (params.teamSize === 'duo' && cleanPartner) {
+    try {
+      const ghQ = query(
+        usersCol,
+        where('githubUsernameLower', '==', cleanPartner.toLowerCase()),
+        limit(1)
+      );
+      const ghSnap = await getDocs(ghQ);
+      if (!ghSnap.empty) {
+        partnerUid = ghSnap.docs[0].id;
+      } else {
+        const byName = await findUserByDisplayName(cleanPartner);
+        if (byName) partnerUid = byName.uid;
+      }
+    } catch {
+      // Optional resolution
+    }
+  }
+
+  const docRef = await addDoc(campaignSubmissionsCol, {
+    campaignId: 'prayer_book_s1',
+    authorUid: params.authorUid,
+    displayName: params.displayName,
+    authorPhotoURL: params.authorPhotoURL || null,
+    teamSize: params.teamSize,
+    partnerUsername: params.teamSize === 'duo' && cleanPartner ? cleanPartner : null,
+    partnerUid: params.teamSize === 'duo' ? partnerUid : null,
+    repoUrl: params.repoUrl.trim(),
+    figmaUrl: params.figmaUrl.trim(),
+    pitchSummary: params.pitchSummary.trim(),
+    screenshots: uploadedUrls,
+    likes: 0,
+    votedUserIds: [],
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+
+  return docRef.id;
+}
+
+export function subscribeToCampaignSubmissions(
+  callback: (submissions: CampaignSubmission[]) => void,
+  filterStatus: 'approved_or_winner' | 'pending' | 'all' = 'approved_or_winner',
+  currentUserId?: string
+) {
+  let q;
+  if (filterStatus === 'pending') {
+    q = query(campaignSubmissionsCol, where('status', '==', 'pending'));
+  } else if (filterStatus === 'all') {
+    q = query(campaignSubmissionsCol, orderBy('createdAt', 'desc'));
+  } else {
+    q = query(campaignSubmissionsCol, where('status', 'in', ['approved', 'winner']));
+  }
+
+  const unsub = onSnapshot(
+    q,
+    async (snap) => {
+      const items = snap.docs.map(campaignSubmissionFromDoc);
+      // If currentUserId is provided and filterStatus is approved_or_winner, also include the user's own submission so they can see its status
+      if (filterStatus === 'approved_or_winner' && currentUserId) {
+        try {
+          const ownQ = query(campaignSubmissionsCol, where('authorUid', '==', currentUserId));
+          const ownSnap = await getDocs(ownQ);
+          ownSnap.docs.forEach((d) => {
+            if (!items.some((x) => x.id === d.id)) {
+              items.push(campaignSubmissionFromDoc(d));
+            }
+          });
+        } catch {
+          // ignore
+        }
+      }
+      items.sort((a, b) => {
+        if (a.status === 'winner' && b.status !== 'winner') return -1;
+        if (b.status === 'winner' && a.status !== 'winner') return 1;
+        if (b.likes !== a.likes) return b.likes - a.likes;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      callback(items);
+    },
+    (err) => {
+      console.warn('subscribeToCampaignSubmissions error:', err);
+      callback([]);
+    }
+  );
+
+  return unsub;
+}
+
+export async function toggleCampaignSubmissionVote(
+  submissionId: string,
+  userId: string
+): Promise<boolean> {
+  const subRef = doc(campaignSubmissionsCol, submissionId);
+  return await runTransaction(db, async (tx) => {
+    const snap = await tx.get(subRef);
+    if (!snap.exists()) throw new Error('Submission not found');
+    const data = snap.data();
+    const votedUserIds: string[] = Array.isArray(data.votedUserIds) ? data.votedUserIds : [];
+    const alreadyVoted = votedUserIds.includes(userId);
+    const currentLikes = Number(data.likes) || 0;
+
+    if (alreadyVoted) {
+      tx.update(subRef, {
+        likes: Math.max(0, currentLikes - 1),
+        votedUserIds: arrayRemove(userId),
+      });
+      return false;
+    } else {
+      tx.update(subRef, {
+        likes: currentLikes + 1,
+        votedUserIds: arrayUnion(userId),
+      });
+      return true;
+    }
+  });
+}
+
+export async function approveCampaignSubmission(
+  submissionId: string,
+  adminUid: string
+): Promise<void> {
+  const subRef = doc(campaignSubmissionsCol, submissionId);
+  const snap = await getDoc(subRef);
+  if (!snap.exists()) throw new Error('Submission not found');
+  const data = snap.data();
+
+  await approveCampaignSubmissionOnServer(submissionId);
+
+  if (data.authorUid) {
+    await createNotification({
+      type: 'campaign_approved',
+      userId: data.authorUid,
+      triggerUid: adminUid,
+      triggerDisplayName: 'GoBoard Campaign',
+      projectId: submissionId,
+      projectTitle: 'GoUni Prayer Book Redesign',
+      message: '🎉 Your GoUni Prayer Book redesign submission is approved and live in the Showcase! (+50 XP)',
+      previewText: data.pitchSummary?.slice(0, 100) || 'View in Campaign Hub',
+      viewedAt: null,
+      link: { type: 'campaign', id: submissionId },
+    });
+  }
+}
+
+export async function rejectCampaignSubmission(
+  submissionId: string,
+  adminUid: string,
+  reason: string
+): Promise<void> {
+  const subRef = doc(campaignSubmissionsCol, submissionId);
+  const snap = await getDoc(subRef);
+  if (!snap.exists()) throw new Error('Submission not found');
+  const data = snap.data();
+
+  await updateDoc(subRef, {
+    status: 'rejected',
+    rejectionReason: reason.trim() || 'Did not meet design brief requirements.',
+    reviewedAt: new Date().toISOString(),
+    reviewedBy: adminUid,
+  });
+
+  if (data.authorUid) {
+    await createNotification({
+      type: 'campaign_rejected',
+      userId: data.authorUid,
+      triggerUid: adminUid,
+      triggerDisplayName: 'GoBoard Campaign',
+      projectId: submissionId,
+      projectTitle: 'GoUni Prayer Book Redesign',
+      message: 'Your GoUni Prayer Book redesign submission needs revision.',
+      previewText: reason.trim() || 'Check the Campaign Hub for feedback.',
+      viewedAt: null,
+      link: { type: 'campaign', id: submissionId },
+    });
+  }
+}
+
+export async function markCampaignSubmissionWinner(
+  submissionId: string,
+  adminUid: string
+): Promise<void> {
+  const subRef = doc(campaignSubmissionsCol, submissionId);
+  await updateDoc(subRef, {
+    status: 'winner',
+    reviewedAt: new Date().toISOString(),
+    reviewedBy: adminUid,
+  });
 }
 
 

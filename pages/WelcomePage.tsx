@@ -27,26 +27,51 @@ import {
   INTEREST_OPTIONS,
 } from '../shared/profileOptions';
 import { Button } from '../components/Button';
-import { uploadStudentIdCard } from '../services/firestoreService';
+import { uploadStudentIdCard, saveOnboardingDraftFields } from '../services/firestoreService';
+
+const WELCOME_DRAFT_KEY = 'goboard_welcome_draft';
+
+interface WelcomeDraft {
+  step: number;
+  displayName: string;
+  department: string;
+  academicLevel: AcademicLevel | '';
+  selectedInterests: string[];
+}
+
+function loadWelcomeDraft(): WelcomeDraft | null {
+  try {
+    const raw = sessionStorage.getItem(WELCOME_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as WelcomeDraft;
+  } catch {
+    return null;
+  }
+}
 
 export const WelcomePage: React.FC = () => {
   const { user, profile, connectGitHubWithOAuth, updateLocalProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<number>(1);
+  const initialDraft = loadWelcomeDraft();
+
+  const [step, setStep] = useState<number>(() => {
+    const s = initialDraft?.step;
+    return s && s >= 1 && s <= 5 ? s : 1;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Step 1: Who are you?
-  const [displayName, setDisplayName] = useState('');
-  const [department, setDepartment] = useState('');
-  const [academicLevel, setAcademicLevel] = useState<AcademicLevel | ''>('');
+  const [displayName, setDisplayName] = useState(() => initialDraft?.displayName || '');
+  const [department, setDepartment] = useState(() => initialDraft?.department || '');
+  const [academicLevel, setAcademicLevel] = useState<AcademicLevel | ''>(() => initialDraft?.academicLevel || '');
   const [filteredDeptSuggestions, setFilteredDeptSuggestions] = useState<string[]>([]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
   // Step 2: Interests
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(() => initialDraft?.selectedInterests || []);
 
   // Step 3: GitHub
   const [connectingGh, setConnectingGh] = useState(false);
@@ -56,6 +81,32 @@ export const WelcomePage: React.FC = () => {
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState(false);
   const [idUploaded, setIdUploaded] = useState(false);
+
+  // Dismiss static #loading-screen from index.html on mount
+  useEffect(() => {
+    const loader = document.getElementById('loading-screen');
+    if (loader) {
+      loader.classList.add('fade-out');
+      const timer = setTimeout(() => loader.remove(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Persist wizard state in sessionStorage so full-window OAuth redirects or refreshes never lose progress
+  useEffect(() => {
+    try {
+      const draft: WelcomeDraft = {
+        step,
+        displayName,
+        department,
+        academicLevel,
+        selectedInterests,
+      };
+      sessionStorage.setItem(WELCOME_DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [step, displayName, department, academicLevel, selectedInterests]);
 
   // Prefill existing user data if available
   useEffect(() => {
@@ -80,12 +131,21 @@ export const WelcomePage: React.FC = () => {
     }
   }, [profile, user]);
 
-  // If already onboarded, send to /browse
+  // Redirect unauthenticated visitors to '/' and already-onboarded users to '/browse'
   useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/', { replace: true });
+      return;
+    }
     if (!authLoading && profile?.onboardingCompletedAt) {
+      try {
+        sessionStorage.removeItem(WELCOME_DRAFT_KEY);
+      } catch {
+        // ignore
+      }
       navigate('/browse', { replace: true });
     }
-  }, [profile?.onboardingCompletedAt, authLoading, navigate]);
+  }, [user, profile?.onboardingCompletedAt, authLoading, navigate]);
 
   const handleDepartmentChange = (val: string) => {
     setDepartment(val);
@@ -205,6 +265,12 @@ export const WelcomePage: React.FC = () => {
         toast(`Welcome to GoBoard! +${res.awarded} XP awarded!`, 'success');
       } else {
         toast('Profile updated successfully!', 'success');
+      }
+
+      try {
+        sessionStorage.removeItem(WELCOME_DRAFT_KEY);
+      } catch {
+        // ignore
       }
 
       navigate('/browse', { replace: true });
@@ -385,7 +451,21 @@ export const WelcomePage: React.FC = () => {
                   variant="primary"
                   className="w-full sm:w-auto px-6 py-2.5 rounded-xl cursor-pointer"
                   onClick={() => {
-                    if (validateStep1()) setStep(2);
+                    if (validateStep1()) {
+                      if (user) {
+                        saveOnboardingDraftFields(user.uid, {
+                          displayName: displayName.trim(),
+                          department: department.trim(),
+                          academicLevel,
+                        }).catch(console.warn);
+                        updateLocalProfile({
+                          displayName: displayName.trim(),
+                          department: department.trim(),
+                          academicLevel,
+                        });
+                      }
+                      setStep(2);
+                    }
                   }}
                 >
                   Continue to Interests <ArrowRight className="w-4 h-4 ml-1.5" />
