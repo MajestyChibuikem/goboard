@@ -22,19 +22,28 @@ export async function readXpGrantState(
   bypassDailyCap = false
 ): Promise<GrantXpReadState> {
   const ledgerRef = db.collection('xpLedger').doc(ledgerId);
-  const ledgerSnap = await tx.get(ledgerRef);
+  const userRef = db.collection('users').doc(userId);
+  const dailyRef = db.collection('xpDaily').doc(`${userId}_${today}`);
+
+  const [ledgerSnap, userSnap, dailySnap] = await Promise.all([
+    tx.get(ledgerRef),
+    tx.get(userRef),
+    tx.get(dailyRef),
+  ]);
+
   if (ledgerSnap.exists) {
-    return { alreadyGranted: true, userExists: false, dailyTotal: 0, grantAmount: 0 };
+    return {
+      alreadyGranted: true,
+      userExists: userSnap.exists,
+      dailyTotal: dailySnap.exists ? (dailySnap.data()?.total || 0) : 0,
+      grantAmount: 0,
+    };
   }
 
-  const userRef = db.collection('users').doc(userId);
-  const userSnap = await tx.get(userRef);
   if (!userSnap.exists) {
     return { alreadyGranted: false, userExists: false, dailyTotal: 0, grantAmount: 0 };
   }
 
-  const dailyRef = db.collection('xpDaily').doc(`${userId}_${today}`);
-  const dailySnap = await tx.get(dailyRef);
   const dailyTotal = dailySnap.exists ? (dailySnap.data()?.total || 0) : 0;
 
   let grantAmount = amount;

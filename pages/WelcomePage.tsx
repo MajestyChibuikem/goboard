@@ -30,7 +30,7 @@ import { Button } from '../components/Button';
 import { uploadStudentIdCard } from '../services/firestoreService';
 
 export const WelcomePage: React.FC = () => {
-  const { user, profile, connectGitHubWithOAuth, loading: authLoading } = useAuth();
+  const { user, profile, connectGitHubWithOAuth, updateLocalProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -80,10 +80,10 @@ export const WelcomePage: React.FC = () => {
     }
   }, [profile, user]);
 
-  // If already onboarded, send back to home
+  // If already onboarded, send to /browse
   useEffect(() => {
     if (!authLoading && profile?.onboardingCompletedAt) {
-      navigate('/', { replace: true });
+      navigate('/browse', { replace: true });
     }
   }, [profile?.onboardingCompletedAt, authLoading, navigate]);
 
@@ -186,13 +186,28 @@ export const WelcomePage: React.FC = () => {
         throw new Error(res.error);
       }
 
+      const completedIso = res.onboardingCompletedAt || new Date().toISOString();
+      updateLocalProfile({
+        onboardingCompletedAt: completedIso,
+        displayName: displayName.trim(),
+        department: department.trim(),
+        academicLevel,
+        interests: selectedInterests,
+        ...(res.awarded > 0
+          ? {
+              xp: (profile?.xp || 0) + res.awarded,
+              seasonXp: (profile?.seasonXp || 0) + res.awarded,
+            }
+          : {}),
+      });
+
       if (res.awarded > 0) {
         toast(`Welcome to GoBoard! +${res.awarded} XP awarded!`, 'success');
       } else {
         toast('Profile updated successfully!', 'success');
       }
 
-      navigate('/', { replace: true });
+      navigate('/browse', { replace: true });
     } catch (err: any) {
       setError(err?.message || 'Failed to finish onboarding. Please try again.');
     } finally {

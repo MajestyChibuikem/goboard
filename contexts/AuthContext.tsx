@@ -77,6 +77,7 @@ interface AuthContextType {
   syncGitHubProfile: () => Promise<{ profile: GitHubProfileData; xpAwarded: number } | null>;
   disconnectGitHub: () => Promise<void>;
   togglePinnedRepo: (repoName: string) => Promise<void>;
+  updateLocalProfile: (updates: Partial<UserProfile>) => void;
   redirectError: string | null;
   clearRedirectError: () => void;
 }
@@ -604,6 +605,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
   };
 
+  const updateLocalProfile = (updates: Partial<UserProfile>) => {
+    setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -619,6 +624,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         syncGitHubProfile,
         disconnectGitHub,
         togglePinnedRepo,
+        updateLocalProfile,
         redirectError,
         clearRedirectError,
       }}

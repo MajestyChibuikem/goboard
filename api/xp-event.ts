@@ -812,11 +812,17 @@ export default async function handler(req: any, res: any) {
 
         const userData = userSnap.data() || {};
         if (userData.onboardingCompletedAt) {
+          const completedAtIso = userData.onboardingCompletedAt?.toDate
+            ? userData.onboardingCompletedAt.toDate().toISOString()
+            : typeof userData.onboardingCompletedAt === 'string'
+            ? userData.onboardingCompletedAt
+            : new Date().toISOString();
+
           return res.status(200).json({
             success: true,
             awarded: 0,
             reason: 'ALREADY_COMPLETED',
-            onboardingCompletedAt: userData.onboardingCompletedAt,
+            onboardingCompletedAt: completedAtIso,
           });
         }
 
