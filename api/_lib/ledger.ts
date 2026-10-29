@@ -1,5 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore';
-import { XP_LIMITS } from './xpRules';
+import { XP_LIMITS } from './xpRules.js';
 
 export interface GrantXpReadState {
   alreadyGranted: boolean;

@@ -1,4 +1,4 @@
-import { GitHubProfileData, GitHubRepoSummary, GitHubLanguageStat, GitHubRecentCommit } from '../../types';
+import type { GitHubProfileData, GitHubRepoSummary, GitHubLanguageStat, GitHubRecentCommit } from '../../types.js';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 

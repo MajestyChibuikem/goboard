@@ -1,8 +1,8 @@
-import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth } from './_lib/admin';
-import { XP_VALUES, XP_LIMITS } from './_lib/xpRules';
-import { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator } from './_lib/ledger';
-import { fetchServerGitHubBundle } from './_lib/githubServer';
-import { ACADEMIC_LEVELS } from '../shared/profileOptions';
+import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth } from './_lib/admin.js';
+import { XP_VALUES, XP_LIMITS } from './_lib/xpRules.js';
+import { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator } from './_lib/ledger.js';
+import { fetchServerGitHubBundle } from './_lib/githubServer.js';
+import { ACADEMIC_LEVELS } from '../shared/profileOptions.js';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export default async function handler(req: any, res: any) {

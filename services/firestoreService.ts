@@ -192,29 +192,88 @@ export function subscribeToProjects(
   };
 }
 
+async function checkProjectAvailabilityClientFallback(title: string): Promise<{
+  available: boolean;
+  titleTaken: boolean;
+  slug: string;
+  message?: string;
+}> {
+  const normalized = title.trim().toLowerCase();
+  let baseSlug = generateSlug(title);
+  if (!baseSlug) baseSlug = `project-${Date.now().toString().slice(-4)}`;
+
+  try {
+    const approvedSnap = await getDocs(
+      query(projectsCol, where('approvalStatus', '==', 'approved'))
+    );
+    const takenSlugs = new Set<string>();
+    for (const d of approvedSnap.docs) {
+      const data = d.data();
+      const docTitleLower = String(data.titleLower || data.title || '').trim().toLowerCase();
+      if (docTitleLower === normalized) {
+        return {
+          available: false,
+          titleTaken: true,
+          slug: baseSlug,
+          message: 'A project with this name already exists. Please choose a different title.',
+        };
+      }
+      if (data.slug) {
+        takenSlugs.add(String(data.slug));
+      }
+    }
+
+    let slug = baseSlug;
+    let counter = 1;
+    while (takenSlugs.has(slug)) {
+      counter += 1;
+      slug = `${baseSlug}-${counter}`;
+    }
+
+    return {
+      available: true,
+      titleTaken: false,
+      slug,
+    };
+  } catch (err) {
+    console.warn('Client availability check fallback failed, using generated slug:', err);
+    return {
+      available: true,
+      titleTaken: false,
+      slug: `${baseSlug}-${Date.now().toString().slice(-4)}`,
+    };
+  }
+}
+
 export async function checkProjectAvailability(title: string): Promise<{
   available: boolean;
   titleTaken: boolean;
   slug?: string;
   message?: string;
 }> {
-  const currentUser = auth.currentUser;
-  const token = currentUser ? await currentUser.getIdToken() : '';
-  const response = await fetch('/api/project-availability', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ title }),
-  });
+  try {
+    const currentUser = auth.currentUser;
+    const token = currentUser ? await currentUser.getIdToken() : '';
+    const response = await fetch('/api/project-availability', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ title }),
+    });
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || 'Failed to check project title availability.');
+    if (response.ok) {
+      const data = await response.json();
+      if (!data.fallback) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Server availability check unreachable, falling back to client check:', err);
   }
 
-  return response.json();
+  return checkProjectAvailabilityClientFallback(title);
 }
 
 export async function isProjectTitleTaken(title: string): Promise<boolean> {

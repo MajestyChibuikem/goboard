@@ -1,4 +1,4 @@
-import { getAdminDb, verifyAuth } from './_lib/admin';
+import { getAdminDb, verifyAuth } from './_lib/admin.js';
 
 export function generateSlug(title: string): string {
   return title
@@ -68,7 +68,13 @@ export default async function handler(req: any, res: any) {
       slug,
     });
   } catch (err: any) {
-    console.error('Project availability check error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to check project availability' });
+    console.error('Project availability check error (falling back to client check):', err);
+    const fallbackSlug = generateSlug(title) || `project-${Date.now().toString().slice(-4)}`;
+    return res.status(200).json({
+      available: true,
+      titleTaken: false,
+      slug: fallbackSlug,
+      fallback: true,
+    });
   }
 }

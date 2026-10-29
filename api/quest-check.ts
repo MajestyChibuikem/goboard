@@ -1,12 +1,12 @@
 import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb, verifyAuth } from './_lib/admin';
-import { XP_VALUES } from './_lib/xpRules';
+import { getAdminDb, verifyAuth } from './_lib/admin.js';
+import { XP_VALUES } from './_lib/xpRules.js';
 import {
   getTodayString,
   readXpGrantState,
   applyXpGrantInTransaction,
   XpTransactionAccumulator,
-} from './_lib/ledger';
+} from './_lib/ledger.js';
 
 interface TaskCheckResult {
   taskId: string;
