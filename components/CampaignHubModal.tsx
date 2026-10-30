@@ -83,6 +83,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<CampaignHubTab>(initialTab);
   const [connectingGitHub, setConnectingGitHub] = useState(false);
+  const [adminPreviewUnlocked, setAdminPreviewUnlocked] = useState(false);
 
   // Active Quest Checker state
   const [checkingQuestId, setCheckingQuestId] = useState<string | null>(null);
@@ -144,7 +145,8 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   const isQuest2Done = completedQuests.includes('quest_2_shell_basics');
 
   const userXp = profile?.xp || 0;
-  const isCampaignUnlocked = userXp >= 100 || Boolean(profile?.isAdmin);
+  const hasRequiredXp = userXp >= 100;
+  const isCampaignUnlocked = hasRequiredXp || (Boolean(profile?.isAdmin) && adminPreviewUnlocked);
   const campaignXpPercent = Math.min(100, Math.round((userXp / 100) * 100));
 
   const handleConnectGitHub = async () => {
@@ -358,65 +360,81 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
     }
   };
 
-  // Reusable Locked 100 XP Vault Component
+  // Reusable Locked 100 XP Component (spoiler-free)
   const renderLockedCampaignVault = () => (
-    <div className="p-6 sm:p-8 rounded-3xl bg-neutral-950 text-white border border-amber-500/30 space-y-6 text-center max-w-2xl mx-auto my-4">
-      <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
-        <Lock className="w-8 h-8" />
+    <div className="p-6 sm:p-8 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 space-y-6 text-center max-w-xl mx-auto my-4">
+      <div className="w-12 h-12 rounded-xl bg-neutral-200/70 dark:bg-neutral-800 flex items-center justify-center mx-auto text-neutral-600 dark:text-neutral-300">
+        <Lock className="w-5 h-5" />
       </div>
-      <div className="space-y-2">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
-          Fog of War • 100 XP Qualification Gate
-        </span>
-        <h3 className="text-2xl font-extrabold tracking-tight">
-          Classified Campus Design Competition
+      <div className="space-y-1.5">
+        <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+          Season 01 · Campaign
+        </div>
+        <h3 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
+          Unlocks at 100 XP
         </h3>
-        <p className="text-sm text-neutral-400 max-w-lg mx-auto leading-relaxed">
-          Only active builders with at least <strong>100 XP</strong> can view the target application brief, judging rubric, and submit a redesign.
+        <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto leading-relaxed">
+          Reach <strong>100 XP</strong> to unlock the Season 1 Campaign brief, requirements, and submission portal.
         </p>
       </div>
 
       {/* Live XP Progress Bar */}
-      <div className="max-w-md mx-auto bg-neutral-900 p-4 rounded-2xl border border-neutral-800 space-y-3 text-left">
-        <div className="flex items-center justify-between text-xs font-bold">
-          <span className="text-amber-400">Your Qualification Progress</span>
-          <span>{userXp} / 100 XP ({campaignXpPercent}%)</span>
+      <div className="max-w-md mx-auto bg-white dark:bg-neutral-950 p-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 space-y-3 text-left">
+        <div className="flex items-center justify-between text-xs font-semibold">
+          <span className="text-neutral-600 dark:text-neutral-400">Qualification Progress</span>
+          <span className="font-mono text-neutral-900 dark:text-white tabular-nums">
+            {userXp} / 100 XP ({campaignXpPercent}%)
+          </span>
         </div>
-        <div className="w-full h-3 bg-neutral-800 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-500"
+            className="h-full bg-neutral-900 dark:bg-white rounded-full transition-all duration-500"
             style={{ width: `${campaignXpPercent}%` }}
           />
         </div>
-        <div className="space-y-1.5 pt-1 text-xs text-neutral-300">
-          <div className="flex items-center justify-between">
+        <div className="divide-y divide-neutral-100 dark:divide-neutral-800/80 pt-1 text-xs text-neutral-600 dark:text-neutral-400">
+          <div className="py-1.5 flex items-center justify-between">
             <span>1. Complete Onboarding Setup</span>
-            <span className="font-mono font-bold text-emerald-400">+25 XP</span>
+            <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-200">
+              {profile?.onboardingCompletedAt ? '✓ +25 XP' : '+25 XP'}
+            </span>
           </div>
-          <div className="flex items-center justify-between">
-            <span>2. Pass Quest 01: Baby Steps (GoQuests Repo)</span>
-            <span className={`font-mono font-bold ${isQuest1Done ? 'text-emerald-400' : 'text-amber-300'}`}>
+          <div className="py-1.5 flex items-center justify-between">
+            <span>2. Pass Quest 01: Baby Steps</span>
+            <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-200">
               {isQuest1Done ? '✓ +25 XP' : '+25 XP'}
             </span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="py-1.5 flex items-center justify-between">
             <span>3. Pass Quest 02: 0x00. Shell Basics</span>
-            <span className={`font-mono font-bold ${isQuest2Done ? 'text-emerald-400' : 'text-amber-300'}`}>
+            <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-200">
               {isQuest2Done ? '✓ +50 XP' : '+50 XP'}
             </span>
           </div>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setActiveTab('quests')}
-        className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-extrabold text-sm transition-all inline-flex items-center gap-2 cursor-pointer shadow-lg"
-      >
-        <Terminal className="w-4 h-4" />
-        Go to Quests & Auto-Grader
-        <ArrowRight className="w-4 h-4" />
-      </button>
+      <div className="flex flex-wrap items-center justify-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab('quests')}
+          className="px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-950 font-semibold text-xs sm:text-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
+        >
+          <Terminal className="w-4 h-4" />
+          Go to Quests
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+
+        {profile?.isAdmin && (
+          <button
+            type="button"
+            onClick={() => setAdminPreviewUnlocked(true)}
+            className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-white dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-medium text-xs transition-colors cursor-pointer"
+          >
+            Admin Preview
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -436,15 +454,17 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-extrabold text-neutral-900 dark:text-white">
-                  GoQuests & Design Campaign Hub
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                  Season 1 · Quests &amp; Campaign
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-neutral-200/70 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
                   {userXp} XP
                 </span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Complete technical GitHub quests to unlock the GoUni Prayer Book Redesign Sprint
+                {isCampaignUnlocked
+                  ? 'GoQuests auto-grader and The GoUni Prayer Book Campaign'
+                  : 'Complete technical quests to reach 100 XP and unlock the Season 1 Campaign'}
               </p>
             </div>
           </div>
@@ -461,21 +481,21 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
         {/* Navigation Tabs */}
         <div className="px-5 sm:px-6 pt-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2 overflow-x-auto bg-neutral-50/40 dark:bg-neutral-900/30">
           {[
-            { id: 'quests' as CampaignHubTab, label: 'GoQuests & Checker', icon: Terminal },
+            { id: 'quests' as CampaignHubTab, label: 'Quests', icon: Terminal },
             {
               id: 'tracker' as CampaignHubTab,
-              label: isCampaignUnlocked ? 'Prayer Book Brief' : '🔒 Design Brief (100 XP)',
-              icon: Target,
+              label: 'Campaign Brief',
+              icon: isCampaignUnlocked ? Target : Lock,
             },
             {
               id: 'upload' as CampaignHubTab,
-              label: isCampaignUnlocked ? 'Submit Redesign' : '🔒 Submit Entry',
-              icon: Palette,
+              label: 'Submit Entry',
+              icon: isCampaignUnlocked ? Palette : Lock,
             },
             {
               id: 'submissions' as CampaignHubTab,
-              label: `Showcase (${submissions.length})`,
-              icon: Trophy,
+              label: isCampaignUnlocked ? `Submissions (${submissions.length})` : 'Submissions',
+              icon: isCampaignUnlocked ? Trophy : Lock,
             },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -485,13 +505,13 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                   active
                     ? 'border-neutral-900 dark:border-white text-neutral-900 dark:text-white'
                     : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5" />
                 {tab.label}
               </button>
             );
@@ -1088,17 +1108,21 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
               TAB 4: SUBMISSIONS SHOWCASE
              ───────────────────────────────────────────────────────────────── */}
           {activeTab === 'submissions' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white">
-                    GoUni Prayer Book Redesign Showcase
-                  </h3>
-                  <p className="text-xs text-neutral-500">
-                    Upvote your favorite student UI/UX redesigns (counts for 20% of the final score).
-                  </p>
-                </div>
-              </div>
+            <div>
+              {!isCampaignUnlocked ? (
+                renderLockedCampaignVault()
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white">
+                        GoUni Prayer Book Redesign Showcase
+                      </h3>
+                      <p className="text-xs text-neutral-500">
+                        Upvote your favorite student UI/UX redesigns (counts for 20% of the final score).
+                      </p>
+                    </div>
+                  </div>
 
               {submissions.length === 0 ? (
                 <div className="p-10 text-center rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 space-y-2">
@@ -1192,6 +1216,8 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              )}
                 </div>
               )}
             </div>
