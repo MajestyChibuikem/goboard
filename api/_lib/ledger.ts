@@ -31,7 +31,10 @@ export async function readXpGrantState(
     tx.get(dailyRef),
   ]);
 
-  if (ledgerSnap.exists) {
+  const userData = userSnap.exists ? userSnap.data() || {} : {};
+  const existingLedgerIds: string[] = Array.isArray(userData.xpLedgerIds) ? userData.xpLedgerIds : [];
+
+  if (ledgerSnap.exists || existingLedgerIds.includes(ledgerId)) {
     return {
       alreadyGranted: true,
       userExists: userSnap.exists,
@@ -72,6 +75,7 @@ export class XpTransactionAccumulator {
       xp: number;
       dailyTotal: number;
       today: string;
+      ledgerIds?: string[];
       extraUpdates?: Record<string, any>;
     }
   >();
@@ -111,10 +115,12 @@ export class XpTransactionAccumulator {
       xp: 0,
       dailyTotal: readState.dailyTotal,
       today,
+      ledgerIds: [],
     };
     userEntry.xp += readState.grantAmount;
     userEntry.dailyTotal += readState.grantAmount;
     userEntry.today = today;
+    userEntry.ledgerIds = [...(userEntry.ledgerIds || []), ledgerId];
     this.userDeltas.set(userId, userEntry);
 
     return readState.grantAmount;
@@ -128,6 +134,7 @@ export class XpTransactionAccumulator {
       xp: 0,
       dailyTotal: 0,
       today: '',
+      ledgerIds: [],
     };
     userEntry.extraUpdates = {
       ...(userEntry.extraUpdates || {}),
@@ -143,7 +150,7 @@ export class XpTransactionAccumulator {
   apply(tx: FirebaseFirestore.Transaction, db: FirebaseFirestore.Firestore) {
     // 1. Create each ledger entry
     for (const item of this.ledgers) {
-      tx.create(item.ref, item.data);
+      tx.set(item.ref, item.data);
     }
 
     // 2. Set each user's daily record at most once
@@ -169,6 +176,9 @@ export class XpTransactionAccumulator {
       if (entry.xp > 0) {
         updatePayload.xp = FieldValue.increment(entry.xp);
         updatePayload.seasonXp = FieldValue.increment(entry.xp);
+      }
+      if (entry.ledgerIds && entry.ledgerIds.length > 0) {
+        updatePayload.xpLedgerIds = FieldValue.arrayUnion(...entry.ledgerIds);
       }
 
       if (Object.keys(updatePayload).length > 0) {

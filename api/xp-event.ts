@@ -1,9 +1,3 @@
-import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth, hasServiceAccountCredentials } from './_lib/admin.js';
-import { XP_VALUES, XP_LIMITS } from './_lib/xpRules.js';
-import { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator } from './_lib/ledger.js';
-import { fetchServerGitHubBundle } from './_lib/githubServer.js';
-import { FieldValue } from 'firebase-admin/firestore';
-
 const ACADEMIC_LEVELS = [
   '100 Level',
   '200 Level',
@@ -23,13 +17,51 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const [
+      { getAdminDb, getAdminAuth, verifyAuth, hasServiceAccountCredentials },
+      { XP_VALUES, XP_LIMITS },
+      { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator },
+      { fetchServerGitHubBundle },
+      { FieldValue },
+    ] = await Promise.all([
+      import('./_lib/admin.js'),
+      import('./_lib/xpRules.js'),
+      import('./_lib/ledger.js'),
+      import('./_lib/githubServer.js'),
+      import('firebase-admin/firestore'),
+    ]);
+
+    const { type, projectId, writingId, targetType, targetId, commentId } = req.body || {};
+
+    if (!type || typeof type !== 'string') {
+      return res.status(400).json({ error: 'Event type is required.' });
+    }
+
+    // If the server environment does not have Firebase Service Account credentials configured,
+    // return a 200 fallback signal so the client executes the Firestore transaction directly.
+    if (!hasServiceAccountCredentials()) {
+      return res.status(200).json({
+        success: true,
+        awarded: 0,
+        fallbackToClient: true,
+      });
+    }
+
     let callerUid: string;
     let authResult: any;
     try {
       authResult = await verifyAuth(req);
       callerUid = authResult.uid;
     } catch (err: any) {
-      return res.status(401).json({ error: err?.message || 'Unauthorized' });
+      const authHeader = req.headers?.authorization || req.headers?.Authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: err?.message || 'Unauthorized' });
+      }
+      return res.status(200).json({
+        success: true,
+        awarded: 0,
+        fallbackToClient: true,
+      });
     }
 
     // Provider gate: only accounts with Google or GitHub linked are eligible to earn XP
@@ -49,22 +81,6 @@ export default async function handler(req: any, res: any) {
         error: 'Unverified provider. Only Google and GitHub accounts are eligible for platform interactions.',
         awarded: 0,
         reason: 'PROVIDER_NOT_ALLOWED',
-      });
-    }
-
-    const { type, projectId, writingId, targetType, targetId, commentId } = req.body || {};
-
-    if (!type || typeof type !== 'string') {
-      return res.status(400).json({ error: 'Event type is required.' });
-    }
-
-    // If the server environment does not have Firebase Service Account credentials configured,
-    // return a 200 fallback signal so the client executes the ledger-backed Firestore transaction directly.
-    if (!hasServiceAccountCredentials()) {
-      return res.status(200).json({
-        success: true,
-        awarded: 0,
-        fallbackToClient: true,
       });
     }
 
@@ -973,6 +989,10 @@ export default async function handler(req: any, res: any) {
         }
 
         const userData = userSnap.data() || {};
+        const existingIds = new Set<string>(
+          Array.isArray(userData.xpLedgerIds) ? userData.xpLedgerIds : []
+        );
+        const newLedgerIds: string[] = [];
         let totalAwarded = 0;
 
         // 1. Check Onboarding XP (+25 XP)
@@ -981,7 +1001,10 @@ export default async function handler(req: any, res: any) {
         );
         const onboardingLedgerRef = db.collection('xpLedger').doc(`onboarding_${callerUid}`);
         const onboardingSnap = await onboardingLedgerRef.get();
-        const needsOnboardingXp = hasCompletedOnboarding && !onboardingSnap.exists;
+        const needsOnboardingXp =
+          hasCompletedOnboarding &&
+          !onboardingSnap.exists &&
+          !existingIds.has(`onboarding_${callerUid}`);
 
         // 2. Check GitHub Connection XP (+15 XP)
         const hasGitHub = Boolean(
@@ -989,7 +1012,8 @@ export default async function handler(req: any, res: any) {
         );
         const ghLedgerRef = db.collection('xpLedger').doc(`github_connect_${callerUid}`);
         const ghSnap = await ghLedgerRef.get();
-        const needsGitHubXp = hasGitHub && !ghSnap.exists;
+        const needsGitHubXp =
+          hasGitHub && !ghSnap.exists && !existingIds.has(`github_connect_${callerUid}`);
 
         // 3. Check Submitted & Approved Projects XP
         const userProjectsSnap = await db
@@ -1004,7 +1028,7 @@ export default async function handler(req: any, res: any) {
         if (!userProjectsSnap.empty) {
           const firstLedgerRef = db.collection('xpLedger').doc(`first_${callerUid}`);
           const firstSnap = await firstLedgerRef.get();
-          if (!firstSnap.exists) {
+          if (!firstSnap.exists && !existingIds.has(`first_${callerUid}`)) {
             needsFirstProjectXp = true;
           }
 
@@ -1014,14 +1038,14 @@ export default async function handler(req: any, res: any) {
 
             const submitLedgerRef = db.collection('xpLedger').doc(`submit_${projId}`);
             const submitSnap = await submitLedgerRef.get();
-            if (!submitSnap.exists) {
+            if (!submitSnap.exists && !existingIds.has(`submit_${projId}`)) {
               pendingProjectSubmits.push(projId);
             }
 
             if (projData.approvalStatus === 'approved') {
               const approveLedgerRef = db.collection('xpLedger').doc(`approve_${projId}`);
               const approveSnap = await approveLedgerRef.get();
-              if (!approveSnap.exists) {
+              if (!approveSnap.exists && !existingIds.has(`approve_${projId}`)) {
                 pendingProjectApprovals.push(projId);
               }
             }
@@ -1043,14 +1067,22 @@ export default async function handler(req: any, res: any) {
 
           const submitLedgerRef = db.collection('xpLedger').doc(`submit_writing_${writingId}`);
           const submitSnap = await submitLedgerRef.get();
-          if (!submitSnap.exists) {
+          if (
+            !submitSnap.exists &&
+            !existingIds.has(`submit_writing_${writingId}`) &&
+            !existingIds.has(`wsubmit_${writingId}`)
+          ) {
             pendingWritingSubmits.push(writingId);
           }
 
           if (writingData.approvalStatus === 'approved') {
             const approveLedgerRef = db.collection('xpLedger').doc(`approve_writing_${writingId}`);
             const approveSnap = await approveLedgerRef.get();
-            if (!approveSnap.exists) {
+            if (
+              !approveSnap.exists &&
+              !existingIds.has(`approve_writing_${writingId}`) &&
+              !existingIds.has(`wapprove_${writingId}`)
+            ) {
               pendingWritingApprovals.push(writingId);
             }
           }
@@ -1076,6 +1108,7 @@ export default async function handler(req: any, res: any) {
         if (needsOnboardingXp) {
           const amount = XP_VALUES.ONBOARDING_COMPLETE;
           totalAwarded += amount;
+          newLedgerIds.push(`onboarding_${callerUid}`);
           batch.set(onboardingLedgerRef, {
             userId: callerUid,
             amount,
@@ -1091,6 +1124,7 @@ export default async function handler(req: any, res: any) {
         if (needsGitHubXp) {
           const amount = XP_VALUES.GITHUB_CONNECT;
           totalAwarded += amount;
+          newLedgerIds.push(`github_connect_${callerUid}`);
           batch.set(ghLedgerRef, {
             userId: callerUid,
             amount,
@@ -1106,6 +1140,7 @@ export default async function handler(req: any, res: any) {
         if (needsFirstProjectXp) {
           const amount = XP_VALUES.FIRST_PROJECT;
           totalAwarded += amount;
+          newLedgerIds.push(`first_${callerUid}`);
           const firstLedgerRef = db.collection('xpLedger').doc(`first_${callerUid}`);
           batch.set(firstLedgerRef, {
             userId: callerUid,
@@ -1119,6 +1154,7 @@ export default async function handler(req: any, res: any) {
         for (const projId of pendingProjectSubmits) {
           const amount = XP_VALUES.SUBMIT_PROJECT;
           totalAwarded += amount;
+          newLedgerIds.push(`submit_${projId}`);
           const ledgerRef = db.collection('xpLedger').doc(`submit_${projId}`);
           batch.set(ledgerRef, {
             userId: callerUid,
@@ -1132,6 +1168,7 @@ export default async function handler(req: any, res: any) {
         for (const projId of pendingProjectApprovals) {
           const amount = XP_VALUES.PROJECT_APPROVED;
           totalAwarded += amount;
+          newLedgerIds.push(`approve_${projId}`);
           const ledgerRef = db.collection('xpLedger').doc(`approve_${projId}`);
           batch.set(ledgerRef, {
             userId: callerUid,
@@ -1145,6 +1182,7 @@ export default async function handler(req: any, res: any) {
         for (const writingId of pendingWritingSubmits) {
           const amount = XP_VALUES.SUBMIT_PROJECT;
           totalAwarded += amount;
+          newLedgerIds.push(`wsubmit_${writingId}`);
           const ledgerRef = db.collection('xpLedger').doc(`submit_writing_${writingId}`);
           batch.set(ledgerRef, {
             userId: callerUid,
@@ -1158,6 +1196,7 @@ export default async function handler(req: any, res: any) {
         for (const writingId of pendingWritingApprovals) {
           const amount = XP_VALUES.PROJECT_APPROVED;
           totalAwarded += amount;
+          newLedgerIds.push(`wapprove_${writingId}`);
           const ledgerRef = db.collection('xpLedger').doc(`approve_writing_${writingId}`);
           batch.set(ledgerRef, {
             userId: callerUid,
@@ -1171,6 +1210,9 @@ export default async function handler(req: any, res: any) {
         if (totalAwarded > 0) {
           userUpdates.xp = FieldValue.increment(totalAwarded);
           userUpdates.seasonXp = FieldValue.increment(totalAwarded);
+        }
+        if (newLedgerIds.length > 0) {
+          userUpdates.xpLedgerIds = FieldValue.arrayUnion(...newLedgerIds);
         }
 
         if (Object.keys(userUpdates).length > 0) {

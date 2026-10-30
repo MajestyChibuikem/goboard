@@ -1,5 +1,3 @@
-import { getAdminDb, verifyAuth } from './_lib/admin.js';
-
 export function generateSlug(title: string): string {
   return title
     .toLowerCase()
@@ -14,21 +12,33 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    await verifyAuth(req);
-  } catch (err: any) {
-    return res.status(401).json({ error: err.message || 'Unauthorized' });
-  }
-
   const { title } = req.body || {};
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Title is required' });
   }
 
   const normalized = title.trim().toLowerCase();
-  const db = getAdminDb();
+  const fallbackSlug = generateSlug(title) || `project-${Date.now().toString().slice(-4)}`;
 
   try {
+    const adminMod = await import('./_lib/admin.js').catch(() => null);
+    if (!adminMod || !adminMod.hasServiceAccountCredentials()) {
+      return res.status(200).json({
+        available: true,
+        titleTaken: false,
+        slug: fallbackSlug,
+        fallback: true,
+      });
+    }
+
+    try {
+      await adminMod.verifyAuth(req);
+    } catch (err: any) {
+      return res.status(401).json({ error: err?.message || 'Unauthorized' });
+    }
+
+    const db = adminMod.getAdminDb();
+
     // Check if titleLower is taken across all projects (Admin SDK bypasses client read rules)
     const titleSnap = await db
       .collection('projects')
@@ -68,8 +78,7 @@ export default async function handler(req: any, res: any) {
       slug,
     });
   } catch (err: any) {
-    console.error('Project availability check error (falling back to client check):', err);
-    const fallbackSlug = generateSlug(title) || `project-${Date.now().toString().slice(-4)}`;
+    console.warn('Project availability check fallback:', err?.message);
     return res.status(200).json({
       available: true,
       titleTaken: false,

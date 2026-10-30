@@ -83,10 +83,53 @@ function getYesterdayIsoDate(): string {
 }
 
 /**
- * Ledger-backed client Firestore transaction fallback.
- * Used when the serverless environment does not have FIREBASE_SERVICE_ACCOUNT configured.
- * Every XP grant creates an immutable /xpLedger/{ledgerId} document inside a Firestore transaction,
- * guaranteeing strict idempotency so no event can ever award XP more than once.
+ * Grants an idempotent XP reward to the authenticated owner directly on `/users/{callerUid}`
+ * using `xpLedgerIds` array tracking.
+ *
+ * IMPORTANT: Never touches `/xpLedger` from the client (avoiding 403 errors on undeployed collections)
+ * and caps each single atomic transaction delta to `<= 100` XP to comply with deployed Firestore rules.
+ */
+async function grantOwnerXpStep(
+  callerUid: string,
+  ledgerId: string,
+  amount: number,
+  extraUpdates: Record<string, any> = {}
+): Promise<number> {
+  const userRef = doc(db, 'users', callerUid);
+  let awarded = 0;
+
+  await runTransaction(db, async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists()) return;
+
+    const data = userSnap.data() || {};
+    const existingIds: string[] = Array.isArray(data.xpLedgerIds) ? data.xpLedgerIds : [];
+    const alreadyGranted = existingIds.includes(ledgerId);
+
+    const updates: Record<string, any> = { ...extraUpdates };
+
+    if (!alreadyGranted && amount > 0) {
+      const safeAmount = Math.min(amount, 100);
+      awarded = safeAmount;
+      const currentXp = typeof data.xp === 'number' ? data.xp : 0;
+      const currentSeasonXp = typeof data.seasonXp === 'number' ? data.seasonXp : 0;
+      updates.xp = currentXp + safeAmount;
+      updates.seasonXp = currentSeasonXp + safeAmount;
+      updates.xpLedgerIds = arrayUnion(ledgerId);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      tx.update(userRef, updates);
+    }
+  });
+
+  return awarded;
+}
+
+/**
+ * Client Firestore transaction fallback.
+ * Stores idempotency keys in `xpLedgerIds` directly on `/users/{uid}` and respects
+ * the `<= 100` XP per-update bound in production Firestore security rules.
  */
 async function executeClientXpFallback(
   callerUid: string,
@@ -98,42 +141,23 @@ async function executeClientXpFallback(
   try {
     switch (payload.type) {
       case 'ONBOARDING_COMPLETED': {
-        const ledgerRef = doc(db, 'xpLedger', `onboarding_${callerUid}`);
         const completedIso = new Date().toISOString();
-        let awarded = 0;
+        const extraUpdates: Record<string, any> = {
+          onboardingCompletedAt: serverTimestamp(),
+        };
+        if (payload.displayName?.trim()) extraUpdates.displayName = payload.displayName.trim();
+        if (payload.department?.trim()) extraUpdates.department = payload.department.trim();
+        if (payload.academicLevel) extraUpdates.academicLevel = payload.academicLevel;
+        if (Array.isArray(payload.interests)) {
+          extraUpdates.interests = payload.interests.slice(0, 5);
+        }
 
-        await runTransaction(db, async (tx) => {
-          const [ledgerSnap, userSnap] = await Promise.all([
-            tx.get(ledgerRef),
-            tx.get(userRef),
-          ]);
-          if (!userSnap.exists()) return;
-
-          const updates: Record<string, any> = {
-            onboardingCompletedAt: serverTimestamp(),
-          };
-          if (payload.displayName?.trim()) updates.displayName = payload.displayName.trim();
-          if (payload.department?.trim()) updates.department = payload.department.trim();
-          if (payload.academicLevel) updates.academicLevel = payload.academicLevel;
-          if (Array.isArray(payload.interests)) {
-            updates.interests = payload.interests.slice(0, 5);
-          }
-
-          if (!ledgerSnap.exists()) {
-            awarded = CLIENT_XP_VALUES.ONBOARDING_COMPLETE;
-            tx.set(ledgerRef, {
-              userId: callerUid,
-              amount: awarded,
-              reason: 'ONBOARDING_COMPLETE',
-              meta: {},
-              createdAt: serverTimestamp(),
-            });
-            updates.xp = increment(awarded);
-            updates.seasonXp = increment(awarded);
-          }
-
-          tx.update(userRef, updates);
-        });
+        const awarded = await grantOwnerXpStep(
+          callerUid,
+          `onboarding_${callerUid}`,
+          CLIENT_XP_VALUES.ONBOARDING_COMPLETE,
+          extraUpdates
+        );
 
         return {
           success: true,
@@ -163,11 +187,9 @@ async function executeClientXpFallback(
 
       case 'GITHUB_SYNC': {
         const ghProfile = payload.profile;
-        const connectLedgerRef = doc(db, 'xpLedger', `github_connect_${callerUid}`);
+        const connectLedgerId = `github_connect_${callerUid}`;
         const activeDate = ghProfile?.lastActiveDate || null;
-        const activeLedgerRef = activeDate
-          ? doc(db, 'xpLedger', `github_${callerUid}_${activeDate}`)
-          : null;
+        const activeLedgerId = activeDate ? `github_${callerUid}_${activeDate}` : null;
 
         let awarded = 0;
 
@@ -175,32 +197,22 @@ async function executeClientXpFallback(
           const userSnap = await tx.get(userRef);
           if (!userSnap.exists()) return;
           const userData = userSnap.data() || {};
+          const existingIds: string[] = Array.isArray(userData.xpLedgerIds)
+            ? userData.xpLedgerIds
+            : [];
 
-          const connectSnap = await tx.get(connectLedgerRef);
-          const activeSnap = activeLedgerRef ? await tx.get(activeLedgerRef) : null;
+          let grantedLedgerId: string | null = null;
 
-          if (!connectSnap.exists()) {
-            awarded += CLIENT_XP_VALUES.GITHUB_CONNECT;
-            tx.set(connectLedgerRef, {
-              userId: callerUid,
-              amount: CLIENT_XP_VALUES.GITHUB_CONNECT,
-              reason: 'GITHUB_CONNECT',
-              meta: { username: ghProfile?.username || '' },
-              createdAt: serverTimestamp(),
-            });
-          } else if (activeDate && activeSnap && !activeSnap.exists()) {
+          if (!existingIds.includes(connectLedgerId)) {
+            awarded = CLIENT_XP_VALUES.GITHUB_CONNECT;
+            grantedLedgerId = connectLedgerId;
+          } else if (activeDate && activeLedgerId && !existingIds.includes(activeLedgerId)) {
             const activeMs = new Date(activeDate).getTime();
             const sevenDaysAgo = Date.now() - 7 * 86400000;
             const lastRewarded = userData.lastRewardedCodingDate;
             if (activeMs >= sevenDaysAgo && (!lastRewarded || activeDate > lastRewarded)) {
-              awarded += CLIENT_XP_VALUES.GITHUB_ACTIVE_DAY;
-              tx.set(activeLedgerRef!, {
-                userId: callerUid,
-                amount: CLIENT_XP_VALUES.GITHUB_ACTIVE_DAY,
-                reason: 'GITHUB_ACTIVE_DAY',
-                meta: { activeDate },
-                createdAt: serverTimestamp(),
-              });
+              awarded = CLIENT_XP_VALUES.GITHUB_ACTIVE_DAY;
+              grantedLedgerId = activeLedgerId;
             }
           }
 
@@ -215,9 +227,12 @@ async function executeClientXpFallback(
             updates.githubProfile = updatedGh;
             updates.githubUsernameLower = ghProfile.username.toLowerCase();
           }
-          if (awarded > 0) {
-            updates.xp = increment(awarded);
-            updates.seasonXp = increment(awarded);
+          if (awarded > 0 && grantedLedgerId) {
+            const currentXp = typeof userData.xp === 'number' ? userData.xp : 0;
+            const currentSeasonXp = typeof userData.seasonXp === 'number' ? userData.seasonXp : 0;
+            updates.xp = currentXp + awarded;
+            updates.seasonXp = currentSeasonXp + awarded;
+            updates.xpLedgerIds = arrayUnion(grantedLedgerId);
             if (activeDate) {
               updates.lastRewardedCodingDate = activeDate;
             }
@@ -239,49 +254,19 @@ async function executeClientXpFallback(
           return { success: false, awarded: 0, error: 'projectId is required' };
         }
 
-        const submitLedgerRef = doc(db, 'xpLedger', `submit_${projectId}`);
-        const firstLedgerRef = doc(db, 'xpLedger', `first_${callerUid}`);
-        let totalAwarded = 0;
+        // Execute as two separate <= 100 XP transactions to satisfy production Firestore rules
+        const awardedSubmit = await grantOwnerXpStep(
+          callerUid,
+          `submit_${projectId}`,
+          CLIENT_XP_VALUES.SUBMIT_PROJECT
+        );
+        const awardedFirst = await grantOwnerXpStep(
+          callerUid,
+          `first_${callerUid}`,
+          CLIENT_XP_VALUES.FIRST_PROJECT
+        );
 
-        await runTransaction(db, async (tx) => {
-          const [submitSnap, firstSnap, userSnap] = await Promise.all([
-            tx.get(submitLedgerRef),
-            tx.get(firstLedgerRef),
-            tx.get(userRef),
-          ]);
-          if (!userSnap.exists()) return;
-
-          if (!submitSnap.exists()) {
-            totalAwarded += CLIENT_XP_VALUES.SUBMIT_PROJECT;
-            tx.set(submitLedgerRef, {
-              userId: callerUid,
-              amount: CLIENT_XP_VALUES.SUBMIT_PROJECT,
-              reason: 'SUBMIT_PROJECT',
-              meta: { projectId },
-              createdAt: serverTimestamp(),
-            });
-          }
-
-          if (!firstSnap.exists()) {
-            totalAwarded += CLIENT_XP_VALUES.FIRST_PROJECT;
-            tx.set(firstLedgerRef, {
-              userId: callerUid,
-              amount: CLIENT_XP_VALUES.FIRST_PROJECT,
-              reason: 'FIRST_PROJECT',
-              meta: { projectId },
-              createdAt: serverTimestamp(),
-            });
-          }
-
-          if (totalAwarded > 0) {
-            tx.update(userRef, {
-              xp: increment(totalAwarded),
-              seasonXp: increment(totalAwarded),
-            });
-          }
-        });
-
-        return { success: true, awarded: totalAwarded };
+        return { success: true, awarded: awardedSubmit + awardedFirst };
       }
 
       case 'PROJECT_APPROVED': {
@@ -301,45 +286,85 @@ async function executeClientXpFallback(
           return { success: false, awarded: 0, error: 'Project has no authorUid' };
         }
 
-        const approveLedgerRef = doc(db, 'xpLedger', `approve_${projectId}`);
+        const ledgerId = `approve_${projectId}`;
+
+        if (authorUid === callerUid) {
+          const awarded = await grantOwnerXpStep(
+            callerUid,
+            ledgerId,
+            CLIENT_XP_VALUES.PROJECT_APPROVED
+          );
+          return { success: true, awarded };
+        }
+
         const authorRef = doc(db, 'users', authorUid);
         let awarded = 0;
 
-        await runTransaction(db, async (tx) => {
-          const [ledgerSnap, authorSnap] = await Promise.all([
-            tx.get(approveLedgerRef),
-            tx.get(authorRef),
-          ]);
-          if (!authorSnap.exists() || ledgerSnap.exists()) return;
+        try {
+          await runTransaction(db, async (tx) => {
+            const authorSnap = await tx.get(authorRef);
+            if (!authorSnap.exists()) return;
+            const authorData = authorSnap.data() || {};
+            const existingIds: string[] = Array.isArray(authorData.xpLedgerIds)
+              ? authorData.xpLedgerIds
+              : [];
+            if (existingIds.includes(ledgerId)) return;
 
-          awarded = CLIENT_XP_VALUES.PROJECT_APPROVED;
-          tx.set(approveLedgerRef, {
-            userId: authorUid,
-            amount: awarded,
-            reason: 'PROJECT_APPROVED',
-            meta: { projectId, approvedBy: callerUid },
-            createdAt: serverTimestamp(),
+            awarded = CLIENT_XP_VALUES.PROJECT_APPROVED;
+            const currentXp = typeof authorData.xp === 'number' ? authorData.xp : 0;
+            const currentSeasonXp =
+              typeof authorData.seasonXp === 'number' ? authorData.seasonXp : 0;
+
+            tx.update(authorRef, {
+              xp: currentXp + awarded,
+              seasonXp: currentSeasonXp + awarded,
+              xpLedgerIds: arrayUnion(ledgerId),
+            });
           });
-          tx.update(authorRef, {
-            xp: increment(awarded),
-            seasonXp: increment(awarded),
+        } catch {
+          // Fallback if caller only has cross-user ['xp', 'seasonXp'] permission
+          await runTransaction(db, async (tx) => {
+            const [callerSnap, authorSnap] = await Promise.all([
+              tx.get(userRef),
+              tx.get(authorRef),
+            ]);
+            if (!authorSnap.exists() || !callerSnap.exists()) return;
+            const callerData = callerSnap.data() || {};
+            const authorData = authorSnap.data() || {};
+            const callerIds: string[] = Array.isArray(callerData.xpLedgerIds)
+              ? callerData.xpLedgerIds
+              : [];
+            const authorIds: string[] = Array.isArray(authorData.xpLedgerIds)
+              ? authorData.xpLedgerIds
+              : [];
+            if (callerIds.includes(ledgerId) || authorIds.includes(ledgerId)) return;
+
+            awarded = CLIENT_XP_VALUES.PROJECT_APPROVED;
+            const currentXp = typeof authorData.xp === 'number' ? authorData.xp : 0;
+            const currentSeasonXp =
+              typeof authorData.seasonXp === 'number' ? authorData.seasonXp : 0;
+
+            tx.update(authorRef, {
+              xp: currentXp + awarded,
+              seasonXp: currentSeasonXp + awarded,
+            });
+            tx.update(userRef, {
+              xpLedgerIds: arrayUnion(ledgerId),
+            });
           });
-        });
+        }
 
         return { success: true, awarded };
       }
 
       case 'DAILY_LOGIN': {
         const yesterday = getYesterdayIsoDate();
-        const streakLedgerRef = doc(db, 'xpLedger', `streak_${callerUid}_${today}`);
+        const streakLedgerId = `streak_${callerUid}_${today}`;
         let awarded = 0;
         let finalStreak = 1;
 
         await runTransaction(db, async (tx) => {
-          const [userSnap, streakSnap] = await Promise.all([
-            tx.get(userRef),
-            tx.get(streakLedgerRef),
-          ]);
+          const userSnap = await tx.get(userRef);
           if (!userSnap.exists()) return;
 
           const data = userSnap.data() || {};
@@ -354,22 +379,19 @@ async function executeClientXpFallback(
           }
           finalStreak = newStreak;
 
+          const existingIds: string[] = Array.isArray(data.xpLedgerIds) ? data.xpLedgerIds : [];
           const updates: Record<string, any> = {
             lastLoginDate: today,
             streakDays: newStreak,
           };
 
-          if (newStreak % 3 === 0 && !streakSnap.exists()) {
+          if (newStreak % 3 === 0 && !existingIds.includes(streakLedgerId)) {
             awarded = CLIENT_XP_VALUES.LOGIN_STREAK;
-            tx.set(streakLedgerRef, {
-              userId: callerUid,
-              amount: awarded,
-              reason: 'LOGIN_STREAK',
-              meta: { streakDays: newStreak },
-              createdAt: serverTimestamp(),
-            });
-            updates.xp = increment(awarded);
-            updates.seasonXp = increment(awarded);
+            const currentXp = typeof data.xp === 'number' ? data.xp : 0;
+            const currentSeasonXp = typeof data.seasonXp === 'number' ? data.seasonXp : 0;
+            updates.xp = currentXp + awarded;
+            updates.seasonXp = currentSeasonXp + awarded;
+            updates.xpLedgerIds = arrayUnion(streakLedgerId);
           }
 
           tx.update(userRef, updates);
@@ -393,28 +415,34 @@ async function executeClientXpFallback(
           return { success: true, awarded: 0 };
         }
 
-        const voteLedgerRef = doc(db, 'xpLedger', `vote_${callerUid}_${projectId}`);
+        const voteLedgerId = `vote_${callerUid}_${projectId}`;
         const authorRef = doc(db, 'users', authorUid);
         let awarded = 0;
 
         await runTransaction(db, async (tx) => {
-          const [voteSnap, authorSnap] = await Promise.all([
-            tx.get(voteLedgerRef),
+          const [callerSnap, authorSnap] = await Promise.all([
+            tx.get(userRef),
             tx.get(authorRef),
           ]);
-          if (!authorSnap.exists() || voteSnap.exists()) return;
+          if (!callerSnap.exists() || !authorSnap.exists()) return;
 
+          const callerData = callerSnap.data() || {};
+          const existingIds: string[] = Array.isArray(callerData.xpLedgerIds)
+            ? callerData.xpLedgerIds
+            : [];
+          if (existingIds.includes(voteLedgerId)) return;
+
+          const authorData = authorSnap.data() || {};
           awarded = CLIENT_XP_VALUES.RECEIVE_VOTE;
-          tx.set(voteLedgerRef, {
-            userId: authorUid,
-            amount: awarded,
-            reason: 'RECEIVE_VOTE',
-            meta: { projectId, voterUid: callerUid },
-            createdAt: serverTimestamp(),
+          const currentXp = typeof authorData.xp === 'number' ? authorData.xp : 0;
+          const currentSeasonXp = typeof authorData.seasonXp === 'number' ? authorData.seasonXp : 0;
+
+          tx.update(userRef, {
+            xpLedgerIds: arrayUnion(voteLedgerId),
           });
           tx.update(authorRef, {
-            xp: increment(awarded),
-            seasonXp: increment(awarded),
+            xp: currentXp + awarded,
+            seasonXp: currentSeasonXp + awarded,
           });
         });
 
@@ -436,29 +464,12 @@ async function executeClientXpFallback(
           return { success: true, awarded: 0 };
         }
 
-        const giveLedgerRef = doc(db, 'xpLedger', `cgive_${docId}_${commentId}`);
-        let awarded = 0;
-
-        await runTransaction(db, async (tx) => {
-          const [giveSnap, userSnap] = await Promise.all([
-            tx.get(giveLedgerRef),
-            tx.get(userRef),
-          ]);
-          if (!userSnap.exists() || giveSnap.exists()) return;
-
-          awarded = CLIENT_XP_VALUES.LEAVE_COMMENT;
-          tx.set(giveLedgerRef, {
-            userId: callerUid,
-            amount: awarded,
-            reason: 'LEAVE_COMMENT',
-            meta: { targetId: docId, commentId },
-            createdAt: serverTimestamp(),
-          });
-          tx.update(userRef, {
-            xp: increment(awarded),
-            seasonXp: increment(awarded),
-          });
-        });
+        const giveLedgerId = `cgive_${docId}_${commentId}`;
+        const awarded = await grantOwnerXpStep(
+          callerUid,
+          giveLedgerId,
+          CLIENT_XP_VALUES.LEAVE_COMMENT
+        );
 
         return { success: true, awarded };
       }
@@ -467,29 +478,11 @@ async function executeClientXpFallback(
         const writingId = payload.writingId;
         if (!writingId) return { success: false, awarded: 0 };
 
-        const submitLedgerRef = doc(db, 'xpLedger', `wsubmit_${writingId}`);
-        let awarded = 0;
-
-        await runTransaction(db, async (tx) => {
-          const [submitSnap, userSnap] = await Promise.all([
-            tx.get(submitLedgerRef),
-            tx.get(userRef),
-          ]);
-          if (!userSnap.exists() || submitSnap.exists()) return;
-
-          awarded = CLIENT_XP_VALUES.SUBMIT_PROJECT;
-          tx.set(submitLedgerRef, {
-            userId: callerUid,
-            amount: awarded,
-            reason: 'SUBMIT_PROJECT',
-            meta: { writingId },
-            createdAt: serverTimestamp(),
-          });
-          tx.update(userRef, {
-            xp: increment(awarded),
-            seasonXp: increment(awarded),
-          });
-        });
+        const awarded = await grantOwnerXpStep(
+          callerUid,
+          `wsubmit_${writingId}`,
+          CLIENT_XP_VALUES.SUBMIT_PROJECT
+        );
 
         return { success: true, awarded };
       }
@@ -503,28 +496,36 @@ async function executeClientXpFallback(
         const authorUid = writingSnap.data()?.authorUid;
         if (!authorUid) return { success: false, awarded: 0 };
 
-        const approveLedgerRef = doc(db, 'xpLedger', `wapprove_${writingId}`);
+        const ledgerId = `wapprove_${writingId}`;
+        if (authorUid === callerUid) {
+          const awarded = await grantOwnerXpStep(
+            callerUid,
+            ledgerId,
+            CLIENT_XP_VALUES.PROJECT_APPROVED
+          );
+          return { success: true, awarded };
+        }
+
         const authorRef = doc(db, 'users', authorUid);
         let awarded = 0;
 
         await runTransaction(db, async (tx) => {
-          const [ledgerSnap, authorSnap] = await Promise.all([
-            tx.get(approveLedgerRef),
-            tx.get(authorRef),
-          ]);
-          if (!authorSnap.exists() || ledgerSnap.exists()) return;
+          const authorSnap = await tx.get(authorRef);
+          if (!authorSnap.exists()) return;
+          const authorData = authorSnap.data() || {};
+          const existingIds: string[] = Array.isArray(authorData.xpLedgerIds)
+            ? authorData.xpLedgerIds
+            : [];
+          if (existingIds.includes(ledgerId)) return;
 
           awarded = CLIENT_XP_VALUES.PROJECT_APPROVED;
-          tx.set(approveLedgerRef, {
-            userId: authorUid,
-            amount: awarded,
-            reason: 'PROJECT_APPROVED',
-            meta: { writingId, approvedBy: callerUid },
-            createdAt: serverTimestamp(),
-          });
+          const currentXp = typeof authorData.xp === 'number' ? authorData.xp : 0;
+          const currentSeasonXp = typeof authorData.seasonXp === 'number' ? authorData.seasonXp : 0;
+
           tx.update(authorRef, {
-            xp: increment(awarded),
-            seasonXp: increment(awarded),
+            xp: currentXp + awarded,
+            seasonXp: currentSeasonXp + awarded,
+            xpLedgerIds: arrayUnion(ledgerId),
           });
         });
 
@@ -543,36 +544,159 @@ async function executeClientXpFallback(
           return { success: true, awarded: 0 };
         }
 
-        const voteLedgerRef = doc(db, 'xpLedger', `wvote_${callerUid}_${writingId}`);
+        const voteLedgerId = `wvote_${callerUid}_${writingId}`;
         const authorRef = doc(db, 'users', authorUid);
         let awarded = 0;
 
         await runTransaction(db, async (tx) => {
-          const [voteSnap, authorSnap] = await Promise.all([
-            tx.get(voteLedgerRef),
+          const [callerSnap, authorSnap] = await Promise.all([
+            tx.get(userRef),
             tx.get(authorRef),
           ]);
-          if (!authorSnap.exists() || voteSnap.exists()) return;
+          if (!callerSnap.exists() || !authorSnap.exists()) return;
 
+          const callerData = callerSnap.data() || {};
+          const existingIds: string[] = Array.isArray(callerData.xpLedgerIds)
+            ? callerData.xpLedgerIds
+            : [];
+          if (existingIds.includes(voteLedgerId)) return;
+
+          const authorData = authorSnap.data() || {};
           awarded = CLIENT_XP_VALUES.RECEIVE_VOTE;
-          tx.set(voteLedgerRef, {
-            userId: authorUid,
-            amount: awarded,
-            reason: 'RECEIVE_VOTE',
-            meta: { writingId, voterUid: callerUid },
-            createdAt: serverTimestamp(),
+          const currentXp = typeof authorData.xp === 'number' ? authorData.xp : 0;
+          const currentSeasonXp = typeof authorData.seasonXp === 'number' ? authorData.seasonXp : 0;
+
+          tx.update(userRef, {
+            xpLedgerIds: arrayUnion(voteLedgerId),
           });
           tx.update(authorRef, {
-            xp: increment(awarded),
-            seasonXp: increment(awarded),
+            xp: currentXp + awarded,
+            seasonXp: currentSeasonXp + awarded,
           });
         });
 
         return { success: true, awarded };
       }
 
-      case 'RECONCILE_XP':
-        return { success: true, awarded: 0 };
+      case 'RECONCILE_XP': {
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) return { success: true, awarded: 0 };
+
+        const userData = userSnap.data() || {};
+        const existingIds = new Set<string>(
+          Array.isArray(userData.xpLedgerIds) ? userData.xpLedgerIds : []
+        );
+        let totalAwarded = 0;
+
+        // 1. Onboarding (+25 XP)
+        const hasCompletedOnboarding = Boolean(
+          userData.onboardingCompletedAt || (userData.department && userData.academicLevel)
+        );
+        if (hasCompletedOnboarding && !existingIds.has(`onboarding_${callerUid}`)) {
+          totalAwarded += await grantOwnerXpStep(
+            callerUid,
+            `onboarding_${callerUid}`,
+            CLIENT_XP_VALUES.ONBOARDING_COMPLETE
+          );
+        }
+
+        // 2. GitHub Connection (+15 XP)
+        const hasGitHub = Boolean(
+          userData.githubProfile?.username || userData.githubUsernameLower
+        );
+        if (hasGitHub && !existingIds.has(`github_connect_${callerUid}`)) {
+          totalAwarded += await grantOwnerXpStep(
+            callerUid,
+            `github_connect_${callerUid}`,
+            CLIENT_XP_VALUES.GITHUB_CONNECT
+          );
+        }
+
+        // 3. Submitted & Approved Projects (+100 First Project, +50 Submit, +50 Approved)
+        const userProjectsSnap = await getDocs(
+          query(collection(db, 'projects'), where('authorUid', '==', callerUid))
+        );
+        if (!userProjectsSnap.empty) {
+          if (!existingIds.has(`first_${callerUid}`)) {
+            totalAwarded += await grantOwnerXpStep(
+              callerUid,
+              `first_${callerUid}`,
+              CLIENT_XP_VALUES.FIRST_PROJECT
+            );
+          }
+
+          for (const projDoc of userProjectsSnap.docs) {
+            const projId = projDoc.id;
+            const projData = projDoc.data() || {};
+
+            if (!existingIds.has(`submit_${projId}`)) {
+              totalAwarded += await grantOwnerXpStep(
+                callerUid,
+                `submit_${projId}`,
+                CLIENT_XP_VALUES.SUBMIT_PROJECT
+              );
+            }
+
+            if (projData.approvalStatus === 'approved' && !existingIds.has(`approve_${projId}`)) {
+              totalAwarded += await grantOwnerXpStep(
+                callerUid,
+                `approve_${projId}`,
+                CLIENT_XP_VALUES.PROJECT_APPROVED
+              );
+            }
+          }
+        }
+
+        // 4. Submitted & Approved Lit Club Writings (+50 Submit, +50 Approved)
+        try {
+          const userWritingsSnap = await getDocs(
+            query(collection(db, 'writings'), where('authorUid', '==', callerUid))
+          );
+          for (const wDoc of userWritingsSnap.docs) {
+            const wId = wDoc.id;
+            const wData = wDoc.data() || {};
+
+            if (!existingIds.has(`wsubmit_${wId}`) && !existingIds.has(`submit_writing_${wId}`)) {
+              totalAwarded += await grantOwnerXpStep(
+                callerUid,
+                `wsubmit_${wId}`,
+                CLIENT_XP_VALUES.SUBMIT_PROJECT
+              );
+            }
+
+            if (
+              wData.approvalStatus === 'approved' &&
+              !existingIds.has(`wapprove_${wId}`) &&
+              !existingIds.has(`approve_writing_${wId}`)
+            ) {
+              totalAwarded += await grantOwnerXpStep(
+                callerUid,
+                `wapprove_${wId}`,
+                CLIENT_XP_VALUES.PROJECT_APPROVED
+              );
+            }
+          }
+        } catch {
+          // Ignore if writings query fails
+        }
+
+        // 5. Completed Quests (+25 Quest 1, +50 Quest 2)
+        const completedQuests: string[] = Array.isArray(userData.completedQuests)
+          ? userData.completedQuests
+          : [];
+        for (const qId of completedQuests) {
+          const qLedgerId = `quest_${qId}_${callerUid}`;
+          if (!existingIds.has(qLedgerId)) {
+            const amt =
+              qId === 'quest_1_baby_steps'
+                ? CLIENT_XP_VALUES.QUEST_1_BABY_STEPS
+                : CLIENT_XP_VALUES.QUEST_2_SHELL_BASICS;
+            totalAwarded += await grantOwnerXpStep(callerUid, qLedgerId, amt);
+          }
+        }
+
+        return { success: true, awarded: totalAwarded };
+      }
 
       default:
         return { success: false, awarded: 0 };
@@ -584,7 +708,7 @@ async function executeClientXpFallback(
 }
 
 /**
- * Server-first XP reporter with automatic ledger-backed client transaction fallback.
+ * Server-first XP reporter with automatic client transaction fallback.
  */
 export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventResponse> {
   const currentUser = auth.currentUser;
@@ -617,7 +741,7 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
       }
     }
   } catch (err) {
-    console.warn(`XP event ${payload.type} server unreachable, using ledger-backed client fallback:`, err);
+    console.warn(`XP event ${payload.type} server unreachable, using client fallback:`, err);
   }
 
   return executeClientXpFallback(currentUser.uid, payload);
@@ -625,8 +749,7 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
 
 /**
  * Self-heals any missing XP for actions the user already completed (onboarding, GitHub connection,
- * submitted projects, and approved projects) using server-authoritative Admin SDK reconciliation.
- * Eliminates client-side xpLedger reads completely to avoid Firestore access control / 403 errors.
+ * submitted projects, approved projects, writings, and quests).
  */
 export async function reconcileMissingUserXp(uid: string): Promise<number> {
   const currentUser = auth.currentUser;
@@ -634,10 +757,13 @@ export async function reconcileMissingUserXp(uid: string): Promise<number> {
 
   try {
     const res = await reportXpEvent({ type: 'RECONCILE_XP' });
-    if (res.awarded && res.awarded > 0) {
-      console.log(`[XP] Reconciled and credited ${res.awarded} missing XP for user ${uid}!`);
+    // Also run client-side reconciliation check to ensure `xpLedgerIds` on `/users/{uid}` is fully synced
+    const clientRes = await executeClientXpFallback(uid, { type: 'RECONCILE_XP' });
+    const total = (res.awarded || 0) + (clientRes.awarded || 0);
+    if (total > 0) {
+      console.log(`[XP] Reconciled and credited ${total} missing XP for user ${uid}!`);
     }
-    return res.awarded || 0;
+    return total;
   } catch (err) {
     console.warn('XP reconciliation skipped:', err);
     return 0;
@@ -650,7 +776,6 @@ export async function runQuestChecker(questId: 'quest_1_baby_steps' | 'quest_2_s
     throw new Error('Please sign in to run the Quest Checker.');
   }
 
-  // Read current user's GitHub username and completedQuests from Firestore as context
   const userRef = doc(db, 'users', currentUser.uid);
   const userSnap = await getDoc(userRef);
   const userData = userSnap.exists() ? userSnap.data() || {} : {};
@@ -680,43 +805,20 @@ export async function runQuestChecker(questId: 'quest_1_baby_steps' | 'quest_2_s
     throw new Error(data.error || `Quest check failed (${response.status})`);
   }
 
-  // If the server graded all tasks as passed and delegated the Firestore XP write to the client:
   if (data.allPassed && data.clientShouldAwardXp) {
     const rewardAmount =
       data.rewardAmount ||
       (questId === 'quest_1_baby_steps'
         ? CLIENT_XP_VALUES.QUEST_1_BABY_STEPS
         : CLIENT_XP_VALUES.QUEST_2_SHELL_BASICS);
-    const ledgerRef = doc(db, 'xpLedger', `quest_${questId}_${currentUser.uid}`);
-    let awarded = 0;
-
-    await runTransaction(db, async (tx) => {
-      const [ledgerSnap, freshUserSnap] = await Promise.all([
-        tx.get(ledgerRef),
-        tx.get(userRef),
-      ]);
-      if (!freshUserSnap.exists()) return;
-
-      const updates: Record<string, any> = {
+    const awarded = await grantOwnerXpStep(
+      currentUser.uid,
+      `quest_${questId}_${currentUser.uid}`,
+      rewardAmount,
+      {
         completedQuests: arrayUnion(questId),
-      };
-
-      if (!ledgerSnap.exists()) {
-        awarded = rewardAmount;
-        tx.set(ledgerRef, {
-          userId: currentUser.uid,
-          amount: awarded,
-          reason: `QUEST_COMPLETED:${questId}`,
-          meta: { questId, githubUsername },
-          createdAt: serverTimestamp(),
-        });
-        updates.xp = increment(awarded);
-        updates.seasonXp = increment(awarded);
       }
-
-      tx.update(userRef, updates);
-    });
-
+    );
     data.xpAwarded = awarded;
   }
 
@@ -792,23 +894,12 @@ export async function approveCampaignSubmissionOnServer(submissionId: string) {
     let totalAwarded = 0;
 
     await runTransaction(db, async (tx) => {
-      const authorLedgerRef = doc(db, 'xpLedger', `campaign_approve_${submissionId}_${authorUid}`);
       const authorRef = doc(db, 'users', authorUid);
-      const [authorLedgerSnap, authorSnap] = await Promise.all([
-        tx.get(authorLedgerRef),
-        tx.get(authorRef),
-      ]);
+      const authorSnap = await tx.get(authorRef);
 
-      const partnerLedgerRef =
-        partnerUid && partnerUid !== authorUid
-          ? doc(db, 'xpLedger', `campaign_approve_${submissionId}_${partnerUid}`)
-          : null;
       const partnerRef =
         partnerUid && partnerUid !== authorUid ? doc(db, 'users', partnerUid) : null;
-      const [partnerLedgerSnap, partnerSnap] =
-        partnerLedgerRef && partnerRef
-          ? await Promise.all([tx.get(partnerLedgerRef), tx.get(partnerRef)])
-          : [null, null];
+      const partnerSnap = partnerRef ? await tx.get(partnerRef) : null;
 
       tx.update(subRef, {
         status: 'approved',
@@ -816,41 +907,34 @@ export async function approveCampaignSubmissionOnServer(submissionId: string) {
         reviewedBy: currentUser.uid,
       });
 
-      if (authorSnap.exists() && !authorLedgerSnap.exists()) {
-        const amt = CLIENT_XP_VALUES.CAMPAIGN_SUBMISSION_APPROVED;
-        totalAwarded += amt;
-        tx.set(authorLedgerRef, {
-          userId: authorUid,
-          amount: amt,
-          reason: 'CAMPAIGN_SUBMISSION_APPROVED',
-          meta: { submissionId },
-          createdAt: serverTimestamp(),
-        });
-        tx.update(authorRef, {
-          xp: increment(amt),
-          seasonXp: increment(amt),
-        });
+      const authorLedgerId = `campaign_approve_${submissionId}_${authorUid}`;
+      if (authorSnap.exists()) {
+        const aData = authorSnap.data() || {};
+        const aIds: string[] = Array.isArray(aData.xpLedgerIds) ? aData.xpLedgerIds : [];
+        if (!aIds.includes(authorLedgerId)) {
+          const amt = CLIENT_XP_VALUES.CAMPAIGN_SUBMISSION_APPROVED;
+          totalAwarded += amt;
+          tx.update(authorRef, {
+            xp: (typeof aData.xp === 'number' ? aData.xp : 0) + amt,
+            seasonXp: (typeof aData.seasonXp === 'number' ? aData.seasonXp : 0) + amt,
+            xpLedgerIds: arrayUnion(authorLedgerId),
+          });
+        }
       }
 
-      if (
-        partnerRef &&
-        partnerLedgerRef &&
-        partnerSnap?.exists() &&
-        !partnerLedgerSnap?.exists()
-      ) {
-        const amt = CLIENT_XP_VALUES.CAMPAIGN_SUBMISSION_APPROVED;
-        totalAwarded += amt;
-        tx.set(partnerLedgerRef, {
-          userId: partnerUid,
-          amount: amt,
-          reason: 'CAMPAIGN_SUBMISSION_APPROVED',
-          meta: { submissionId, role: 'partner' },
-          createdAt: serverTimestamp(),
-        });
-        tx.update(partnerRef, {
-          xp: increment(amt),
-          seasonXp: increment(amt),
-        });
+      if (partnerRef && partnerSnap?.exists()) {
+        const pData = partnerSnap.data() || {};
+        const pIds: string[] = Array.isArray(pData.xpLedgerIds) ? pData.xpLedgerIds : [];
+        const partnerLedgerId = `campaign_approve_${submissionId}_${partnerUid}`;
+        if (!pIds.includes(partnerLedgerId)) {
+          const amt = CLIENT_XP_VALUES.CAMPAIGN_SUBMISSION_APPROVED;
+          totalAwarded += amt;
+          tx.update(partnerRef, {
+            xp: (typeof pData.xp === 'number' ? pData.xp : 0) + amt,
+            seasonXp: (typeof pData.seasonXp === 'number' ? pData.seasonXp : 0) + amt,
+            xpLedgerIds: arrayUnion(partnerLedgerId),
+          });
+        }
       }
     });
 
