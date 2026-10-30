@@ -60,6 +60,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
   });
   const [openToContributions, setOpenToContributions] = useState(false);
   const [contributionAreas, setContributionAreas] = useState<string[]>([]);
+  const [contributionNeedsNote, setContributionNeedsNote] = useState('');
   const [importedGitHubMeta, setImportedGitHubMeta] = useState<ProjectGitHubMeta | null>(null);
   const [importingRepo, setImportingRepo] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -296,6 +297,7 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
         updates: [],
         openToContributions,
         contributionAreas: openToContributions ? contributionAreas : [],
+        contributionNeedsNote: openToContributions && contributionNeedsNote.trim() ? contributionNeedsNote.trim() : undefined,
         ...(finalGitHubMeta ? { githubMeta: finalGitHubMeta } : {}),
         ...(contributorUids.length > 0 ? { contributorUids } : {}),
       });
@@ -627,28 +629,43 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
             </div>
 
             {openToContributions && (
-              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
-                <div className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 mb-2">
-                  What kind of contributions are welcome? (optional)
+              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60 space-y-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 mb-2">
+                    What kind of contributions are welcome?
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CONTRIBUTION_AREAS.map((area) => {
+                      const selected = contributionAreas.includes(area);
+                      return (
+                        <button
+                          key={area}
+                          type="button"
+                          onClick={() => toggleContributionArea(area)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
+                            selected
+                              ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-600'
+                              : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-emerald-300 dark:hover:border-emerald-600'
+                          }`}
+                        >
+                          {area}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {CONTRIBUTION_AREAS.map((area) => {
-                    const selected = contributionAreas.includes(area);
-                    return (
-                      <button
-                        key={area}
-                        type="button"
-                        onClick={() => toggleContributionArea(area)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
-                          selected
-                            ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-600'
-                            : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-emerald-300 dark:hover:border-emerald-600'
-                        }`}
-                      >
-                        {area}
-                      </button>
-                    );
-                  })}
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 mb-1">
+                    Specific task or help needed <span className="font-normal opacity-75">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={contributionNeedsNote}
+                    onChange={(e) => setContributionNeedsNote(e.target.value)}
+                    placeholder="e.g. Redesigning the dashboard in Tailwind, adding dark mode, or writing unit tests"
+                    className="w-full px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-white dark:bg-neutral-900 text-xs text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
                 </div>
               </div>
             )}

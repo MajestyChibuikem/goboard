@@ -2361,6 +2361,7 @@ export async function updateProjectCollaborationSettings(
   settings: {
     openToContributions: boolean;
     contributionAreas: string[];
+    contributionNeedsNote?: string;
     repoUrl?: string;
   }
 ): Promise<void> {
@@ -2375,12 +2376,38 @@ export async function updateProjectCollaborationSettings(
   const updates: Record<string, any> = {
     openToContributions: settings.openToContributions,
     contributionAreas: settings.contributionAreas,
+    contributionNeedsNote: settings.contributionNeedsNote?.trim() || null,
   };
   if (settings.repoUrl !== undefined) {
     updates.repoUrl = settings.repoUrl.trim() || null;
   }
 
   await updateDoc(projectRef, updates);
+}
+
+export async function notifyAuthorOfPullRequest(params: {
+  authorUid: string;
+  senderUid: string;
+  senderDisplayName: string;
+  projectId: string;
+  projectTitle: string;
+  prUrlOrTitle: string;
+}): Promise<void> {
+  if (params.authorUid === params.senderUid) return; // Don't notify self
+  await createNotification({
+    type: 'pull_request',
+    userId: params.authorUid,
+    triggerUid: params.senderUid,
+    triggerDisplayName: params.senderDisplayName,
+    projectId: params.projectId,
+    projectTitle: params.projectTitle,
+    previewText: `Pull request submitted on "${params.projectTitle}"`,
+    message: `${params.senderDisplayName} submitted a Pull Request: ${params.prUrlOrTitle}`,
+    link: {
+      type: 'project',
+      id: params.projectId,
+    },
+  });
 }
 
 /**
@@ -2502,7 +2529,7 @@ export async function submitCampaignDesign(params: {
   repoUrl: string;
   figmaUrl: string;
   pitchSummary: string;
-  screenshotFiles: File[];
+  screenshotFiles?: File[];
 }): Promise<string> {
   // Check if user already submitted a pending/approved entry for prayer_book_s1
   const existingQ = query(
@@ -2518,11 +2545,13 @@ export async function submitCampaignDesign(params: {
     throw new Error('You already have an active submission for the GoUni Prayer Book Redesign Campaign.');
   }
 
-  // Upload screenshots to Cloudinary
+  // Upload screenshots to Cloudinary if provided
   const uploadedUrls: string[] = [];
-  for (const file of params.screenshotFiles.slice(0, 5)) {
-    const url = await uploadToCloudinary(file);
-    uploadedUrls.push(url);
+  if (Array.isArray(params.screenshotFiles) && params.screenshotFiles.length > 0) {
+    for (const file of params.screenshotFiles.slice(0, 5)) {
+      const url = await uploadToCloudinary(file);
+      uploadedUrls.push(url);
+    }
   }
 
   // Resolve partnerUid if duo

@@ -24,8 +24,10 @@ import {
   updateProjectCollaborationSettings,
   syncAndSaveProjectGitHub,
   uploadProjectImage,
+  notifyAuthorOfPullRequest,
 } from '../services/firestoreService';
 import { UserAvatar } from './UserAvatar';
+import { ContributeModal } from './ContributeModal';
 import { useResolvedUser } from '../contexts/UserCacheContext';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG, CONTRIBUTION_AREAS } from '../constants';
@@ -73,6 +75,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [editedWebsiteUrl, setEditedWebsiteUrl] = useState(project.websiteUrl || '');
   const [editedOpenToContributions, setEditedOpenToContributions] = useState(!!project.openToContributions);
   const [editedContributionAreas, setEditedContributionAreas] = useState<string[]>(project.contributionAreas || []);
+  const [editedContributionNeedsNote, setEditedContributionNeedsNote] = useState(project.contributionNeedsNote || '');
+  const [showContributeModal, setShowContributeModal] = useState(false);
   const [editedImageFile, setEditedImageFile] = useState<File | null>(null);
   const [editedImagePreview, setEditedImagePreview] = useState<string | null>(null);
   const [syncingGitHub, setSyncingGitHub] = useState(false);
@@ -306,12 +310,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       const trimmedRepoUrl = editedRepoUrl.trim();
       const areas = editedOpenToContributions ? editedContributionAreas : [];
+      const needsNote = editedOpenToContributions && editedContributionNeedsNote.trim() ? editedContributionNeedsNote.trim() : undefined;
 
       await updateProjectDetails(project.id, user.uid, fields);
       await updateProjectCollaborationSettings(project.id, user.uid, {
         repoUrl: trimmedRepoUrl,
         openToContributions: editedOpenToContributions,
         contributionAreas: areas,
+        contributionNeedsNote: needsNote,
       });
 
       const updatedProject: Project = {
@@ -320,6 +326,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         repoUrl: trimmedRepoUrl || undefined,
         openToContributions: editedOpenToContributions,
         contributionAreas: areas,
+        contributionNeedsNote: needsNote,
       };
       onUpdateProject(updatedProject);
 
@@ -343,6 +350,31 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setEditedContributionAreas(prev =>
       prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]
     );
+  };
+
+  const handleNotifyAuthor = async (prUrlOrTitle: string) => {
+    if (!user) {
+      onRequireAuth();
+      return;
+    }
+    if (!authorUid) {
+      toast('Author not found for this project.', 'error');
+      return;
+    }
+    try {
+      await notifyAuthorOfPullRequest({
+        authorUid,
+        senderUid: user.uid,
+        senderDisplayName: profile?.displayName || user.displayName || 'A student',
+        projectId: project.id,
+        projectTitle: project.title,
+        prUrlOrTitle,
+      });
+      toast('Author notified of your Pull Request!', 'success');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to notify author.', 'error');
+      throw err;
+    }
   };
 
   return (
@@ -423,21 +455,26 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         {/* Open-Source Contribution Banner */}
         {project.openToContributions && (
           <div className="mt-5 p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-850/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
+            <div className="space-y-1 max-w-2xl">
               <div className="flex items-center gap-2 text-[13px] font-bold text-emerald-900 dark:text-emerald-200">
                 <GitPullRequest className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                This project welcomes student pull requests & commits
+                This project welcomes student pull requests &amp; commits
               </div>
-              <p className="text-[12px] text-emerald-700/90 dark:text-emerald-400/90 mt-0.5">
+              <p className="text-[12px] text-emerald-700/90 dark:text-emerald-400/90">
                 No team invite required — fork or push code on GitHub, link your GitHub account on your GoBoard profile, and you&apos;ll automatically appear as a verified contributor (+40 XP).
               </p>
+              {project.contributionNeedsNote && (
+                <div className="p-2.5 rounded-xl bg-white/70 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/50 text-[12px] text-emerald-900 dark:text-emerald-200 italic">
+                  &ldquo;{project.contributionNeedsNote}&rdquo;
+                </div>
+              )}
               {project.contributionAreas && project.contributionAreas.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
                   <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 mr-1">Looking for help with:</span>
                   {project.contributionAreas.map(area => (
                     <span
                       key={area}
-                      className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 shadow-sm"
+                      className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 shadow-2xs"
                     >
                       {area}
                     </span>
@@ -445,18 +482,28 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </div>
               )}
             </div>
-            {project.repoUrl && (
-              <a
-                href={project.repoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] font-semibold transition-colors shrink-0 self-start sm:self-center"
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={() => setShowContributeModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] font-semibold transition-colors cursor-pointer shadow-xs"
               >
-                <Github className="w-3.5 h-3.5" />
-                Fork &amp; Open PR
-                <ExternalLink className="w-3 h-3 opacity-80" />
-              </a>
-            )}
+                <GitPullRequest className="w-3.5 h-3.5" />
+                How to Contribute
+              </button>
+              {project.repoUrl && (
+                <a
+                  href={project.repoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-neutral-850 hover:bg-neutral-50 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 text-[12px] font-semibold transition-colors"
+                >
+                  <Github className="w-3.5 h-3.5" />
+                  GitHub
+                  <ExternalLink className="w-3 h-3 opacity-70" />
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -676,6 +723,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   setEditedWebsiteUrl(project.websiteUrl || '');
                   setEditedOpenToContributions(!!project.openToContributions);
                   setEditedContributionAreas(project.contributionAreas || []);
+                  setEditedContributionNeedsNote(project.contributionNeedsNote || '');
                   setEditedImageFile(null);
                   setEditedImagePreview(null);
                   setShowEditDetailsModal(true);
@@ -898,9 +946,20 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                           <GitPullRequest className="w-3.5 h-3.5 text-emerald-500" />
                           Pull Requests ({pullRequests.length})
                         </span>
-                        {loadingPrs && (
-                          <span className="text-[10px] text-neutral-400">Loading...</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {loadingPrs && (
+                            <span className="text-[10px] text-neutral-400">Loading...</span>
+                          )}
+                          {user && user.uid !== authorUid && (
+                            <button
+                              type="button"
+                              onClick={() => setShowContributeModal(true)}
+                              className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                            >
+                              + Notify Author
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {pullRequests.length === 0 ? (
@@ -1231,6 +1290,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         );
                       })}
                     </div>
+
+                    <div className="mt-3">
+                      <label className="block text-[11px] font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
+                        Specific task or help needed <span className="font-normal opacity-75">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editedContributionNeedsNote}
+                        onChange={(e) => setEditedContributionNeedsNote(e.target.value)}
+                        placeholder="e.g. Redesigning the dashboard in Tailwind, adding dark mode, or writing unit tests"
+                        className="w-full px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-white dark:bg-neutral-900 text-xs text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -1338,6 +1410,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {showContributeModal && (
+        <ContributeModal
+          project={project}
+          onClose={() => setShowContributeModal(false)}
+          onNotifyAuthor={handleNotifyAuthor}
+          isAuthor={!!user && user.uid === authorUid}
+          currentUserDisplayName={profile?.displayName || user?.displayName || undefined}
+        />
       )}
     </div>
   );

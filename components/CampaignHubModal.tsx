@@ -64,12 +64,6 @@ interface CampaignHubModalProps {
   onVoteProject?: (e: React.MouseEvent, projectId: string) => void;
 }
 
-interface ScreenshotItem {
-  id: string;
-  file: File;
-  previewUrl: string;
-}
-
 export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   initialTab = 'quests',
   onClose,
@@ -109,7 +103,6 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   const [repoUrl, setRepoUrl] = useState('');
   const [figmaUrl, setFigmaUrl] = useState('');
   const [pitchSummary, setPitchSummary] = useState('');
-  const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
   const [validatingRepo, setValidatingRepo] = useState(false);
   const [repoValidationInfo, setRepoValidationInfo] = useState<{
     valid: boolean;
@@ -118,7 +111,6 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   } | null>(null);
   const [submittingDesign, setSubmittingDesign] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToCampaignSubmissions(
@@ -215,41 +207,6 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
     }
   };
 
-  const handleScreenshotSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    const remaining = 5 - screenshots.length;
-    if (remaining <= 0) {
-      toast('Maximum 5 screenshots allowed.', 'error');
-      return;
-    }
-
-    const toAdd: ScreenshotItem[] = [];
-    for (const file of files.slice(0, remaining)) {
-      if (file.size > 6 * 1024 * 1024) {
-        toast(`${file.name} exceeds 6MB limit.`, 'error');
-        continue;
-      }
-      toAdd.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        file,
-        previewUrl: URL.createObjectURL(file),
-      });
-    }
-
-    setScreenshots((prev) => [...prev, ...toAdd]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeScreenshot = (id: string) => {
-    setScreenshots((prev) => {
-      const target = prev.find((x) => x.id === id);
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((x) => x.id !== id);
-    });
-  };
-
   const handleValidateRepo = async () => {
     setFormError(null);
     setRepoValidationInfo(null);
@@ -303,10 +260,6 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
       setFormError('Please enter your duo partner’s @username or display name.');
       return;
     }
-    if (screenshots.length === 0) {
-      setFormError('Please upload at least 1 UI screenshot of your GoUni Prayer Book redesign.');
-      return;
-    }
 
     setSubmittingDesign(true);
     try {
@@ -327,7 +280,6 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
         repoUrl: repoUrl.trim(),
         figmaUrl: figmaUrl.trim(),
         pitchSummary: pitchSummary.trim(),
-        screenshotFiles: screenshots.map((s) => s.file),
       });
 
       toast('Redesign submitted! Campus admins will review it shortly.', 'success');
@@ -335,7 +287,6 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
       setFigmaUrl('');
       setPitchSummary('');
       setPartnerUsername('');
-      setScreenshots([]);
       setRepoValidationInfo(null);
       setActiveTab('submissions');
     } catch (err: any) {
@@ -1043,42 +994,16 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                     />
                   </div>
 
-                  {/* Screenshots Upload */}
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                      UI Mockup Screenshots (1 to 5 images)
-                    </label>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      multiple
-                      onChange={handleScreenshotSelect}
-                      className="hidden"
-                    />
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {screenshots.map((item) => (
-                        <div key={item.id} className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 h-28">
-                          <img src={item.previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeScreenshot(item.id)}
-                            className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/70 text-white hover:bg-red-600 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                      {screenshots.length < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="h-28 rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-amber-500 flex flex-col items-center justify-center gap-1 text-xs font-bold text-neutral-500 cursor-pointer"
-                        >
-                          <Upload className="w-5 h-5" />
-                          <span>Add Screen</span>
-                        </button>
-                      )}
+                  {/* Notice about screenshots staying on GitHub/Figma */}
+                  <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-600 dark:text-neutral-400 flex items-start gap-3">
+                    <Github className="w-5 h-5 text-neutral-500 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+                        No image upload needed on GoBoard
+                      </div>
+                      <p className="leading-relaxed">
+                        Include your UI mockups, before/after comparisons, and design rationale directly in your public GitHub repository&apos;s <code className="font-mono font-bold">README.md</code> or inside your Figma file. Everything stays lightweight on the platform!
+                      </p>
                     </div>
                   </div>
 
@@ -1090,7 +1015,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                     {submittingDesign ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Validating & Uploading Redesign...
+                        Validating & Submitting Redesign...
                       </>
                     ) : (
                       <>
@@ -1144,7 +1069,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                         className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden flex flex-col justify-between shadow-xs"
                       >
                         <div>
-                          {sub.screenshots?.[0] && (
+                          {sub.screenshots?.[0] ? (
                             <div className="h-44 bg-neutral-100 dark:bg-neutral-800 relative overflow-hidden">
                               <img
                                 src={sub.screenshots[0]}
@@ -1163,6 +1088,19 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                                   </span>
                                 )}
                               </div>
+                            </div>
+                          ) : (
+                            <div className="px-4 pt-4 pb-1 flex items-center justify-between">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+                                {sub.teamSize === 'duo'
+                                  ? `Duo • +@${sub.partnerUsername}`
+                                  : 'Solo Entry'}
+                              </span>
+                              {sub.status !== 'approved' && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500 text-neutral-950">
+                                  {sub.status}
+                                </span>
+                              )}
                             </div>
                           )}
 

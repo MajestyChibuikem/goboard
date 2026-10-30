@@ -358,7 +358,7 @@ const App: React.FC = () => {
                <button
                  type="button"
                  onClick={() => openCampaignHub('upload')}
-                 title="Open Exam Paper Bounty Hub"
+                 title="GoCoins Balance"
                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 hover:from-amber-100 dark:hover:from-amber-900/50 hover:to-orange-100 border border-amber-200/80 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 transition-all shadow-2xs cursor-pointer"
                >
                  <Coins className="w-4 h-4 text-amber-500 shrink-0" />
@@ -367,6 +367,24 @@ const App: React.FC = () => {
                  </span>
                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">
                    GC
+                 </span>
+               </button>
+             )}
+
+             {/* Live XP HUD Pill */}
+             {user && (
+               <button
+                 type="button"
+                 onClick={() => openCampaignHub('quests')}
+                 title="Builder XP & Quests"
+                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 border border-blue-200/80 dark:border-blue-800/80 text-blue-900 dark:text-blue-200 transition-all shadow-2xs cursor-pointer"
+               >
+                 <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                 <span className="text-xs font-extrabold tabular-nums">
+                   {(profile?.xp ?? 0).toLocaleString()}
+                 </span>
+                 <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">
+                   XP
                  </span>
                </button>
              )}

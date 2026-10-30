@@ -26,7 +26,7 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension' | 'paper_approved' | 'paper_closed' | 'id_verified' | 'id_rejected' | 'payday_paid' | 'campaign_approved' | 'campaign_rejected';
+  type: 'approval' | 'rejection' | 'comment' | 'reply' | 'mention' | 'suspension' | 'paper_approved' | 'paper_closed' | 'id_verified' | 'id_rejected' | 'payday_paid' | 'campaign_approved' | 'campaign_rejected' | 'pull_request';
   userId: string;
   triggerUid: string;
   triggerDisplayName: string;
@@ -78,6 +78,7 @@ export interface Project {
   // GitHub Open-Source Collaboration fields
   openToContributions?: boolean;
   contributionAreas?: string[];
+  contributionNeedsNote?: string;
   githubMeta?: ProjectGitHubMeta;
   contributorUids?: string[];
 }

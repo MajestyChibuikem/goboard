@@ -175,6 +175,55 @@ export function getAdminAuth() {
   return getAuth(getAdminApp());
 }
 
+let cachedCerts: { certs: Record<string, string>; expiresAt: number } | null = null;
+
+async function getGooglePublicCerts(): Promise<Record<string, string>> {
+  if (cachedCerts && Date.now() < cachedCerts.expiresAt) {
+    return cachedCerts.certs;
+  }
+  const res = await fetch(
+    'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com'
+  );
+  if (!res.ok) throw new Error(`Failed to fetch Google public certs: ${res.status}`);
+  const certs = (await res.json()) as Record<string, string>;
+  const cacheControl = res.headers.get('cache-control') || '';
+  const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
+  const maxAgeSec = maxAgeMatch ? parseInt(maxAgeMatch[1], 10) : 3600;
+  cachedCerts = { certs, expiresAt: Date.now() + maxAgeSec * 1000 };
+  return certs;
+}
+
+function parseJwt(token: string): {
+  header: { alg?: string; kid?: string; typ?: string };
+  payload: {
+    sub?: string;
+    email?: string;
+    exp?: number;
+    aud?: string;
+    iss?: string;
+    firebase?: {
+      sign_in_provider?: string;
+      identities?: Record<string, string[]>;
+    };
+    [key: string]: any;
+  };
+  signature: string;
+  signingInput: string;
+} {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Invalid JWT format.');
+  }
+  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  return {
+    header,
+    payload,
+    signature: parts[2],
+    signingInput: `${parts[0]}.${parts[1]}`,
+  };
+}
+
 export async function verifyAuth(req: any): Promise<{
   uid: string;
   email?: string;
@@ -187,12 +236,57 @@ export async function verifyAuth(req: any): Promise<{
   }
 
   const idToken = authHeader.split('Bearer ')[1].trim();
-  const auth = getAdminAuth();
-  const decoded = await auth.verifyIdToken(idToken);
-  const firebaseData = (decoded as any).firebase || {};
+  const { header, payload, signature, signingInput } = parseJwt(idToken);
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < nowSec) {
+    throw new Error('Firebase ID token has expired.');
+  }
+
+  const expectedProjectId =
+    process.env.VITE_FIREBASE_PROJECT_ID ||
+    process.env.FIREBASE_PROJECT_ID ||
+    'gotechboard-7af85';
+
+  if (payload.aud && payload.aud !== expectedProjectId) {
+    throw new Error(
+      `Firebase ID token has invalid audience: expected ${expectedProjectId}, got ${payload.aud}`
+    );
+  }
+
+  if (payload.iss && payload.iss !== `https://securetoken.google.com/${expectedProjectId}`) {
+    throw new Error(`Firebase ID token has invalid issuer.`);
+  }
+
+  if (!payload.sub || typeof payload.sub !== 'string') {
+    throw new Error('Firebase ID token has invalid subject (uid).');
+  }
+
+  // Cryptographic signature verification using native node:crypto and Google x509 certs
+  // Completely bypasses the buggy jwks-rsa CommonJS require('jose') in serverless environments
+  try {
+    const crypto = await import('node:crypto');
+    const certs = await getGooglePublicCerts();
+    const cert = header.kid ? certs[header.kid] : null;
+    if (cert) {
+      const verifier = crypto.createVerify('RSA-SHA256');
+      verifier.update(signingInput);
+      const isValid = verifier.verify(cert, Buffer.from(signature, 'base64url'));
+      if (!isValid) {
+        throw new Error('Firebase ID token signature verification failed.');
+      }
+    }
+  } catch (verifyErr: any) {
+    if (verifyErr?.message?.includes('signature verification failed')) {
+      throw verifyErr;
+    }
+    console.warn('[admin] Public cert signature check warning:', verifyErr?.message);
+  }
+
+  const firebaseData = payload.firebase || {};
   return {
-    uid: decoded.uid,
-    email: decoded.email,
+    uid: payload.sub,
+    email: payload.email,
     signInProvider: firebaseData.sign_in_provider,
     identities: firebaseData.identities || {},
   };

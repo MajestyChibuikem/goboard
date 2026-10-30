@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, MessageCircle, AtSign, ArrowDownRight, Trophy, ShieldCheck, Coins, Info } from 'lucide-react';
+import { Check, X, MessageCircle, AtSign, ArrowDownRight, Trophy, ShieldCheck, Coins, Info, GitPullRequest } from 'lucide-react';
 import { Notification } from '../types';
 
 interface NotificationItemProps {
@@ -32,6 +32,8 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
         return <ShieldCheck className="w-4 h-4 text-emerald-600" />;
       case 'payday_paid':
         return <Coins className="w-4 h-4 text-amber-600" />;
+      case 'pull_request':
+        return <GitPullRequest className="w-4 h-4 text-emerald-600" />;
       default:
         return <MessageCircle className="w-4 h-4 text-neutral-600" />;
     }
@@ -59,6 +61,8 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
         return 'Student ID Rejected';
       case 'payday_paid':
         return 'Payday Reward Sent';
+      case 'pull_request':
+        return 'Pull Request Submitted';
       default:
         return 'Notification';
     }
