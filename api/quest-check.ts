@@ -1,5 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb, verifyAuth } from './_lib/admin.js';
+import { getAdminDb, verifyAuth, hasServiceAccountCredentials } from './_lib/admin.js';
 import { XP_VALUES } from './_lib/xpRules.js';
 import {
   getTodayString,
@@ -425,20 +425,35 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ error: err?.message || 'Unauthorized: Invalid or missing token' });
   }
 
-  const adminDb = getAdminDb();
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   const action = body.action || 'check_quest';
+  const canUseAdminDb = hasServiceAccountCredentials();
 
   try {
-    const userRef = adminDb.collection('users').doc(uid);
-    const userSnap = await userRef.get();
-    if (!userSnap.exists) {
-      return res.status(404).json({ error: 'User profile not found' });
+    let userData: Record<string, any> | null = null;
+    if (canUseAdminDb) {
+      try {
+        const adminDb = getAdminDb();
+        const userRef = adminDb.collection('users').doc(uid);
+        const userSnap = await userRef.get();
+        if (userSnap.exists) {
+          userData = userSnap.data() || null;
+        }
+      } catch (dbErr) {
+        console.warn('[quest-check] Admin DB read failed, using client fallback context:', dbErr);
+      }
     }
-    const userData = userSnap.data()!;
 
     // ── Action 3: Admin Approve Campaign Submission (+50 XP) ──
     if (action === 'approve_campaign_submission') {
+      if (!canUseAdminDb || !userData) {
+        return res.status(200).json({
+          success: true,
+          awarded: 0,
+          fallbackToClient: true,
+        });
+      }
+
       if (userData.isAdmin !== true) {
         return res.status(403).json({
           success: false,
@@ -451,6 +466,7 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ success: false, error: 'submissionId is required.' });
       }
 
+      const adminDb = getAdminDb();
       const subRef = adminDb.collection('campaignSubmissions').doc(submissionId);
       const subSnap = await subRef.get();
       if (!subSnap.exists) {
@@ -529,12 +545,14 @@ export default async function handler(req: any, res: any) {
 
     // ── Action 2: Validate Campaign Submission Repo ──
     if (action === 'validate_campaign_repo') {
-      const userXp = userData.xp || 0;
-      if (userXp < 100 && !userData.isAdmin) {
-        return res.status(403).json({
-          success: false,
-          error: `You need at least 100 XP to submit to the GoUni Prayer Book Redesign Campaign (current: ${userXp} XP).`,
-        });
+      if (userData) {
+        const userXp = userData.xp || 0;
+        if (userXp < 100 && !userData.isAdmin) {
+          return res.status(403).json({
+            success: false,
+            error: `You need at least 100 XP to submit to the GoUni Prayer Book Redesign Campaign (current: ${userXp} XP).`,
+          });
+        }
       }
 
       const repoUrl = String(body.repoUrl || '').trim();
@@ -609,8 +627,12 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: `Unknown questId: ${questId}` });
     }
 
-    const githubUsername =
-      userData.githubProfile?.username || userData.githubUsernameLower || '';
+    const githubUsername = String(
+      userData?.githubProfile?.username ||
+        userData?.githubUsernameLower ||
+        body.githubUsername ||
+        ''
+    ).trim();
     if (!githubUsername) {
       return res.status(400).json({
         success: false,
@@ -618,8 +640,10 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const completedQuests: string[] = Array.isArray(userData.completedQuests)
-      ? userData.completedQuests
+    const completedQuests: string[] = Array.isArray(userData?.completedQuests)
+      ? userData!.completedQuests
+      : Array.isArray(body.completedQuests)
+      ? body.completedQuests
       : [];
 
     if (
@@ -639,41 +663,53 @@ export default async function handler(req: any, res: any) {
 
     const allPassed = grade.results.every((r) => r.passed);
     const alreadyCompleted = completedQuests.includes(questId);
+    const rewardAmount =
+      questId === 'quest_1_baby_steps'
+        ? XP_VALUES.QUEST_1_BABY_STEPS
+        : XP_VALUES.QUEST_2_SHELL_BASICS;
+
     let xpAwarded = 0;
+    let clientShouldAwardXp = false;
 
     if (allPassed) {
-      const today = getTodayString();
-      const ledgerId = `quest_${questId}_${uid}`;
-      const rewardAmount =
-        questId === 'quest_1_baby_steps'
-          ? XP_VALUES.QUEST_1_BABY_STEPS
-          : XP_VALUES.QUEST_2_SHELL_BASICS;
+      if (canUseAdminDb && userData) {
+        try {
+          const adminDb = getAdminDb();
+          const today = getTodayString();
+          const ledgerId = `quest_${questId}_${uid}`;
 
-      xpAwarded = await adminDb.runTransaction(async (tx) => {
-        const readState = await readXpGrantState(
-          tx,
-          adminDb,
-          ledgerId,
-          uid,
-          rewardAmount,
-          today,
-          true // Bypass daily cap for one-time quest curriculum milestones
-        );
+          xpAwarded = await adminDb.runTransaction(async (tx) => {
+            const readState = await readXpGrantState(
+              tx,
+              adminDb,
+              ledgerId,
+              uid,
+              rewardAmount,
+              today,
+              true // Bypass daily cap for one-time quest curriculum milestones
+            );
 
-        return applyXpGrantInTransaction(
-          tx,
-          adminDb,
-          ledgerId,
-          uid,
-          readState,
-          `QUEST_COMPLETED:${questId}`,
-          today,
-          { questId, githubUsername },
-          {
-            completedQuests: FieldValue.arrayUnion(questId),
-          }
-        );
-      });
+            return applyXpGrantInTransaction(
+              tx,
+              adminDb,
+              ledgerId,
+              uid,
+              readState,
+              `QUEST_COMPLETED:${questId}`,
+              today,
+              { questId, githubUsername },
+              {
+                completedQuests: FieldValue.arrayUnion(questId),
+              }
+            );
+          });
+        } catch (txErr) {
+          console.warn('[quest-check] Admin DB transaction failed, delegating XP grant to client:', txErr);
+          clientShouldAwardXp = true;
+        }
+      } else {
+        clientShouldAwardXp = true;
+      }
     }
 
     return res.status(200).json({
@@ -682,6 +718,8 @@ export default async function handler(req: any, res: any) {
       allPassed,
       alreadyCompleted,
       xpAwarded,
+      clientShouldAwardXp,
+      rewardAmount,
       repoUrl: grade.repoUrl,
       results: grade.results,
     });

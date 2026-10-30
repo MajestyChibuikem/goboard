@@ -174,8 +174,13 @@ export const WelcomePage: React.FC = () => {
   const handleGitHubConnect = async () => {
     setConnectingGh(true);
     try {
-      await connectGitHubWithOAuth();
-      toast('GitHub account connected!', 'success');
+      const { xpAwarded } = await connectGitHubWithOAuth();
+      toast(
+        xpAwarded > 0
+          ? `GitHub account connected! +${xpAwarded} XP awarded!`
+          : 'GitHub account connected!',
+        'success'
+      );
     } catch (err: any) {
       toast(err.message || 'Could not connect GitHub', 'error');
     } finally {

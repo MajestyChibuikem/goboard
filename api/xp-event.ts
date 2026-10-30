@@ -1,4 +1,4 @@
-import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth } from './_lib/admin.js';
+import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth, hasServiceAccountCredentials } from './_lib/admin.js';
 import { XP_VALUES, XP_LIMITS } from './_lib/xpRules.js';
 import { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator } from './_lib/ledger.js';
 import { fetchServerGitHubBundle } from './_lib/githubServer.js';
@@ -36,13 +36,24 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  const db = getAdminDb();
-  const today = getTodayString();
   const { type, projectId, writingId, targetType, targetId, commentId } = req.body || {};
 
   if (!type || typeof type !== 'string') {
     return res.status(400).json({ error: 'Event type is required.' });
   }
+
+  // If the server environment does not have Firebase Service Account credentials configured,
+  // return a 200 fallback signal so the client executes the ledger-backed Firestore transaction directly.
+  if (!hasServiceAccountCredentials()) {
+    return res.status(200).json({
+      success: true,
+      awarded: 0,
+      fallbackToClient: true,
+    });
+  }
+
+  const db = getAdminDb();
+  const today = getTodayString();
 
   try {
     switch (type) {
@@ -724,7 +735,7 @@ export default async function handler(req: any, res: any) {
           previousRewardedDate: userData.lastRewardedCodingDate,
         });
 
-        // 4. Calculate eligible coding XP
+        // 4. Calculate eligible coding XP (plus guaranteed first-time GitHub connection bonus)
         const activeDate = freshProfile.lastActiveDate;
         const lastRewarded = userData.lastRewardedCodingDate;
         let eligibleForXp = false;
@@ -737,12 +748,23 @@ export default async function handler(req: any, res: any) {
           }
         }
 
+        const connectLedgerId = `github_connect_${callerUid}`;
         const ledgerId = activeDate ? `github_${callerUid}_${activeDate}` : `github_${callerUid}_noop`;
         let awarded = 0;
 
         await db.runTransaction(async (tx) => {
+          const connectRead = await readXpGrantState(
+            tx,
+            db,
+            connectLedgerId,
+            callerUid,
+            XP_VALUES.GITHUB_CONNECT,
+            today,
+            true // First-time GitHub connection milestone bypasses daily cap
+          );
+
           let readState: any = null;
-          if (eligibleForXp && activeDate) {
+          if (eligibleForXp && activeDate && connectRead.alreadyGranted) {
             readState = await readXpGrantState(
               tx,
               db,
@@ -755,8 +777,19 @@ export default async function handler(req: any, res: any) {
 
           // Writes
           const acc = new XpTransactionAccumulator();
+          const awardedConnect = acc.addGrant(
+            db,
+            connectLedgerId,
+            callerUid,
+            connectRead,
+            'GITHUB_CONNECT',
+            today,
+            { username: freshProfile.username }
+          );
+
+          let awardedActive = 0;
           if (readState) {
-            awarded = acc.addGrant(
+            awardedActive = acc.addGrant(
               db,
               ledgerId,
               callerUid,
@@ -766,6 +799,7 @@ export default async function handler(req: any, res: any) {
               { activeDate }
             );
           }
+          awarded = awardedConnect + awardedActive;
 
           const updatePayload: Record<string, any> = {
             githubProfile: freshProfile,
@@ -911,7 +945,12 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: `Unknown event type: ${type}` });
     }
   } catch (err: any) {
-    console.error('XP Event processing error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error while processing XP event.' });
+    console.error('XP Event processing error (falling back to client transaction):', err);
+    return res.status(200).json({
+      success: true,
+      awarded: 0,
+      fallbackToClient: true,
+      serverError: err.message || 'Server fallback',
+    });
   }
 }

@@ -22,7 +22,7 @@ import {
   saveUserGitHubProfile,
   disconnectUserGitHubProfile,
 } from '../services/firestoreService';
-import { reportXpEvent } from '../services/xpClient';
+import { reportXpEvent, reconcileMissingUserXp } from '../services/xpClient';
 import { fetchGitHubUserBundle } from '../services/githubService';
 import { getRank, cleanOldFirebaseUrl } from '../services/utils';
 import { StudentVerificationStatus, BankDetails, GitHubProfileData } from '../types';
@@ -383,6 +383,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         trackLoginStreak(firebaseUser.uid).catch((err) =>
           console.warn('Failed to track login streak:', err)
         );
+        reconcileMissingUserXp(firebaseUser.uid).catch((err) =>
+          console.warn('Failed to reconcile missing XP:', err)
+        );
         deleteViewedNotifications(firebaseUser.uid).catch((err) =>
           console.warn('Failed to cleanup notifications:', err)
         );
@@ -602,6 +605,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...prev,
               githubProfile: updatedProfile,
               githubUsernameLower: updatedProfile.username.toLowerCase(),
+              ...(xpAwarded > 0
+                ? {
+                    xp: (prev.xp || 0) + xpAwarded,
+                    seasonXp: (prev.seasonXp || 0) + xpAwarded,
+                    rank: getRank((prev.xp || 0) + xpAwarded),
+                  }
+                : {}),
             }
           : prev
       );

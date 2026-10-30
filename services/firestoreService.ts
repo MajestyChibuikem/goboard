@@ -318,8 +318,8 @@ export async function createProject(
     xpMilestonesAwarded: [],
   });
 
-  // Report submission event to server-authoritative XP engine
-  reportXpEvent({ type: 'PROJECT_SUBMITTED', projectId: docRef.id }).catch(console.warn);
+  // Report submission event to server-authoritative XP engine (with ledger-backed client fallback)
+  await reportXpEvent({ type: 'PROJECT_SUBMITTED', projectId: docRef.id }).catch(console.warn);
 
   return docRef.id;
 }
@@ -627,8 +627,8 @@ export async function approveProject(projectId: string) {
         },
       });
 
-      // Report project approval to server-authoritative XP engine
-      reportXpEvent({ type: 'PROJECT_APPROVED', projectId }).catch(console.warn);
+      // Report project approval to server-authoritative XP engine (with ledger-backed client fallback)
+      await reportXpEvent({ type: 'PROJECT_APPROVED', projectId }).catch(console.warn);
     }
   }
 }
@@ -2207,8 +2207,8 @@ export async function saveUserGitHubProfile(
   userId: string,
   fallbackProfile?: GitHubProfileData
 ): Promise<{ xpAwarded: number; updatedProfile: GitHubProfileData }> {
-  // Server is the sole authoritative writer of GitHub data and activity XP
-  const res = await reportXpEvent({ type: 'GITHUB_SYNC' });
+  // Server-first GitHub sync and XP grant, with ledger-backed client fallback
+  const res = await reportXpEvent({ type: 'GITHUB_SYNC', profile: fallbackProfile });
   const finalProfile = res.profile || fallbackProfile;
   if (!finalProfile) {
     throw new Error(res.error || 'Failed to sync GitHub profile with server.');

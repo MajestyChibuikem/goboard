@@ -64,16 +64,16 @@ rules_version = '2';
 //   - displayName: string
 //   - email: string
 //   - photoURL: string (optional)
-//   - xp: number (IMMUTABLE by clients)
-//   - seasonXp: number (IMMUTABLE by clients)
-//   - streakDays: number (IMMUTABLE by clients)
-//   - lastLoginDate: string (IMMUTABLE by clients)
-//   - commentXpToday: number (IMMUTABLE by clients)
-//   - lastCommentXpDate: string (IMMUTABLE by clients)
+//   - xp: number (bounded delta: <= 300 for owner, <= 80 for cross-user)
+//   - seasonXp: number (synchronized with xp)
+//   - streakDays: number
+//   - lastLoginDate: string
+//   - commentXpToday: number
+//   - lastCommentXpDate: string
 //   - isAdmin: bool (IMMUTABLE by non-admins)
 //   - hasEditedDisplayName: bool
 //   - displayNameEditedAt: string (optional)
-//   - joinedAt: timestamp or string
+//   - joinedAt: timestamp or string (IMMUTABLE by non-admins)
 //   - goCoins: number (IMMUTABLE by non-admins)
 //   - totalGoCoinsEarned: number (IMMUTABLE by non-admins)
 //   - verificationStatus: string ('none' | 'pending' | 'verified' | 'rejected')
@@ -88,11 +88,11 @@ rules_version = '2';
 //   - accentColor: string (optional)
 //   - githubProfile: map or null (optional)
 //   - githubUsernameLower: string or null (optional)
-//   - onboardingCompletedAt: timestamp (IMMUTABLE by clients)
-//   - lastRewardedCodingDate: string (IMMUTABLE by clients)
-//   - githubSyncedAt: timestamp (IMMUTABLE by clients)
-//   - interests: list of strings (optional)
-//   - completedQuests: list of strings (IMMUTABLE by clients)
+//   - onboardingCompletedAt: timestamp or string (optional)
+//   - lastRewardedCodingDate: string (optional)
+//   - githubSyncedAt: timestamp or string (optional)
+//   - interests: list of strings (optional, max 5)
+//   - completedQuests: list of strings (optional, max 20)
 //
 // Subcollection: /users/{userId}/notifications/{notifId}
 // Fields:
@@ -264,9 +264,9 @@ service cloud.firestore {
           request.resource.data.contributorUids.size() <= 50
         ) ||
 
-        // Any signed-in user toggling vote (likes ±1, atomized with vote document)
+        // Any signed-in user toggling vote (likes ±1, atomized with vote document, and optional xpMilestonesAwarded)
         (
-          affectedKeys().hasOnly(['likes']) &&
+          (affectedKeys().hasOnly(['likes']) || affectedKeys().hasOnly(['likes', 'xpMilestonesAwarded'])) &&
           math.abs(request.resource.data.likes - resource.data.likes) == 1 &&
           (
             (request.resource.data.likes > resource.data.likes &&
@@ -449,16 +449,31 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // ── XP & Gamification (Server-Authoritative Ledger) ──
+    // ── XP & Gamification (Ledger & Daily Tracker with Client Fallback) ──
 
     match /xpLedger/{ledgerId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
-      allow write: if false;
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.userId is string &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.amount <= 150 &&
+        request.resource.data.reason is string;
+
+      allow update, delete: if false;
     }
 
     match /xpDaily/{dailyId} {
-      allow read: if isAdmin();
-      allow write: if false;
+      allow read: if isSignedIn();
+
+      allow create, update: if isSignedIn() &&
+        request.resource.data.userId is string &&
+        request.resource.data.total is number &&
+        request.resource.data.total >= 0 &&
+        request.resource.data.total <= 500;
+
+      allow delete: if false;
     }
 
     // ── Campaign Submissions (Season 1) ──
@@ -532,17 +547,22 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         isAdmin() ||
 
+        // Cross-user XP grant (when a voter or commenter awards XP to a post author)
+        (
+          !isOwner(userId) &&
+          affectedKeys().hasOnly(['xp', 'seasonXp']) &&
+          request.resource.data.xp is number &&
+          request.resource.data.seasonXp is number &&
+          request.resource.data.xp > resource.data.get('xp', 0) &&
+          request.resource.data.xp - resource.data.get('xp', 0) <= 80 &&
+          request.resource.data.seasonXp - resource.data.get('seasonXp', 0) == request.resource.data.xp - resource.data.get('xp', 0)
+        ) ||
+
         // Owner updating profile
         (
           isOwner(userId) &&
-          // Cannot promote to admin, alter joinedAt, self-mint GoCoins, or modify server-authoritative XP, streak, onboarding, GitHub sync, and quests fields
-          !affectedKeys().hasAny([
-            'isAdmin', 'joinedAt', 'goCoins', 'totalGoCoinsEarned',
-            'xp', 'seasonXp', 'streakDays', 'lastLoginDate',
-            'commentXpToday', 'lastCommentXpDate',
-            'onboardingCompletedAt', 'lastRewardedCodingDate', 'githubSyncedAt',
-            'completedQuests'
-          ]) &&
+          // Cannot promote to admin, alter joinedAt, or self-mint GoCoins
+          !affectedKeys().hasAny(['isAdmin', 'joinedAt', 'goCoins', 'totalGoCoinsEarned']) &&
           // Cannot self-verify Student ID; can only keep status unchanged or set to 'pending' on ID upload
           (
             request.resource.data.get('verificationStatus', 'none') == resource.data.get('verificationStatus', 'none') ||
@@ -553,13 +573,16 @@ service cloud.firestore {
             request.resource.data.get('hasEditedDisplayName', false) == resource.data.get('hasEditedDisplayName', false) ||
             (resource.data.get('hasEditedDisplayName', false) == false && request.resource.data.get('hasEditedDisplayName', false) == true)
           ) &&
-          // Client can ONLY disconnect GitHub (setting both profile and username to null); cannot write arbitrary profile/username
+          // GitHub profile updates: map or null for profile, string or null for username
           (
-            !affectedKeys().hasAny(['githubProfile', 'githubUsernameLower']) ||
-            (
-              request.resource.data.get('githubProfile', null) == null &&
-              request.resource.data.get('githubUsernameLower', null) == null
-            )
+            !affectedKeys().hasAny(['githubProfile']) ||
+            request.resource.data.get('githubProfile', null) == null ||
+            request.resource.data.githubProfile is map
+          ) &&
+          (
+            !affectedKeys().hasAny(['githubUsernameLower']) ||
+            request.resource.data.get('githubUsernameLower', null) == null ||
+            request.resource.data.githubUsernameLower is string
           ) &&
           // Client interests field: must be a list with max 5 items
           (
@@ -567,6 +590,26 @@ service cloud.firestore {
             (
               request.resource.data.get('interests', []) is list &&
               request.resource.data.get('interests', []).size() <= 5
+            )
+          ) &&
+          // Quests field: if modified, must be a list with max 20 items
+          (
+            !affectedKeys().hasAny(['completedQuests']) ||
+            (
+              request.resource.data.get('completedQuests', []) is list &&
+              request.resource.data.get('completedQuests', []).size() <= 20
+            )
+          ) &&
+          // XP increment bounds: max 300 XP delta per transaction, synchronized with seasonXp
+          (
+            !affectedKeys().hasAny(['xp', 'seasonXp']) ||
+            (
+              request.resource.data.xp is number &&
+              request.resource.data.seasonXp is number &&
+              request.resource.data.xp >= resource.data.get('xp', 0) &&
+              request.resource.data.xp - resource.data.get('xp', 0) <= 300 &&
+              request.resource.data.seasonXp >= resource.data.get('seasonXp', 0) &&
+              request.resource.data.seasonXp - resource.data.get('seasonXp', 0) == request.resource.data.xp - resource.data.get('xp', 0)
             )
           )
         )

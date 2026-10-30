@@ -31,6 +31,20 @@ function parseServiceAccountEnv(raw: string): any | null {
   }
 }
 
+export function hasServiceAccountCredentials(): boolean {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const sa = parseServiceAccountEnv(process.env.FIREBASE_SERVICE_ACCOUNT);
+    if (sa && sa.private_key && sa.client_email) return true;
+  }
+  if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+    return true;
+  }
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return true;
+  }
+  return false;
+}
+
 export function getAdminApp(): App {
   if (getApps().length > 0) {
     return getApp();
