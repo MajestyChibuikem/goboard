@@ -308,7 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (hasGitHub || accessToken) {
             try {
               const ghData = await fetchGitHubUserBundle({ accessToken }, true);
-              const { updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+              const { updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData, accessToken);
               if (isMounted) {
                 setProfile((prev) =>
                   prev
@@ -530,7 +530,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const accessToken = credential?.accessToken;
       if (result.user) {
         fetchGitHubUserBundle({ accessToken }, true)
-          .then((ghData) => saveUserGitHubProfile(result.user.uid, ghData))
+          .then((ghData) => saveUserGitHubProfile(result.user.uid, ghData, accessToken))
           .then(({ updatedProfile }) => {
             setProfile((prev) =>
               prev
@@ -598,7 +598,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile?.githubProfile?.lastRewardedCodingDate
       );
 
-      const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData);
+      const { xpAwarded, updatedProfile } = await saveUserGitHubProfile(currentUser.uid, ghData, accessToken);
       setProfile((prev) =>
         prev
           ? {

@@ -39,6 +39,9 @@ export interface XpEventPayload {
   academicLevel?: string;
   interests?: string[];
   profile?: GitHubProfileData;
+  accessToken?: string;
+  githubUsername?: string;
+  githubId?: string;
 }
 
 export interface XpEventResponse {
@@ -587,14 +590,13 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
 
   try {
     const idToken = await currentUser.getIdToken();
-    const { profile: _omitProfile, ...serverPayload } = payload;
     const response = await fetch('/api/xp-event', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${idToken}`,
       },
-      body: JSON.stringify(serverPayload),
+      body: JSON.stringify(payload),
     });
 
     if (response.ok) {
@@ -638,7 +640,13 @@ export async function reconcileMissingUserXp(uid: string): Promise<number> {
       const onboardingLedgerRef = doc(db, 'xpLedger', `onboarding_${uid}`);
       const onboardingSnap = await getDoc(onboardingLedgerRef);
       if (!onboardingSnap.exists()) {
-        const res = await executeClientXpFallback(uid, { type: 'ONBOARDING_COMPLETED' });
+        const res = await reportXpEvent({
+          type: 'ONBOARDING_COMPLETED',
+          displayName: userData.displayName || 'Student',
+          department: userData.department || 'Computer Science',
+          academicLevel: userData.academicLevel || '100L',
+          interests: Array.isArray(userData.interests) ? userData.interests : [],
+        });
         totalReconciled += res.awarded || 0;
       }
     }
@@ -648,9 +656,11 @@ export async function reconcileMissingUserXp(uid: string): Promise<number> {
       const ghLedgerRef = doc(db, 'xpLedger', `github_connect_${uid}`);
       const ghSnap = await getDoc(ghLedgerRef);
       if (!ghSnap.exists()) {
-        const res = await executeClientXpFallback(uid, {
+        const res = await reportXpEvent({
           type: 'GITHUB_SYNC',
           profile: userData.githubProfile,
+          githubUsername: userData.githubProfile.username,
+          githubId: userData.githubProfile.githubId ? String(userData.githubProfile.githubId) : undefined,
         });
         totalReconciled += res.awarded || 0;
       }
@@ -666,7 +676,7 @@ export async function reconcileMissingUserXp(uid: string): Promise<number> {
 
       const submitLedgerSnap = await getDoc(doc(db, 'xpLedger', `submit_${projId}`));
       if (!submitLedgerSnap.exists()) {
-        const res = await executeClientXpFallback(uid, {
+        const res = await reportXpEvent({
           type: 'PROJECT_SUBMITTED',
           projectId: projId,
         });
@@ -676,7 +686,7 @@ export async function reconcileMissingUserXp(uid: string): Promise<number> {
       if (projData.approvalStatus === 'approved') {
         const approveLedgerSnap = await getDoc(doc(db, 'xpLedger', `approve_${projId}`));
         if (!approveLedgerSnap.exists()) {
-          const res = await executeClientXpFallback(uid, {
+          const res = await reportXpEvent({
             type: 'PROJECT_APPROVED',
             projectId: projId,
           });

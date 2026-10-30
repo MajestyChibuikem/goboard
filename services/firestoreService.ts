@@ -2205,14 +2205,34 @@ export async function markStudentAsPaid(
 
 export async function saveUserGitHubProfile(
   userId: string,
-  fallbackProfile?: GitHubProfileData
+  fallbackProfile?: GitHubProfileData,
+  accessToken?: string
 ): Promise<{ xpAwarded: number; updatedProfile: GitHubProfileData }> {
   // Server-first GitHub sync and XP grant, with ledger-backed client fallback
-  const res = await reportXpEvent({ type: 'GITHUB_SYNC', profile: fallbackProfile });
+  const res = await reportXpEvent({
+    type: 'GITHUB_SYNC',
+    profile: fallbackProfile,
+    accessToken,
+    githubUsername: fallbackProfile?.username,
+    githubId: fallbackProfile?.githubId ? String(fallbackProfile.githubId) : undefined,
+  });
   const finalProfile = res.profile || fallbackProfile;
   if (!finalProfile) {
     throw new Error(res.error || 'Failed to sync GitHub profile with server.');
   }
+
+  // Also update user document directly to ensure immediate persistence across reloads
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      githubProfile: finalProfile,
+      githubUsernameLower: finalProfile.username.toLowerCase(),
+      githubSyncedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn('Direct user doc githubProfile update warning (server may have already written via Admin SDK):', err);
+  }
+
   return { xpAwarded: res.awarded || 0, updatedProfile: finalProfile };
 }
 

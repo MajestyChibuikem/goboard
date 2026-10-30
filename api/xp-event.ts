@@ -99,7 +99,8 @@ export default async function handler(req: any, res: any) {
               `first_${callerUid}`,
               callerUid,
               XP_VALUES.FIRST_PROJECT,
-              today
+              today,
+              true // First project submission milestone bonus bypasses daily cap
             );
           }
 
@@ -691,51 +692,68 @@ export default async function handler(req: any, res: any) {
         }
 
         const userData = userSnap.data() || {};
+        const {
+          githubUsername: bodyUsername,
+          githubId: bodyId,
+          profile: clientProfile,
+          accessToken: userAccessToken,
+        } = req.body || {};
 
-        // 1. Resolve verified GitHub identity from Firebase Auth
-        let ghNumericId: string | undefined;
-        let ghUsername: string | undefined;
+        // 1. Resolve verified GitHub identity from Firebase Auth, body, or existing profile
+        let ghNumericId: string | undefined = bodyId ? String(bodyId) : undefined;
+        let ghUsername: string | undefined = bodyUsername || undefined;
 
         try {
           const authUser = await getAdminAuth().getUser(callerUid);
           const ghProvider = authUser.providerData.find((p) => p.providerId === 'github.com');
           if (ghProvider) {
-            ghNumericId = ghProvider.uid;
-            ghUsername = ghProvider.displayName || undefined;
+            ghNumericId = ghProvider.uid || ghNumericId;
           }
         } catch (authErr) {
           console.warn('Could not inspect Firebase Auth providerData:', authErr);
         }
 
-        if (!ghNumericId && !userData.githubProfile?.githubId && !userData.githubProfile?.username) {
+        if (
+          !ghNumericId &&
+          !ghUsername &&
+          !clientProfile?.username &&
+          !userData.githubProfile?.githubId &&
+          !userData.githubProfile?.username
+        ) {
           return res.status(400).json({
             error: 'No verified GitHub account linked to your profile. Please connect GitHub first.',
           });
         }
 
-        // 2. Sync throttle: at most once every 60 minutes
-        const lastSynced = userData.githubSyncedAt;
-        if (lastSynced) {
-          const lastSyncedMs = lastSynced.toDate ? lastSynced.toDate().getTime() : new Date(lastSynced).getTime();
-          const oneHourAgo = Date.now() - 60 * 60 * 1000;
-          if (lastSyncedMs > oneHourAgo) {
-            return res.status(200).json({
-              success: true,
-              awarded: 0,
-              profile: userData.githubProfile,
-              reason: 'SYNC_RATE_LIMITED',
-            });
+        // 2. Fetch fresh bundle on the server using verified identity, or use clientProfile
+        let freshProfile: any = null;
+        try {
+          freshProfile = await fetchServerGitHubBundle({
+            githubNumericId:
+              ghNumericId ||
+              (userData.githubProfile?.githubId ? String(userData.githubProfile.githubId) : undefined),
+            knownUsername:
+              ghUsername ||
+              clientProfile?.username ||
+              userData.githubProfile?.displayUsername ||
+              userData.githubProfile?.username,
+            userAccessToken: userAccessToken || undefined,
+            previousRewardedDate: userData.lastRewardedCodingDate,
+          });
+        } catch (fetchErr) {
+          console.warn('fetchServerGitHubBundle warning, using clientProfile fallback:', fetchErr);
+          if (clientProfile && clientProfile.username) {
+            freshProfile = clientProfile;
+          } else {
+            throw fetchErr;
           }
         }
 
-        // 3. Fetch fresh bundle on the server using verified identity
-        const freshProfile = await fetchServerGitHubBundle({
-          githubNumericId: ghNumericId || (userData.githubProfile?.githubId ? String(userData.githubProfile.githubId) : undefined),
-          knownUsername: ghUsername || userData.githubProfile?.displayUsername || userData.githubProfile?.username,
-          previousRewardedDate: userData.lastRewardedCodingDate,
-        });
+        if (!freshProfile) {
+          return res.status(400).json({ error: 'Unable to retrieve GitHub profile.' });
+        }
 
-        // 4. Calculate eligible coding XP (plus guaranteed first-time GitHub connection bonus)
+        // 3. Calculate eligible coding XP (plus guaranteed first-time GitHub connection bonus)
         const activeDate = freshProfile.lastActiveDate;
         const lastRewarded = userData.lastRewardedCodingDate;
         let eligibleForXp = false;
@@ -842,22 +860,6 @@ export default async function handler(req: any, res: any) {
         const userSnap = await userRef.get();
         if (!userSnap.exists) {
           return res.status(404).json({ error: 'User profile not found.' });
-        }
-
-        const userData = userSnap.data() || {};
-        if (userData.onboardingCompletedAt) {
-          const completedAtIso = userData.onboardingCompletedAt?.toDate
-            ? userData.onboardingCompletedAt.toDate().toISOString()
-            : typeof userData.onboardingCompletedAt === 'string'
-            ? userData.onboardingCompletedAt
-            : new Date().toISOString();
-
-          return res.status(200).json({
-            success: true,
-            awarded: 0,
-            reason: 'ALREADY_COMPLETED',
-            onboardingCompletedAt: completedAtIso,
-          });
         }
 
         const ledgerId = `onboarding_${callerUid}`;
