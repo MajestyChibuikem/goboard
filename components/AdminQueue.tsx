@@ -33,6 +33,13 @@ import {
   markCampaignSubmissionWinner,
   DEFAULT_CAMPAIGN_CONFIG,
 } from '../services/firestoreService';
+import {
+  fetchAdminXpHistoryAudit,
+  adminReconcileUserXp,
+  adminReconcileAllUsersXp,
+  AdminUserXpAudit,
+  AdminXpHistoryEvent,
+} from '../services/xpClient';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 import { Button } from './Button';
@@ -77,7 +84,8 @@ type AdminTab =
   | 'id-verification'
   | 'payday'
   | 'projects'
-  | 'literature';
+  | 'literature'
+  | 'xp-history';
 
 export const AdminQueue: React.FC<AdminQueueProps> = ({
   onBack,
@@ -165,6 +173,76 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxCaption, setLightboxCaption] = useState('');
+
+  // ── XP History & Audit state ──
+  const [xpAuditUsers, setXpAuditUsers] = useState<AdminUserXpAudit[]>([]);
+  const [xpHistoryEvents, setXpHistoryEvents] = useState<AdminXpHistoryEvent[]>([]);
+  const [xpHistoryLoading, setXpHistoryLoading] = useState(false);
+  const [xpViewMode, setXpViewMode] = useState<'feed' | 'users'>('feed');
+  const [xpSearch, setXpSearch] = useState('');
+  const [xpCategoryFilter, setXpCategoryFilter] = useState<string>('ALL');
+  const [xpSelectedUserUid, setXpSelectedUserUid] = useState<string | null>(null);
+  const [reconcilingUid, setReconcilingUid] = useState<string | null>(null);
+  const [reconcilingAll, setReconcilingAll] = useState(false);
+
+  const loadXpAuditData = async () => {
+    setXpHistoryLoading(true);
+    try {
+      const { users, allEvents } = await fetchAdminXpHistoryAudit();
+      setXpAuditUsers(users);
+      setXpHistoryEvents(allEvents);
+    } catch (err) {
+      console.error('Failed to load XP history audit:', err);
+    } finally {
+      setXpHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadXpAuditData();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'xp-history') {
+      loadXpAuditData();
+    }
+  }, [activeTab]);
+
+  const handleAdminReconcileSingleUser = async (audit: AdminUserXpAudit) => {
+    setReconcilingUid(audit.uid);
+    try {
+      const added = await adminReconcileUserXp(audit);
+      toast(
+        added > 0
+          ? `⚡ Credited +${added} XP and synced ledger history for ${audit.displayName}!`
+          : `Synced XP ledger history for ${audit.displayName}.`,
+        'success'
+      );
+      await loadXpAuditData();
+    } catch (err: any) {
+      toast(err?.message || 'Failed to reconcile user XP', 'error');
+    } finally {
+      setReconcilingUid(null);
+    }
+  };
+
+  const handleAdminReconcileAllUsers = async () => {
+    setReconcilingAll(true);
+    try {
+      const { usersUpdated, totalXpCredited } = await adminReconcileAllUsersXp(xpAuditUsers);
+      toast(
+        usersUpdated > 0
+          ? `⚡ Reconciled ${usersUpdated} student${usersUpdated !== 1 ? 's' : ''} (+${totalXpCredited} XP total)!`
+          : 'All students are already up to date!',
+        'success'
+      );
+      await loadXpAuditData();
+    } catch (err: any) {
+      toast(err?.message || 'Failed to reconcile all users XP', 'error');
+    } finally {
+      setReconcilingAll(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = subscribeToPendingProjects(setPendingProjects);
@@ -865,7 +943,558 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
             </span>
           )}
         </button>
+
+        <button
+          onClick={() => setActiveTab('xp-history')}
+          className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-xl transition-all cursor-pointer ${
+            activeTab === 'xp-history'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-500" />
+          XP History
+          {xpAuditUsers.filter((u) => u.uncreditedXp > 0 || u.events.some((e) => e.status === 'uncredited')).length > 0 ? (
+            <span
+              className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'xp-history'
+                  ? 'bg-amber-400 text-neutral-950'
+                  : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+              }`}
+            >
+              {xpAuditUsers.filter((u) => u.uncreditedXp > 0 || u.events.some((e) => e.status === 'uncredited')).length}
+            </span>
+          ) : (
+            <span
+              className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'xp-history'
+                  ? 'bg-white/20 dark:bg-neutral-900/20 text-white dark:text-neutral-900'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+              }`}
+            >
+              {xpHistoryEvents.length}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* =====================================================================
+          TAB: XP HISTORY & AUDIT (ADMIN FEATURE)
+         ===================================================================== */}
+      {activeTab === 'xp-history' && (() => {
+        const totalPlatformXp = xpAuditUsers.reduce((sum, u) => sum + u.currentXp, 0);
+        const totalExpectedXp = xpAuditUsers.reduce((sum, u) => sum + u.expectedMilestoneXp, 0);
+        const usersNeedingSync = xpAuditUsers.filter(
+          (u) => u.uncreditedXp > 0 || u.events.some((e) => e.status === 'uncredited')
+        );
+        const totalUncreditedXp = usersNeedingSync.reduce((sum, u) => sum + u.uncreditedXp, 0);
+        const qLower = xpSearch.trim().toLowerCase();
+
+        const selectedStudentAudit = xpSelectedUserUid
+          ? xpAuditUsers.find((u) => u.uid === xpSelectedUserUid) || null
+          : null;
+
+        const filteredEvents = xpHistoryEvents.filter((ev) => {
+          if (xpSelectedUserUid && ev.userId !== xpSelectedUserUid) return false;
+          if (xpCategoryFilter !== 'ALL' && ev.category !== xpCategoryFilter) return false;
+          if (!qLower) return true;
+          return (
+            ev.userDisplayName.toLowerCase().includes(qLower) ||
+            ev.userEmail.toLowerCase().includes(qLower) ||
+            ev.title.toLowerCase().includes(qLower) ||
+            ev.detail.toLowerCase().includes(qLower) ||
+            ev.id.toLowerCase().includes(qLower) ||
+            ev.department.toLowerCase().includes(qLower)
+          );
+        });
+
+        const filteredUsers = xpAuditUsers.filter((u) => {
+          if (xpSelectedUserUid && u.uid !== xpSelectedUserUid) return false;
+          if (!qLower) return true;
+          return (
+            u.displayName.toLowerCase().includes(qLower) ||
+            u.email.toLowerCase().includes(qLower) ||
+            u.department.toLowerCase().includes(qLower) ||
+            u.events.some(
+              (ev) =>
+                ev.title.toLowerCase().includes(qLower) ||
+                ev.detail.toLowerCase().includes(qLower)
+            )
+          );
+        });
+
+        const categoryBadgeStyle = (cat: string) => {
+          switch (cat) {
+            case 'ONBOARDING':
+              return 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800/60';
+            case 'GITHUB':
+              return 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60';
+            case 'FIRST_PROJECT':
+              return 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60';
+            case 'PROJECT_SUBMIT':
+              return 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60';
+            case 'PROJECT_APPROVE':
+              return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60';
+            case 'QUEST':
+              return 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60';
+            case 'STREAK':
+              return 'bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/60';
+            default:
+              return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700';
+          }
+        };
+
+        return (
+          <div className="space-y-5">
+            {/* Top Summary Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    Recorded Platform XP
+                  </span>
+                  <Zap className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-2xl font-black text-neutral-900 dark:text-white">
+                  {totalPlatformXp.toLocaleString()} XP
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">
+                  Expected from milestones: {totalExpectedXp.toLocaleString()} XP
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    Total XP Events
+                  </span>
+                  <Sparkles className="w-4 h-4 text-blue-500" />
+                </div>
+                <div className="text-2xl font-black text-neutral-900 dark:text-white">
+                  {xpHistoryEvents.length.toLocaleString()}
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">
+                  Across {xpAuditUsers.filter((u) => u.events.length > 0).length} active students
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                    Registered Builders
+                  </span>
+                  <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="text-2xl font-black text-neutral-900 dark:text-white">
+                  {xpAuditUsers.length}
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">
+                  {xpAuditUsers.filter((u) => u.currentXp > 0).length} builders with &gt; 0 XP
+                </div>
+              </div>
+
+              <div
+                className={`rounded-2xl border p-4 flex flex-col justify-between ${
+                  usersNeedingSync.length > 0
+                    ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/70'
+                    : 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                      Ledger Sync Status
+                    </span>
+                    {usersNeedingSync.length > 0 ? (
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </div>
+                  <div className="text-lg font-black text-neutral-900 dark:text-white">
+                    {usersNeedingSync.length > 0
+                      ? `${usersNeedingSync.length} user${usersNeedingSync.length !== 1 ? 's' : ''} (+${totalUncreditedXp} XP pending)`
+                      : 'All XP Ledgers Synced'}
+                  </div>
+                </div>
+                {usersNeedingSync.length > 0 && (
+                  <button
+                    onClick={handleAdminReconcileAllUsers}
+                    disabled={reconcilingAll}
+                    className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    {reconcilingAll ? 'Syncing All Users...' : 'Sync & Credit All Missing XP'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filter & View Switcher Bar */}
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl w-fit">
+                  <button
+                    onClick={() => setXpViewMode('feed')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      xpViewMode === 'feed'
+                        ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Activity Feed ({filteredEvents.length})
+                  </button>
+                  <button
+                    onClick={() => setXpViewMode('users')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      xpViewMode === 'users'
+                        ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    By Student ({filteredUsers.length})
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={xpSearch}
+                      onChange={(e) => setXpSearch(e.target.value)}
+                      placeholder="Search student, project, event, or ledger ID..."
+                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                    />
+                  </div>
+                  <button
+                    onClick={loadXpAuditData}
+                    disabled={xpHistoryLoading}
+                    title="Refresh XP Audit"
+                    className="p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw className={`w-4 h-4 ${xpHistoryLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Category filter pills */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { id: 'ALL', label: 'All Events' },
+                  { id: 'ONBOARDING', label: 'Onboarding (+25)' },
+                  { id: 'GITHUB', label: 'GitHub (+15)' },
+                  { id: 'FIRST_PROJECT', label: 'First Project (+100)' },
+                  { id: 'PROJECT_SUBMIT', label: 'Project Submit (+50)' },
+                  { id: 'PROJECT_APPROVE', label: 'Project Approved (+50)' },
+                  { id: 'QUEST', label: 'Quests (+25/+50)' },
+                  { id: 'STREAK', label: 'Login Streaks (+10)' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setXpCategoryFilter(cat.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                      xpCategoryFilter === cat.id
+                        ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+
+                {selectedStudentAudit && (
+                  <div className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-xs font-bold">
+                    <span>Filtering: {selectedStudentAudit.displayName}</span>
+                    <button
+                      onClick={() => setXpSelectedUserUid(null)}
+                      className="p-0.5 hover:bg-amber-200/60 dark:hover:bg-amber-900 rounded cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Selected Student Banner if active */}
+            {selectedStudentAudit && (
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-amber-300 dark:border-amber-800/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  {selectedStudentAudit.photoURL ? (
+                    <img
+                      src={selectedStudentAudit.photoURL}
+                      alt={selectedStudentAudit.displayName}
+                      className="w-11 h-11 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold flex items-center justify-center text-sm">
+                      {selectedStudentAudit.displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
+                        {selectedStudentAudit.displayName}
+                      </h3>
+                      <span className="text-xs text-neutral-400">{selectedStudentAudit.email}</span>
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      {[selectedStudentAudit.department, selectedStudentAudit.academicLevel]
+                        .filter(Boolean)
+                        .join(' • ') || 'No department set'}{' '}
+                      • Recorded: <strong className="text-neutral-900 dark:text-white">{selectedStudentAudit.currentXp} XP</strong>{' '}
+                      • Milestone Total: <strong className="text-neutral-900 dark:text-white">{selectedStudentAudit.expectedMilestoneXp} XP</strong>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(selectedStudentAudit.uncreditedXp > 0 ||
+                    selectedStudentAudit.events.some((e) => e.status === 'uncredited')) && (
+                    <button
+                      onClick={() => handleAdminReconcileSingleUser(selectedStudentAudit)}
+                      disabled={reconcilingUid === selectedStudentAudit.uid}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      {reconcilingUid === selectedStudentAudit.uid
+                        ? 'Syncing...'
+                        : `Credit Missing (+${selectedStudentAudit.uncreditedXp} XP)`}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setXpSelectedUserUid(null)}
+                    className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                  >
+                    Show All Students
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* MODE 1: CHRONOLOGICAL XP ACTIVITY FEED */}
+            {xpViewMode === 'feed' && (
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+                {xpHistoryLoading && xpHistoryEvents.length === 0 ? (
+                  <div className="p-10 text-center text-xs text-neutral-400">
+                    Loading XP history ledger...
+                  </div>
+                ) : filteredEvents.length === 0 ? (
+                  <div className="p-10 text-center space-y-2">
+                    <Zap className="w-7 h-7 text-neutral-400 mx-auto" />
+                    <div className="text-sm font-bold text-neutral-900 dark:text-white">
+                      No matching XP events found
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      Try clearing your search or category filter.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                    {filteredEvents.map((ev) => (
+                      <div
+                        key={`${ev.userId}_${ev.id}`}
+                        className="p-4 hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          <button
+                            onClick={() => setXpSelectedUserUid(ev.userId)}
+                            className="shrink-0 mt-0.5 cursor-pointer"
+                            title={`Filter by ${ev.userDisplayName}`}
+                          >
+                            {ev.userPhotoURL ? (
+                              <img
+                                src={ev.userPhotoURL}
+                                alt={ev.userDisplayName}
+                                className="w-9 h-9 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold flex items-center justify-center text-xs">
+                                {ev.userDisplayName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </button>
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={() => setXpSelectedUserUid(ev.userId)}
+                                className="text-xs font-bold text-neutral-900 dark:text-white hover:underline cursor-pointer"
+                              >
+                                {ev.userDisplayName}
+                              </button>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${categoryBadgeStyle(
+                                  ev.category
+                                )}`}
+                              >
+                                {ev.category.replace('_', ' ')}
+                              </span>
+                              {ev.status === 'uncredited' ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                  Pending Credit
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                  Credited
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                              {ev.title}{' '}
+                              {ev.detail && (
+                                <span className="font-normal text-neutral-500 dark:text-neutral-400">
+                                  — {ev.detail}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
+                              <span className="font-mono text-[10px] bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+                                {ev.id}
+                              </span>
+                              <span>•</span>
+                              <span>{formatDate(ev.timestamp)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 sm:self-center self-end">
+                          <span
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black ${
+                              ev.status === 'uncredited'
+                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                            }`}
+                          >
+                            +{ev.amount} XP
+                          </span>
+                          {ev.status === 'uncredited' && (
+                            <button
+                              onClick={() => {
+                                const targetUser = xpAuditUsers.find((u) => u.uid === ev.userId);
+                                if (targetUser) handleAdminReconcileSingleUser(targetUser);
+                              }}
+                              disabled={reconcilingUid === ev.userId}
+                              className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {reconcilingUid === ev.userId ? 'Syncing...' : 'Credit Now'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MODE 2: PER-STUDENT XP BREAKDOWN & INSPECTOR */}
+            {xpViewMode === 'users' && (
+              <div className="space-y-3">
+                {filteredUsers.map((u) => {
+                  const needsSync =
+                    u.uncreditedXp > 0 || u.events.some((e) => e.status === 'uncredited');
+                  return (
+                    <div
+                      key={u.uid}
+                      className={`bg-white dark:bg-neutral-900 rounded-2xl border p-4 space-y-3 ${
+                        needsSync
+                          ? 'border-amber-300 dark:border-amber-800/70'
+                          : 'border-neutral-200 dark:border-neutral-800'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          {u.photoURL ? (
+                            <img
+                              src={u.photoURL}
+                              alt={u.displayName}
+                              className="w-10 h-10 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold flex items-center justify-center text-xs">
+                              {u.displayName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-bold text-neutral-900 dark:text-white">
+                                {u.displayName}
+                              </span>
+                              <span className="text-xs text-neutral-400">{u.email}</span>
+                              {needsSync && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                                  +{u.uncreditedXp} XP Pending Sync
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-neutral-500 mt-0.5">
+                              {[u.department, u.academicLevel].filter(Boolean).join(' • ') ||
+                                'No department set'}{' '}
+                              • {u.events.length} XP event{u.events.length !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="text-right mr-2">
+                            <div className="text-sm font-black text-neutral-900 dark:text-white">
+                              {u.currentXp.toLocaleString()} XP
+                            </div>
+                            <div className="text-[11px] text-neutral-400">
+                              Milestone sum: {u.expectedMilestoneXp.toLocaleString()} XP
+                            </div>
+                          </div>
+                          {needsSync && (
+                            <button
+                              onClick={() => handleAdminReconcileSingleUser(u)}
+                              disabled={reconcilingUid === u.uid}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              {reconcilingUid === u.uid ? 'Syncing...' : 'Sync & Credit XP'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {u.events.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                          {u.events.map((ev) => (
+                            <div
+                              key={ev.id}
+                              className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-800 text-xs"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                                  {ev.title}
+                                </div>
+                                <div className="text-[11px] text-neutral-400 truncate">
+                                  {ev.detail} • {formatDate(ev.timestamp)}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
+                                    ev.status === 'uncredited'
+                                      ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300'
+                                      : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                                  }`}
+                                >
+                                  +{ev.amount} XP
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* =====================================================================
           TAB 0: GOUNI PRAYER BOOK REDESIGN CAMPAIGN SUBMISSIONS

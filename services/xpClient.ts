@@ -116,6 +116,11 @@ async function grantOwnerXpStep(
       updates.xp = currentXp + safeAmount;
       updates.seasonXp = currentSeasonXp + safeAmount;
       updates.xpLedgerIds = arrayUnion(ledgerId);
+      updates.xpHistory = arrayUnion({
+        id: ledgerId,
+        amount: safeAmount,
+        createdAt: new Date().toISOString(),
+      });
     }
 
     if (Object.keys(updates).length > 0) {
@@ -943,3 +948,516 @@ export async function approveCampaignSubmissionOnServer(submissionId: string) {
 
   return data as { success: boolean; awarded: number };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Admin XP History & Audit Engine
+// ─────────────────────────────────────────────────────────────
+
+export type AdminXpEventCategory =
+  | 'ONBOARDING'
+  | 'GITHUB'
+  | 'FIRST_PROJECT'
+  | 'PROJECT_SUBMIT'
+  | 'PROJECT_APPROVE'
+  | 'WRITING_SUBMIT'
+  | 'WRITING_APPROVE'
+  | 'QUEST'
+  | 'STREAK'
+  | 'ENGAGEMENT';
+
+export interface AdminXpHistoryEvent {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  userEmail: string;
+  userPhotoURL: string | null;
+  department: string;
+  academicLevel: string;
+  amount: number;
+  category: AdminXpEventCategory;
+  title: string;
+  detail: string;
+  timestamp: string;
+  status: 'credited' | 'uncredited';
+}
+
+export interface AdminUserXpAudit {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL: string | null;
+  department: string;
+  academicLevel: string;
+  currentXp: number;
+  seasonXp: number;
+  expectedMilestoneXp: number;
+  uncreditedXp: number;
+  events: AdminXpHistoryEvent[];
+}
+
+function normalizeTimestampToIso(val: any, fallbackIso?: string): string {
+  if (!val) return fallbackIso || new Date().toISOString();
+  if (typeof val === 'string') {
+    const parsed = new Date(val);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+    return fallbackIso || new Date().toISOString();
+  }
+  if (typeof val?.toDate === 'function') {
+    try {
+      return val.toDate().toISOString();
+    } catch {
+      return fallbackIso || new Date().toISOString();
+    }
+  }
+  if (typeof val?.seconds === 'number') {
+    return new Date(val.seconds * 1000).toISOString();
+  }
+  return fallbackIso || new Date().toISOString();
+}
+
+export async function fetchAdminXpHistoryAudit(): Promise<{
+  users: AdminUserXpAudit[];
+  allEvents: AdminXpHistoryEvent[];
+}> {
+  const [usersSnap, projectsSnap, writingsSnap] = await Promise.all([
+    getDocs(collection(db, 'users')),
+    getDocs(collection(db, 'projects')),
+    getDocs(collection(db, 'writings')).catch(() => null),
+  ]);
+
+  const projectsByAuthor = new Map<string, Array<{ id: string; data: Record<string, any> }>>();
+  const projectsById = new Map<string, { id: string; data: Record<string, any> }>();
+
+  projectsSnap.docs.forEach((d) => {
+    const data = d.data() || {};
+    const entry = { id: d.id, data };
+    projectsById.set(d.id, entry);
+    if (data.authorUid) {
+      const list = projectsByAuthor.get(data.authorUid) || [];
+      list.push(entry);
+      projectsByAuthor.set(data.authorUid, list);
+    }
+  });
+
+  const writingsByAuthor = new Map<string, Array<{ id: string; data: Record<string, any> }>>();
+  const writingsById = new Map<string, { id: string; data: Record<string, any> }>();
+
+  if (writingsSnap) {
+    writingsSnap.docs.forEach((d) => {
+      const data = d.data() || {};
+      const entry = { id: d.id, data };
+      writingsById.set(d.id, entry);
+      if (data.authorUid) {
+        const list = writingsByAuthor.get(data.authorUid) || [];
+        list.push(entry);
+        writingsByAuthor.set(data.authorUid, list);
+      }
+    });
+  }
+
+  const usersAudit: AdminUserXpAudit[] = [];
+  const allEvents: AdminXpHistoryEvent[] = [];
+
+  for (const userDoc of usersSnap.docs) {
+    const uid = userDoc.id;
+    const u = userDoc.data() || {};
+    const displayName = u.displayName || 'Student';
+    const email = u.email || '';
+    const photoURL = u.photoURL || null;
+    const department = u.department || '';
+    const academicLevel = u.academicLevel || '';
+    const joinedIso = normalizeTimestampToIso(u.joinedAt, '2026-10-01T00:00:00.000Z');
+
+    const existingLedgerIds = new Set<string>(
+      Array.isArray(u.xpLedgerIds) ? u.xpLedgerIds : []
+    );
+    const historyMap = new Map<string, { amount?: number; createdAt?: string }>();
+    if (Array.isArray(u.xpHistory)) {
+      for (const h of u.xpHistory) {
+        if (h && typeof h.id === 'string') {
+          historyMap.set(h.id, h);
+          existingLedgerIds.add(h.id);
+        }
+      }
+    }
+
+    const handledIds = new Set<string>();
+    const userEvents: AdminXpHistoryEvent[] = [];
+
+    const addEvent = (params: {
+      id: string;
+      amount: number;
+      category: AdminXpEventCategory;
+      title: string;
+      detail: string;
+      defaultTimestamp: string;
+      isCredited: boolean;
+    }) => {
+      handledIds.add(params.id);
+      const hist = historyMap.get(params.id);
+      const ev: AdminXpHistoryEvent = {
+        id: params.id,
+        userId: uid,
+        userDisplayName: displayName,
+        userEmail: email,
+        userPhotoURL: photoURL,
+        department,
+        academicLevel,
+        amount: params.amount,
+        category: params.category,
+        title: params.title,
+        detail: params.detail,
+        timestamp: hist?.createdAt
+          ? normalizeTimestampToIso(hist.createdAt, params.defaultTimestamp)
+          : params.defaultTimestamp,
+        status: params.isCredited ? 'credited' : 'uncredited',
+      };
+      userEvents.push(ev);
+      allEvents.push(ev);
+    };
+
+    // 1. Onboarding (+25 XP)
+    const onboardingId = `onboarding_${uid}`;
+    const hasCompletedOnboarding = Boolean(
+      u.onboardingCompletedAt || (u.department && u.academicLevel) || existingLedgerIds.has(onboardingId)
+    );
+    if (hasCompletedOnboarding) {
+      addEvent({
+        id: onboardingId,
+        amount: CLIENT_XP_VALUES.ONBOARDING_COMPLETE,
+        category: 'ONBOARDING',
+        title: 'Completed Student Onboarding',
+        detail: [u.department, u.academicLevel].filter(Boolean).join(' • ') || 'Profile setup completed',
+        defaultTimestamp: normalizeTimestampToIso(u.onboardingCompletedAt, joinedIso),
+        isCredited: existingLedgerIds.has(onboardingId),
+      });
+    }
+
+    // 2. GitHub Connect (+15 XP)
+    const ghConnectId = `github_connect_${uid}`;
+    const hasGitHub = Boolean(
+      u.githubProfile?.username || u.githubUsernameLower || existingLedgerIds.has(ghConnectId)
+    );
+    if (hasGitHub) {
+      const ghHandle = u.githubProfile?.displayUsername || u.githubProfile?.username || u.githubUsernameLower || 'github';
+      addEvent({
+        id: ghConnectId,
+        amount: CLIENT_XP_VALUES.GITHUB_CONNECT,
+        category: 'GITHUB',
+        title: 'Connected GitHub Account',
+        detail: `@${ghHandle}`,
+        defaultTimestamp: normalizeTimestampToIso(
+          u.githubSyncedAt || u.githubProfile?.lastSyncedAt,
+          joinedIso
+        ),
+        isCredited: existingLedgerIds.has(ghConnectId),
+      });
+    }
+
+    // 3. User's Projects (+100 First Project, +50 Submit, +50 Approved)
+    const userProjects = projectsByAuthor.get(uid) || [];
+    userProjects.sort((a, b) => {
+      const ta = normalizeTimestampToIso(a.data.createdAt, joinedIso);
+      const tb = normalizeTimestampToIso(b.data.createdAt, joinedIso);
+      return ta.localeCompare(tb);
+    });
+
+    const firstProjId = `first_${uid}`;
+    if (userProjects.length > 0 || existingLedgerIds.has(firstProjId)) {
+      const firstProj = userProjects[0];
+      addEvent({
+        id: firstProjId,
+        amount: CLIENT_XP_VALUES.FIRST_PROJECT,
+        category: 'FIRST_PROJECT',
+        title: 'First Project Milestone Bonus',
+        detail: firstProj?.data?.title ? `Project: "${firstProj.data.title}"` : 'First showcase project',
+        defaultTimestamp: normalizeTimestampToIso(firstProj?.data?.createdAt, joinedIso),
+        isCredited: existingLedgerIds.has(firstProjId),
+      });
+    }
+
+    for (const proj of userProjects) {
+      const projCreatedIso = normalizeTimestampToIso(proj.data.createdAt, joinedIso);
+      const submitId = `submit_${proj.id}`;
+      addEvent({
+        id: submitId,
+        amount: CLIENT_XP_VALUES.SUBMIT_PROJECT,
+        category: 'PROJECT_SUBMIT',
+        title: 'Submitted Project',
+        detail: proj.data.title || proj.id,
+        defaultTimestamp: projCreatedIso,
+        isCredited: existingLedgerIds.has(submitId),
+      });
+
+      const approveId = `approve_${proj.id}`;
+      if (proj.data.approvalStatus === 'approved' || existingLedgerIds.has(approveId)) {
+        addEvent({
+          id: approveId,
+          amount: CLIENT_XP_VALUES.PROJECT_APPROVED,
+          category: 'PROJECT_APPROVE',
+          title: 'Project Approved',
+          detail: proj.data.title || proj.id,
+          defaultTimestamp: normalizeTimestampToIso(proj.data.updatedAt || proj.data.createdAt, projCreatedIso),
+          isCredited: existingLedgerIds.has(approveId),
+        });
+      }
+    }
+
+    // 4. User's Writings (+50 Submit, +50 Approved)
+    const userWritings = writingsByAuthor.get(uid) || [];
+    for (const w of userWritings) {
+      const wCreatedIso = normalizeTimestampToIso(w.data.createdAt, joinedIso);
+      const wSubmitId = `wsubmit_${w.id}`;
+      const altSubmitId = `submit_writing_${w.id}`;
+      const isSubmitCredited = existingLedgerIds.has(wSubmitId) || existingLedgerIds.has(altSubmitId);
+      if (existingLedgerIds.has(altSubmitId)) handledIds.add(altSubmitId);
+
+      addEvent({
+        id: wSubmitId,
+        amount: CLIENT_XP_VALUES.SUBMIT_PROJECT,
+        category: 'WRITING_SUBMIT',
+        title: 'Submitted Lit Club Writing',
+        detail: w.data.title || w.id,
+        defaultTimestamp: wCreatedIso,
+        isCredited: isSubmitCredited,
+      });
+
+      const wApproveId = `wapprove_${w.id}`;
+      const altApproveId = `approve_writing_${w.id}`;
+      const isApproveCredited = existingLedgerIds.has(wApproveId) || existingLedgerIds.has(altApproveId);
+      if (existingLedgerIds.has(altApproveId)) handledIds.add(altApproveId);
+
+      if (w.data.approvalStatus === 'approved' || isApproveCredited) {
+        addEvent({
+          id: wApproveId,
+          amount: CLIENT_XP_VALUES.PROJECT_APPROVED,
+          category: 'WRITING_APPROVE',
+          title: 'Lit Club Writing Approved',
+          detail: w.data.title || w.id,
+          defaultTimestamp: wCreatedIso,
+          isCredited: isApproveCredited,
+        });
+      }
+    }
+
+    // 5. Completed Quests
+    const completedQuests: string[] = Array.isArray(u.completedQuests) ? u.completedQuests : [];
+    for (const qId of completedQuests) {
+      const qLedgerId = `quest_${qId}_${uid}`;
+      const amt =
+        qId === 'quest_1_baby_steps'
+          ? CLIENT_XP_VALUES.QUEST_1_BABY_STEPS
+          : CLIENT_XP_VALUES.QUEST_2_SHELL_BASICS;
+      const qTitle =
+        qId === 'quest_1_baby_steps'
+          ? 'Completed Quest 1: Baby Steps in Git'
+          : 'Completed Quest 2: 0x00 Shell Basics';
+      addEvent({
+        id: qLedgerId,
+        amount: amt,
+        category: 'QUEST',
+        title: qTitle,
+        detail: qId,
+        defaultTimestamp: joinedIso,
+        isCredited: existingLedgerIds.has(qLedgerId),
+      });
+    }
+
+    // 6. Any other recorded ledger IDs (Streaks, Active GitHub Days, Comments, Campaign, etc.)
+    for (const lid of existingLedgerIds) {
+      if (handledIds.has(lid)) continue;
+
+      if (lid.startsWith(`streak_${uid}_`)) {
+        const dateStr = lid.replace(`streak_${uid}_`, '');
+        addEvent({
+          id: lid,
+          amount: CLIENT_XP_VALUES.LOGIN_STREAK,
+          category: 'STREAK',
+          title: '3-Day Login Streak Bonus',
+          detail: `Streak milestone on ${dateStr}`,
+          defaultTimestamp: `${dateStr}T12:00:00.000Z`,
+          isCredited: true,
+        });
+      } else if (lid.startsWith(`github_${uid}_`)) {
+        const dateStr = lid.replace(`github_${uid}_`, '');
+        addEvent({
+          id: lid,
+          amount: CLIENT_XP_VALUES.GITHUB_ACTIVE_DAY,
+          category: 'GITHUB',
+          title: 'Active GitHub Coding Day',
+          detail: `Public commits pushed on ${dateStr}`,
+          defaultTimestamp: `${dateStr}T18:00:00.000Z`,
+          isCredited: true,
+        });
+      } else if (lid.startsWith('cgive_')) {
+        addEvent({
+          id: lid,
+          amount: CLIENT_XP_VALUES.LEAVE_COMMENT,
+          category: 'ENGAGEMENT',
+          title: 'Posted Project Comment',
+          detail: lid,
+          defaultTimestamp: joinedIso,
+          isCredited: true,
+        });
+      } else if (lid.startsWith('campaign_approve_')) {
+        addEvent({
+          id: lid,
+          amount: CLIENT_XP_VALUES.CAMPAIGN_SUBMISSION_APPROVED,
+          category: 'PROJECT_APPROVE',
+          title: 'Prayer Book Campaign Submission Approved',
+          detail: lid,
+          defaultTimestamp: joinedIso,
+          isCredited: true,
+        });
+      } else if (lid.startsWith('vote_') || lid.startsWith('wvote_')) {
+        // Outgoing vote marker on voter's profile (XP went to post author)
+        handledIds.add(lid);
+      } else if (lid.startsWith('submit_')) {
+        const pid = lid.replace('submit_', '');
+        const p = projectsById.get(pid);
+        addEvent({
+          id: lid,
+          amount: CLIENT_XP_VALUES.SUBMIT_PROJECT,
+          category: 'PROJECT_SUBMIT',
+          title: 'Submitted Project',
+          detail: p?.data?.title || pid,
+          defaultTimestamp: joinedIso,
+          isCredited: true,
+        });
+      } else if (lid.startsWith('approve_')) {
+        const pid = lid.replace('approve_', '');
+        const p = projectsById.get(pid);
+        addEvent({
+          id: lid,
+          amount: CLIENT_XP_VALUES.PROJECT_APPROVED,
+          category: 'PROJECT_APPROVE',
+          title: 'Project Approved',
+          detail: p?.data?.title || pid,
+          defaultTimestamp: joinedIso,
+          isCredited: true,
+        });
+      }
+    }
+
+    userEvents.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+    const expectedMilestoneXp = userEvents.reduce((sum, ev) => sum + ev.amount, 0);
+    const uncreditedEvents = userEvents.filter((ev) => ev.status === 'uncredited');
+    const uncreditedEventsSum = uncreditedEvents.reduce((sum, ev) => sum + ev.amount, 0);
+    const currentXp = typeof u.xp === 'number' ? u.xp : 0;
+    const seasonXp = typeof u.seasonXp === 'number' ? u.seasonXp : 0;
+
+    // If the user has uncredited events OR their currentXp is lower than expectedMilestoneXp,
+    // calculate the exact XP needed so they are never short-changed or double-credited
+    const uncreditedXp =
+      uncreditedEvents.length > 0
+        ? Math.max(expectedMilestoneXp - currentXp, uncreditedEventsSum)
+        : Math.max(0, expectedMilestoneXp - currentXp);
+
+    usersAudit.push({
+      uid,
+      displayName,
+      email,
+      photoURL,
+      department,
+      academicLevel,
+      currentXp,
+      seasonXp,
+      expectedMilestoneXp,
+      uncreditedXp,
+      events: userEvents,
+    });
+  }
+
+  allEvents.sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'uncredited' ? -1 : 1;
+    return b.timestamp.localeCompare(a.timestamp);
+  });
+
+  usersAudit.sort((a, b) => {
+    if (b.uncreditedXp !== a.uncreditedXp) return b.uncreditedXp - a.uncreditedXp;
+    if (b.currentXp !== a.currentXp) return b.currentXp - a.currentXp;
+    return b.expectedMilestoneXp - a.expectedMilestoneXp;
+  });
+
+  return { users: usersAudit, allEvents };
+}
+
+/**
+ * Admin action to reconcile and credit all missing XP & ledger history for a user.
+ * Since `isAdmin()` has full update privileges on `/users/{userId}` in Firestore security rules,
+ * this atomically credits any missing XP and records all ledger IDs and history entries.
+ */
+export async function adminReconcileUserXp(audit: AdminUserXpAudit): Promise<number> {
+  const userRef = doc(db, 'users', audit.uid);
+  let creditedDelta = 0;
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(userRef);
+    if (!snap.exists()) return;
+    const data = snap.data() || {};
+    const currentXp = typeof data.xp === 'number' ? data.xp : 0;
+    const currentSeasonXp = typeof data.seasonXp === 'number' ? data.seasonXp : 0;
+
+    const existingIds = new Set<string>(
+      Array.isArray(data.xpLedgerIds) ? data.xpLedgerIds : []
+    );
+
+    const newIds: string[] = [];
+    const newHistoryItems: Array<{ id: string; amount: number; createdAt: string }> = [];
+    let uncreditedSum = 0;
+
+    for (const ev of audit.events) {
+      if (!existingIds.has(ev.id)) {
+        newIds.push(ev.id);
+        newHistoryItems.push({
+          id: ev.id,
+          amount: ev.amount,
+          createdAt: ev.timestamp || new Date().toISOString(),
+        });
+        uncreditedSum += ev.amount;
+      }
+    }
+
+    const targetXp = Math.max(currentXp + uncreditedSum, audit.expectedMilestoneXp);
+    creditedDelta = Math.max(0, targetXp - currentXp);
+    const targetSeasonXp = Math.max(currentSeasonXp + creditedDelta, targetXp);
+
+    const updates: Record<string, any> = {};
+    if (creditedDelta > 0) {
+      updates.xp = targetXp;
+      updates.seasonXp = targetSeasonXp;
+    }
+    if (newIds.length > 0) {
+      updates.xpLedgerIds = arrayUnion(...newIds);
+    }
+    if (newHistoryItems.length > 0) {
+      updates.xpHistory = arrayUnion(...newHistoryItems);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      tx.update(userRef, updates);
+    }
+  });
+
+  return creditedDelta;
+}
+
+export async function adminReconcileAllUsersXp(
+  audits: AdminUserXpAudit[]
+): Promise<{ usersUpdated: number; totalXpCredited: number }> {
+  let usersUpdated = 0;
+  let totalXpCredited = 0;
+
+  for (const audit of audits) {
+    const hasUncreditedEvents = audit.events.some((e) => e.status === 'uncredited');
+    if (audit.uncreditedXp > 0 || hasUncreditedEvents) {
+      const added = await adminReconcileUserXp(audit);
+      usersUpdated += 1;
+      totalXpCredited += added;
+    }
+  }
+
+  return { usersUpdated, totalXpCredited };
+}
+
