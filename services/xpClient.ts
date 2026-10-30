@@ -25,7 +25,8 @@ export type XpEventType =
   | 'DAILY_LOGIN'
   | 'GITHUB_SYNC'
   | 'ONBOARDING_COMPLETED'
-  | 'ONBOARDING_SKIPPED';
+  | 'ONBOARDING_SKIPPED'
+  | 'RECONCILE_XP';
 
 export interface XpEventPayload {
   type: XpEventType;
@@ -570,6 +571,9 @@ async function executeClientXpFallback(
         return { success: true, awarded };
       }
 
+      case 'RECONCILE_XP':
+        return { success: true, awarded: 0 };
+
       default:
         return { success: false, awarded: 0 };
     }
@@ -621,81 +625,19 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
 
 /**
  * Self-heals any missing XP for actions the user already completed (onboarding, GitHub connection,
- * submitted projects, and approved projects) whose ledger entries were not created when the server was down.
+ * submitted projects, and approved projects) using server-authoritative Admin SDK reconciliation.
+ * Eliminates client-side xpLedger reads completely to avoid Firestore access control / 403 errors.
  */
 export async function reconcileMissingUserXp(uid: string): Promise<number> {
+  const currentUser = auth.currentUser;
+  if (!currentUser || currentUser.uid !== uid) return 0;
+
   try {
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) return 0;
-
-    const userData = userSnap.data() || {};
-    let totalReconciled = 0;
-
-    // 1. Reconcile Onboarding XP (+25 XP) if onboarding was completed
-    const hasCompletedOnboarding = Boolean(
-      userData.onboardingCompletedAt || (userData.department && userData.academicLevel)
-    );
-    if (hasCompletedOnboarding) {
-      const onboardingLedgerRef = doc(db, 'xpLedger', `onboarding_${uid}`);
-      const onboardingSnap = await getDoc(onboardingLedgerRef);
-      if (!onboardingSnap.exists()) {
-        const res = await reportXpEvent({
-          type: 'ONBOARDING_COMPLETED',
-          displayName: userData.displayName || 'Student',
-          department: userData.department || 'Computer Science',
-          academicLevel: userData.academicLevel || '100L',
-          interests: Array.isArray(userData.interests) ? userData.interests : [],
-        });
-        totalReconciled += res.awarded || 0;
-      }
+    const res = await reportXpEvent({ type: 'RECONCILE_XP' });
+    if (res.awarded && res.awarded > 0) {
+      console.log(`[XP] Reconciled and credited ${res.awarded} missing XP for user ${uid}!`);
     }
-
-    // 2. Reconcile GitHub Connection XP (+15 XP) if GitHub is connected
-    if (userData.githubProfile?.username) {
-      const ghLedgerRef = doc(db, 'xpLedger', `github_connect_${uid}`);
-      const ghSnap = await getDoc(ghLedgerRef);
-      if (!ghSnap.exists()) {
-        const res = await reportXpEvent({
-          type: 'GITHUB_SYNC',
-          profile: userData.githubProfile,
-          githubUsername: userData.githubProfile.username,
-          githubId: userData.githubProfile.githubId ? String(userData.githubProfile.githubId) : undefined,
-        });
-        totalReconciled += res.awarded || 0;
-      }
-    }
-
-    // 3. Reconcile Submitted & Approved Projects XP
-    const userProjectsSnap = await getDocs(
-      query(collection(db, 'projects'), where('authorUid', '==', uid))
-    );
-    for (const projDoc of userProjectsSnap.docs) {
-      const projId = projDoc.id;
-      const projData = projDoc.data() || {};
-
-      const submitLedgerSnap = await getDoc(doc(db, 'xpLedger', `submit_${projId}`));
-      if (!submitLedgerSnap.exists()) {
-        const res = await reportXpEvent({
-          type: 'PROJECT_SUBMITTED',
-          projectId: projId,
-        });
-        totalReconciled += res.awarded || 0;
-      }
-
-      if (projData.approvalStatus === 'approved') {
-        const approveLedgerSnap = await getDoc(doc(db, 'xpLedger', `approve_${projId}`));
-        if (!approveLedgerSnap.exists()) {
-          const res = await reportXpEvent({
-            type: 'PROJECT_APPROVED',
-            projectId: projId,
-          });
-          totalReconciled += res.awarded || 0;
-        }
-      }
-    }
-
-    return totalReconciled;
+    return res.awarded || 0;
   } catch (err) {
     console.warn('XP reconciliation skipped:', err);
     return 0;

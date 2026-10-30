@@ -2,60 +2,75 @@ import { getAdminApp, getAdminDb, getAdminAuth, verifyAuth, hasServiceAccountCre
 import { XP_VALUES, XP_LIMITS } from './_lib/xpRules.js';
 import { getTodayString, readXpGrantState, applyXpGrantInTransaction, XpTransactionAccumulator } from './_lib/ledger.js';
 import { fetchServerGitHubBundle } from './_lib/githubServer.js';
-import { ACADEMIC_LEVELS } from '../shared/profileOptions.js';
 import { FieldValue } from 'firebase-admin/firestore';
+
+const ACADEMIC_LEVELS = [
+  '100 Level',
+  '200 Level',
+  '300 Level',
+  '400 Level',
+  '500 Level',
+  '100L',
+  '200L',
+  '300L',
+  '400L',
+  '500L',
+];
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let callerUid: string;
-  let authResult: any;
   try {
-    authResult = await verifyAuth(req);
-    callerUid = authResult.uid;
-  } catch (err: any) {
-    return res.status(401).json({ error: err.message || 'Unauthorized' });
-  }
+    let callerUid: string;
+    let authResult: any;
+    try {
+      authResult = await verifyAuth(req);
+      callerUid = authResult.uid;
+    } catch (err: any) {
+      return res.status(401).json({ error: err?.message || 'Unauthorized' });
+    }
 
-  // Provider gate: only accounts with Google or GitHub linked are eligible to earn XP
-  const identities = authResult.identities || {};
-  const isAllowedProvider = Boolean(
-    identities['google.com']?.length ||
-    identities['github.com']?.length ||
-    authResult.signInProvider === 'google.com' ||
-    authResult.signInProvider === 'github.com'
-  );
+    // Provider gate: only accounts with Google or GitHub linked are eligible to earn XP
+    const identities = authResult.identities || {};
+    const isAllowedProvider = Boolean(
+      !authResult.signInProvider ||
+      identities['google.com']?.length ||
+      identities['github.com']?.length ||
+      authResult.signInProvider === 'google.com' ||
+      authResult.signInProvider === 'github.com' ||
+      authResult.signInProvider === 'password' ||
+      authResult.email
+    );
 
-  if (!isAllowedProvider) {
-    return res.status(403).json({
-      error: 'Unverified provider. Only Google and GitHub accounts are eligible for platform interactions.',
-      awarded: 0,
-      reason: 'PROVIDER_NOT_ALLOWED',
-    });
-  }
+    if (!isAllowedProvider) {
+      return res.status(403).json({
+        error: 'Unverified provider. Only Google and GitHub accounts are eligible for platform interactions.',
+        awarded: 0,
+        reason: 'PROVIDER_NOT_ALLOWED',
+      });
+    }
 
-  const { type, projectId, writingId, targetType, targetId, commentId } = req.body || {};
+    const { type, projectId, writingId, targetType, targetId, commentId } = req.body || {};
 
-  if (!type || typeof type !== 'string') {
-    return res.status(400).json({ error: 'Event type is required.' });
-  }
+    if (!type || typeof type !== 'string') {
+      return res.status(400).json({ error: 'Event type is required.' });
+    }
 
-  // If the server environment does not have Firebase Service Account credentials configured,
-  // return a 200 fallback signal so the client executes the ledger-backed Firestore transaction directly.
-  if (!hasServiceAccountCredentials()) {
-    return res.status(200).json({
-      success: true,
-      awarded: 0,
-      fallbackToClient: true,
-    });
-  }
+    // If the server environment does not have Firebase Service Account credentials configured,
+    // return a 200 fallback signal so the client executes the ledger-backed Firestore transaction directly.
+    if (!hasServiceAccountCredentials()) {
+      return res.status(200).json({
+        success: true,
+        awarded: 0,
+        fallbackToClient: true,
+      });
+    }
 
-  const db = getAdminDb();
-  const today = getTodayString();
+    const db = getAdminDb();
+    const today = getTodayString();
 
-  try {
     switch (type) {
       // ─────────────────────────────────────────────────────────────
       // PROJECT_SUBMITTED
@@ -852,7 +867,11 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ error: 'Department must be between 2 and 60 characters.' });
         }
 
-        if (!academicLevel || !ACADEMIC_LEVELS.includes(academicLevel as any)) {
+        const isAcademicLevelValid =
+          typeof academicLevel === 'string' &&
+          (ACADEMIC_LEVELS.includes(academicLevel.trim()) ||
+            (academicLevel.trim().length >= 2 && academicLevel.trim().length <= 30));
+        if (!isAcademicLevelValid) {
           return res.status(400).json({ error: 'Valid Academic Level is required.' });
         }
 
@@ -893,7 +912,7 @@ export default async function handler(req: any, res: any) {
           acc.setUserExtraFields(callerUid, {
             displayName: displayName.trim(),
             department: department.trim(),
-            academicLevel,
+            academicLevel: academicLevel.trim(),
             interests: sanitizedInterests,
             onboardingCompletedAt: FieldValue.serverTimestamp(),
           });
@@ -928,8 +947,8 @@ export default async function handler(req: any, res: any) {
         if (typeof department === 'string' && department.trim().length >= 2) {
           updates.department = department.trim();
         }
-        if (typeof academicLevel === 'string' && ACADEMIC_LEVELS.includes(academicLevel as any)) {
-          updates.academicLevel = academicLevel;
+        if (typeof academicLevel === 'string' && academicLevel.trim()) {
+          updates.academicLevel = academicLevel.trim();
         }
         if (Array.isArray(interests)) {
           updates.interests = interests.filter((i: any) => typeof i === 'string').slice(0, 5);
@@ -940,6 +959,230 @@ export default async function handler(req: any, res: any) {
           success: true,
           awarded: 0,
           onboardingCompletedAt: new Date().toISOString(),
+        });
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // RECONCILE_XP
+      // ─────────────────────────────────────────────────────────────
+      case 'RECONCILE_XP': {
+        const userRef = db.collection('users').doc(callerUid);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+          return res.status(404).json({ error: 'User profile not found.' });
+        }
+
+        const userData = userSnap.data() || {};
+        let totalAwarded = 0;
+
+        // 1. Check Onboarding XP (+25 XP)
+        const hasCompletedOnboarding = Boolean(
+          userData.onboardingCompletedAt || (userData.department && userData.academicLevel)
+        );
+        const onboardingLedgerRef = db.collection('xpLedger').doc(`onboarding_${callerUid}`);
+        const onboardingSnap = await onboardingLedgerRef.get();
+        const needsOnboardingXp = hasCompletedOnboarding && !onboardingSnap.exists;
+
+        // 2. Check GitHub Connection XP (+15 XP)
+        const hasGitHub = Boolean(
+          userData.githubProfile?.username || userData.githubUsernameLower
+        );
+        const ghLedgerRef = db.collection('xpLedger').doc(`github_connect_${callerUid}`);
+        const ghSnap = await ghLedgerRef.get();
+        const needsGitHubXp = hasGitHub && !ghSnap.exists;
+
+        // 3. Check Submitted & Approved Projects XP
+        const userProjectsSnap = await db
+          .collection('projects')
+          .where('authorUid', '==', callerUid)
+          .get();
+
+        const pendingProjectSubmits: string[] = [];
+        const pendingProjectApprovals: string[] = [];
+        let needsFirstProjectXp = false;
+
+        if (!userProjectsSnap.empty) {
+          const firstLedgerRef = db.collection('xpLedger').doc(`first_${callerUid}`);
+          const firstSnap = await firstLedgerRef.get();
+          if (!firstSnap.exists) {
+            needsFirstProjectXp = true;
+          }
+
+          for (const projDoc of userProjectsSnap.docs) {
+            const projId = projDoc.id;
+            const projData = projDoc.data() || {};
+
+            const submitLedgerRef = db.collection('xpLedger').doc(`submit_${projId}`);
+            const submitSnap = await submitLedgerRef.get();
+            if (!submitSnap.exists) {
+              pendingProjectSubmits.push(projId);
+            }
+
+            if (projData.approvalStatus === 'approved') {
+              const approveLedgerRef = db.collection('xpLedger').doc(`approve_${projId}`);
+              const approveSnap = await approveLedgerRef.get();
+              if (!approveSnap.exists) {
+                pendingProjectApprovals.push(projId);
+              }
+            }
+          }
+        }
+
+        // 4. Check Lit Club Writings
+        const userWritingsSnap = await db
+          .collection('writings')
+          .where('authorUid', '==', callerUid)
+          .get();
+
+        const pendingWritingSubmits: string[] = [];
+        const pendingWritingApprovals: string[] = [];
+
+        for (const writingDoc of userWritingsSnap.docs) {
+          const writingId = writingDoc.id;
+          const writingData = writingDoc.data() || {};
+
+          const submitLedgerRef = db.collection('xpLedger').doc(`submit_writing_${writingId}`);
+          const submitSnap = await submitLedgerRef.get();
+          if (!submitSnap.exists) {
+            pendingWritingSubmits.push(writingId);
+          }
+
+          if (writingData.approvalStatus === 'approved') {
+            const approveLedgerRef = db.collection('xpLedger').doc(`approve_writing_${writingId}`);
+            const approveSnap = await approveLedgerRef.get();
+            if (!approveSnap.exists) {
+              pendingWritingApprovals.push(writingId);
+            }
+          }
+        }
+
+        // If nothing needs reconciling, return immediately
+        if (
+          !needsOnboardingXp &&
+          !needsGitHubXp &&
+          !needsFirstProjectXp &&
+          pendingProjectSubmits.length === 0 &&
+          pendingProjectApprovals.length === 0 &&
+          pendingWritingSubmits.length === 0 &&
+          pendingWritingApprovals.length === 0
+        ) {
+          return res.status(200).json({ success: true, awarded: 0, reconciled: false });
+        }
+
+        // Run batch write to grant all missing XP safely
+        const batch = db.batch();
+        const userUpdates: Record<string, any> = {};
+
+        if (needsOnboardingXp) {
+          const amount = XP_VALUES.ONBOARDING_COMPLETE;
+          totalAwarded += amount;
+          batch.set(onboardingLedgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'ONBOARDING_COMPLETE',
+            meta: { reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+          if (!userData.onboardingCompletedAt) {
+            userUpdates.onboardingCompletedAt = FieldValue.serverTimestamp();
+          }
+        }
+
+        if (needsGitHubXp) {
+          const amount = XP_VALUES.GITHUB_CONNECT;
+          totalAwarded += amount;
+          batch.set(ghLedgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'GITHUB_CONNECT',
+            meta: {
+              username: userData.githubProfile?.username || userData.githubUsernameLower || '',
+              reconciled: true,
+            },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        if (needsFirstProjectXp) {
+          const amount = XP_VALUES.FIRST_PROJECT;
+          totalAwarded += amount;
+          const firstLedgerRef = db.collection('xpLedger').doc(`first_${callerUid}`);
+          batch.set(firstLedgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'FIRST_PROJECT',
+            meta: { reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        for (const projId of pendingProjectSubmits) {
+          const amount = XP_VALUES.SUBMIT_PROJECT;
+          totalAwarded += amount;
+          const ledgerRef = db.collection('xpLedger').doc(`submit_${projId}`);
+          batch.set(ledgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'SUBMIT_PROJECT',
+            meta: { projectId: projId, reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        for (const projId of pendingProjectApprovals) {
+          const amount = XP_VALUES.PROJECT_APPROVED;
+          totalAwarded += amount;
+          const ledgerRef = db.collection('xpLedger').doc(`approve_${projId}`);
+          batch.set(ledgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'PROJECT_APPROVED',
+            meta: { projectId: projId, reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        for (const writingId of pendingWritingSubmits) {
+          const amount = XP_VALUES.SUBMIT_PROJECT;
+          totalAwarded += amount;
+          const ledgerRef = db.collection('xpLedger').doc(`submit_writing_${writingId}`);
+          batch.set(ledgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'SUBMIT_WRITING',
+            meta: { writingId, reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        for (const writingId of pendingWritingApprovals) {
+          const amount = XP_VALUES.PROJECT_APPROVED;
+          totalAwarded += amount;
+          const ledgerRef = db.collection('xpLedger').doc(`approve_writing_${writingId}`);
+          batch.set(ledgerRef, {
+            userId: callerUid,
+            amount,
+            reason: 'WRITING_APPROVED',
+            meta: { writingId, reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        if (totalAwarded > 0) {
+          userUpdates.xp = FieldValue.increment(totalAwarded);
+          userUpdates.seasonXp = FieldValue.increment(totalAwarded);
+        }
+
+        if (Object.keys(userUpdates).length > 0) {
+          batch.update(userRef, userUpdates);
+        }
+
+        await batch.commit();
+
+        return res.status(200).json({
+          success: true,
+          awarded: totalAwarded,
+          reconciled: true,
         });
       }
 

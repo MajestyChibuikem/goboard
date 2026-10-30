@@ -69,6 +69,20 @@ function parseServiceAccount(raw: string | undefined): any | null {
   return null;
 }
 
+function normalizePrivateKey(key: string | undefined): string {
+  if (!key || typeof key !== 'string') return '';
+  let k = key.trim();
+  while (
+    (k.startsWith('"') && k.endsWith('"')) ||
+    (k.startsWith("'") && k.endsWith("'"))
+  ) {
+    k = k.slice(1, -1).trim();
+  }
+  k = k.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n');
+  k = k.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  return k.trim();
+}
+
 export function hasServiceAccountCredentials(): boolean {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const sa = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -92,19 +106,44 @@ export function getAdminApp(): App {
 
   // Option 1: Entire service account JSON stored in FIREBASE_SERVICE_ACCOUNT
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
-    const clientEmail = serviceAccount?.client_email || serviceAccount?.clientEmail;
-    let privateKey = serviceAccount?.private_key || serviceAccount?.privateKey;
-    const projectId =
-      serviceAccount?.project_id ||
-      serviceAccount?.projectId ||
-      process.env.VITE_FIREBASE_PROJECT_ID ||
-      process.env.FIREBASE_PROJECT_ID ||
-      'gotechboard-7af85';
+    try {
+      const serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
+      const clientEmail = serviceAccount?.client_email || serviceAccount?.clientEmail;
+      let rawKey = serviceAccount?.private_key || serviceAccount?.privateKey;
+      const projectId =
+        serviceAccount?.project_id ||
+        serviceAccount?.projectId ||
+        process.env.VITE_FIREBASE_PROJECT_ID ||
+        process.env.FIREBASE_PROJECT_ID ||
+        'gotechboard-7af85';
 
-    if (clientEmail && privateKey) {
-      privateKey = String(privateKey).replace(/\\n/g, '\n');
-      console.log(`[admin] Initializing Firebase Admin with service account for ${clientEmail} (${projectId})`);
+      if (clientEmail && rawKey) {
+        const privateKey = normalizePrivateKey(rawKey);
+        console.log(`[admin] Initializing Firebase Admin with service account for ${clientEmail} (${projectId})`);
+        return initializeApp({
+          credential: cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
+          projectId,
+        });
+      }
+    } catch (saErr: any) {
+      console.error('[admin] Failed to initialize service account credential:', saErr?.message);
+    }
+  }
+
+  // Option 2: Individual env vars for private key and client email
+  if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+    try {
+      const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+      const projectId =
+        process.env.VITE_FIREBASE_PROJECT_ID ||
+        process.env.FIREBASE_PROJECT_ID ||
+        'gotechboard-7af85';
+      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL.trim();
+      console.log(`[admin] Initializing Firebase Admin with individual env vars for ${clientEmail} (${projectId})`);
       return initializeApp({
         credential: cert({
           projectId,
@@ -113,36 +152,9 @@ export function getAdminApp(): App {
         }),
         projectId,
       });
-    } else {
-      console.error(
-        '[admin] FIREBASE_SERVICE_ACCOUNT was present but could not extract client_email or private_key.'
-      );
+    } catch (indErr: any) {
+      console.error('[admin] Failed to initialize individual env credentials:', indErr?.message);
     }
-  }
-
-  // Option 2: Individual env vars for private key and client email
-  if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY.trim();
-    if (
-      (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
-      (privateKey.startsWith("'") && privateKey.endsWith("'"))
-    ) {
-      privateKey = privateKey.slice(1, -1);
-    }
-    const projectId =
-      process.env.VITE_FIREBASE_PROJECT_ID ||
-      process.env.FIREBASE_PROJECT_ID ||
-      'gotechboard-7af85';
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL.trim();
-    console.log(`[admin] Initializing Firebase Admin with individual env vars for ${clientEmail} (${projectId})`);
-    return initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, '\n'),
-      }),
-      projectId,
-    });
   }
 
   // Option 3: Default application credentials
