@@ -279,11 +279,12 @@ export const SubmitProjectModal: React.FC<SubmitProjectModalProps> = ({ onClose,
 
       const normalizedDemoUrl = normalizeUrl(formData.demoUrl);
       const normalizedWebsiteUrl = normalizeUrl(formData.websiteUrl);
+      const { demoUrl: _rawDemoUrl, websiteUrl: _rawWebsiteUrl, ...restFormData } = formData;
 
       await onSubmit({
-        ...formData,
-        demoUrl: normalizedDemoUrl || undefined,
-        websiteUrl: normalizedWebsiteUrl || undefined,
+        ...restFormData,
+        ...(normalizedDemoUrl ? { demoUrl: normalizedDemoUrl } : {}),
+        ...(normalizedWebsiteUrl ? { websiteUrl: normalizedWebsiteUrl } : {}),
         displayName: profile?.displayName || 'Student',
         studentName: profile?.displayName || 'Student',
         authorPhotoURL: profile?.photoURL || null,

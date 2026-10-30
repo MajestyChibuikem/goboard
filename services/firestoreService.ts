@@ -298,8 +298,13 @@ export async function createProject(
 
   const slug = availability.slug || generateSlug(data.title) || `project-${Date.now().toString().slice(-4)}`;
 
+  // Strip any undefined top-level fields so Firestore addDoc never rejects optional fields
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+
   const docRef = await addDoc(projectsCol, {
-    ...data,
+    ...cleanData,
     slug,
     titleLower: data.title.trim().toLowerCase(),
     likes: 0,
