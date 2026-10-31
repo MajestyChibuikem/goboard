@@ -50,7 +50,7 @@ function loadWelcomeDraft(): WelcomeDraft | null {
 }
 
 export const WelcomePage: React.FC = () => {
-  const { user, profile, connectGitHubWithOAuth, updateLocalProfile, loading: authLoading } = useAuth();
+  const { user, profile, connectGitHubWithOAuth, updateLocalProfile, refreshProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -304,13 +304,20 @@ export const WelcomePage: React.FC = () => {
         department: department.trim(),
         academicLevel,
         interests: selectedInterests,
-        ...(res.awarded > 0
+        ...(typeof res.newTotalXp === 'number'
+          ? {
+              xp: res.newTotalXp,
+              seasonXp: res.newTotalSeasonXp ?? res.newTotalXp,
+            }
+          : res.awarded > 0
           ? {
               xp: (profile?.xp || 0) + res.awarded,
               seasonXp: (profile?.seasonXp || 0) + res.awarded,
             }
           : {}),
       });
+
+      refreshProfile(true).catch(() => {});
 
       if (res.awarded > 0) {
         toast(`Welcome to GoBoard! +${res.awarded} XP awarded!`, 'success');

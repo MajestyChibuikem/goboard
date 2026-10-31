@@ -48,6 +48,8 @@ export interface XpEventPayload {
 export interface XpEventResponse {
   success: boolean;
   awarded: number;
+  newTotalXp?: number;
+  newTotalSeasonXp?: number;
   streakDays?: number;
   reason?: string;
   error?: string;
@@ -700,7 +702,58 @@ async function executeClientXpFallback(
           }
         }
 
-        return { success: true, awarded: totalAwarded };
+        // 6. Deficit healing: verify total expected milestone XP against actual current XP
+        let expectedMilestoneXp = 0;
+        if (hasCompletedOnboarding) expectedMilestoneXp += CLIENT_XP_VALUES.ONBOARDING_COMPLETE;
+        if (hasGitHub) expectedMilestoneXp += CLIENT_XP_VALUES.GITHUB_CONNECT;
+        if (!userProjectsSnap.empty) {
+          expectedMilestoneXp += CLIENT_XP_VALUES.FIRST_PROJECT;
+          for (const projDoc of userProjectsSnap.docs) {
+            expectedMilestoneXp += CLIENT_XP_VALUES.SUBMIT_PROJECT;
+            if (projDoc.data()?.approvalStatus === 'approved') {
+              expectedMilestoneXp += CLIENT_XP_VALUES.PROJECT_APPROVED;
+            }
+          }
+        }
+        for (const qId of completedQuests) {
+          expectedMilestoneXp +=
+            qId === 'quest_1_baby_steps'
+              ? CLIENT_XP_VALUES.QUEST_1_BABY_STEPS
+              : CLIENT_XP_VALUES.QUEST_2_SHELL_BASICS;
+        }
+
+        const currentXp = (Number(userData.xp) || 0) + totalAwarded;
+        const currentSeasonXp = (Number(userData.seasonXp) || 0) + totalAwarded;
+        let deficitAwarded = 0;
+
+        if (currentXp < expectedMilestoneXp) {
+          const deficit = expectedMilestoneXp - currentXp;
+          let remainingDeficit = deficit;
+          let step = 0;
+          while (remainingDeficit > 0 && step < 10) {
+            step++;
+            const chunk = Math.min(remainingDeficit, 100);
+            const stepAwarded = await grantOwnerXpStep(
+              callerUid,
+              `reconcile_deficit_${callerUid}_step${step}_${Date.now()}`,
+              chunk
+            );
+            if (stepAwarded <= 0) break;
+            deficitAwarded += stepAwarded;
+            remainingDeficit -= stepAwarded;
+          }
+        }
+
+        const finalAwarded = totalAwarded + deficitAwarded;
+        const finalXp = (Number(userData.xp) || 0) + finalAwarded;
+        const finalSeasonXp = (Number(userData.seasonXp) || 0) + finalAwarded;
+
+        return {
+          success: true,
+          awarded: finalAwarded,
+          newTotalXp: finalXp,
+          newTotalSeasonXp: finalSeasonXp,
+        };
       }
 
       default:
@@ -738,6 +791,8 @@ export async function reportXpEvent(payload: XpEventPayload): Promise<XpEventRes
         return {
           success: !!data.success,
           awarded: data.awarded || 0,
+          newTotalXp: data.newTotalXp,
+          newTotalSeasonXp: data.newTotalSeasonXp,
           streakDays: data.streakDays,
           reason: data.reason,
           profile: data.profile || payload.profile,
@@ -762,9 +817,11 @@ export async function reconcileMissingUserXp(uid: string): Promise<number> {
 
   try {
     const res = await reportXpEvent({ type: 'RECONCILE_XP' });
-    // Also run client-side reconciliation check to ensure `xpLedgerIds` on `/users/{uid}` is fully synced
-    const clientRes = await executeClientXpFallback(uid, { type: 'RECONCILE_XP' });
-    const total = (res.awarded || 0) + (clientRes.awarded || 0);
+    let total = res.awarded || 0;
+    if (res.fallbackToClient || total === 0) {
+      const clientRes = await executeClientXpFallback(uid, { type: 'RECONCILE_XP' });
+      total = Math.max(total, clientRes.awarded || 0);
+    }
     if (total > 0) {
       console.log(`[XP] Reconciled and credited ${total} missing XP for user ${uid}!`);
     }
@@ -825,6 +882,10 @@ export async function runQuestChecker(questId: 'quest_1_baby_steps' | 'quest_2_s
       }
     );
     data.xpAwarded = awarded;
+    const currentXp = Number(userData.xp) || 0;
+    const currentSeasonXp = Number(userData.seasonXp) || 0;
+    data.newTotalXp = currentXp + awarded;
+    data.newTotalSeasonXp = currentSeasonXp + awarded;
   }
 
   return data;

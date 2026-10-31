@@ -27,7 +27,10 @@ export const githubProvider = new GithubAuthProvider();
 githubProvider.addScope('read:user');
 export const db = (() => {
   try {
-    return initializeFirestore(app, { ignoreUndefinedProperties: true });
+    return initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      experimentalAutoDetectLongPolling: true,
+    });
   } catch {
     return getFirestore(app);
   }

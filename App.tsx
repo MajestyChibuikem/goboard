@@ -43,7 +43,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const App: React.FC = () => {
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,7 +215,8 @@ const App: React.FC = () => {
     if (!user) return;
     try {
       await createProject(newProjectData, user.uid);
-      toast('Project submitted for review!', 'success');
+      toast('Project submitted for review! +50 XP earned!', 'success');
+      refreshProfile(true).catch(() => {});
     } catch (err: any) {
       console.error('Failed to create project:', err);
       toast(err?.message || 'Failed to submit project. Try again.', 'error');

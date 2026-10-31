@@ -86,6 +86,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
     syncGitHubProfile,
     disconnectGitHub,
     togglePinnedRepo,
+    refreshProfile,
   } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -103,6 +104,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick
   const [syncingGitHub, setSyncingGitHub] = useState(false);
   const [showUsernameConnect, setShowUsernameConnect] = useState(false);
   const [githubUsernameInput, setGithubUsernameInput] = useState('');
+
+  // Always fetch latest authoritative profile & XP on mount
+  useEffect(() => {
+    if (user) {
+      refreshProfile(true).catch(() => {});
+    }
+  }, [user]);
 
   // Handle errors returning from OAuth redirects (e.g. if GitHub provider is disabled in Firebase)
   useEffect(() => {

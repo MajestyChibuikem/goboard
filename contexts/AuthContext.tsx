@@ -14,7 +14,7 @@ import {
   unlink,
   GithubAuthProvider,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc, runTransaction, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp, updateDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, githubProvider, db } from '../services/firebase';
 import {
   uploadUserAvatar,
@@ -79,6 +79,7 @@ interface AuthContextType {
   disconnectGitHub: () => Promise<void>;
   togglePinnedRepo: (repoName: string) => Promise<void>;
   updateLocalProfile: (updates: Partial<UserProfile>) => void;
+  refreshProfile: (forceServer?: boolean) => Promise<UserProfile | null>;
   redirectError: string | null;
   clearRedirectError: () => void;
 }
@@ -157,14 +158,17 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     let photoURL = data.photoURL || user.photoURL;
     photoURL = cleanOldFirebaseUrl(photoURL);
 
+    const xp = Number(data.xp) || 0;
+    const seasonXp = Number(data.seasonXp) || 0;
+
     return {
       uid: user.uid,
       displayName: data.displayName || user.displayName || 'Student',
       email: data.email || user.email || '',
       photoURL,
-      xp: data.xp || 0,
-      seasonXp: data.seasonXp || 0,
-      rank: getRank(data.xp || 0),
+      xp,
+      seasonXp,
+      rank: getRank(xp),
       streakDays: data.streakDays || 0,
       lastLoginDate: data.lastLoginDate || '',
       isAdmin: data.isAdmin || false,
@@ -294,6 +298,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearRedirectError = () => setRedirectError(null);
 
+  const refreshProfile = async (forceServer = true): Promise<UserProfile | null> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    try {
+      const snap = forceServer
+        ? await getDocFromServer(userDocRef).catch(() => getDoc(userDocRef))
+        : await getDoc(userDocRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        let freshProfile: UserProfile | null = null;
+        setProfile((prevProfile) => {
+          const base = prevProfile || {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName || 'Student',
+            email: currentUser.email || '',
+            photoURL: cleanOldFirebaseUrl(currentUser.photoURL),
+            xp: 0,
+            seasonXp: 0,
+            rank: 'Freshman Coder',
+            streakDays: 0,
+            lastLoginDate: '',
+            isAdmin: false,
+            joinedAt: new Date().toISOString(),
+            hasEditedDisplayName: false,
+            goCoins: 0,
+            totalGoCoinsEarned: 0,
+            verificationStatus: 'none',
+            studentIdCardUrl: null,
+            bannerPreset: 'gradient-blue',
+            bannerUrl: null,
+            bannerCustomGradient: null,
+            bio: '',
+            department: '',
+            academicLevel: '',
+            accentColor: '#1e3a8a',
+            githubProfile: null,
+            githubUsernameLower: null,
+          };
+
+          const xp = Number(data.xp) || 0;
+          const seasonXp = Number(data.seasonXp) || 0;
+
+          freshProfile = {
+            ...base,
+            displayName: data.displayName || base.displayName,
+            hasEditedDisplayName: data.hasEditedDisplayName ?? base.hasEditedDisplayName,
+            displayNameEditedAt: data.displayNameEditedAt || base.displayNameEditedAt,
+            photoURL: cleanOldFirebaseUrl(data.photoURL) ?? base.photoURL,
+            isAdmin: data.isAdmin ?? base.isAdmin,
+            xp,
+            seasonXp,
+            rank: getRank(xp),
+            streakDays: getEffectiveStreak(
+              data.streakDays ?? base.streakDays,
+              data.lastLoginDate || base.lastLoginDate
+            ),
+            lastLoginDate: data.lastLoginDate || base.lastLoginDate,
+            goCoins: data.goCoins ?? base.goCoins ?? 0,
+            totalGoCoinsEarned: data.totalGoCoinsEarned ?? base.totalGoCoinsEarned ?? 0,
+            verificationStatus: data.verificationStatus ?? base.verificationStatus ?? 'none',
+            studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) ?? base.studentIdCardUrl ?? null,
+            verificationRejectionReason: data.verificationRejectionReason ?? base.verificationRejectionReason,
+            bankDetails: data.bankDetails ?? base.bankDetails,
+            bannerPreset: data.bannerPreset ?? base.bannerPreset ?? 'gradient-blue',
+            bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? base.bannerUrl ?? null,
+            bannerCustomGradient: data.bannerCustomGradient ?? base.bannerCustomGradient ?? null,
+            bio: data.bio ?? base.bio ?? '',
+            department: data.department ?? base.department ?? '',
+            academicLevel: data.academicLevel ?? base.academicLevel ?? '',
+            accentColor: data.accentColor ?? base.accentColor ?? '#1e3a8a',
+            githubProfile: 'githubProfile' in data ? data.githubProfile : base.githubProfile ?? null,
+            githubUsernameLower:
+              'githubUsernameLower' in data
+                ? data.githubUsernameLower
+                : base.githubUsernameLower ?? null,
+            onboardingCompletedAt: resolveEffectiveOnboardingCompletedAt(
+              currentUser.uid,
+              data,
+              base.onboardingCompletedAt
+            ),
+            interests: Array.isArray(data.interests) ? data.interests : base.interests ?? [],
+            completedQuests: Array.isArray(data.completedQuests)
+              ? data.completedQuests
+              : base.completedQuests ?? [],
+          };
+          return freshProfile;
+        });
+        return freshProfile;
+      }
+    } catch (err) {
+      console.warn('Profile refresh warning:', err);
+    }
+    return null;
+  };
+
   // Handle redirect sign-in / account linking results on page load (same window)
   useEffect(() => {
     let isMounted = true;
@@ -383,9 +483,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         trackLoginStreak(firebaseUser.uid).catch((err) =>
           console.warn('Failed to track login streak:', err)
         );
-        reconcileMissingUserXp(firebaseUser.uid).catch((err) =>
-          console.warn('Failed to reconcile missing XP:', err)
-        );
+        reconcileMissingUserXp(firebaseUser.uid)
+          .then((reconciled) => {
+            if (reconciled > 0) {
+              refreshProfile(true);
+            }
+          })
+          .catch((err) =>
+            console.warn('Failed to reconcile missing XP:', err)
+          );
         deleteViewedNotifications(firebaseUser.uid).catch((err) =>
           console.warn('Failed to cleanup notifications:', err)
         );
@@ -397,97 +503,134 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsub;
   }, []);
 
-  // Set up real-time listener for profile changes (separate effect)
+  // Set up real-time listener for profile changes with resilient fallback polling
   useEffect(() => {
     if (!user) return;
 
+    let pollInterval: any = null;
+    const startFallbackPolling = () => {
+      if (pollInterval) return;
+      pollInterval = setInterval(() => {
+        refreshProfile(true);
+      }, 10000);
+    };
+
     const userDocRef = doc(db, 'users', user.uid);
-    const unsubProfile = onSnapshot(
-      userDocRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setProfile((prevProfile) => {
-            const base = prevProfile || {
-              uid: user.uid,
-              displayName: user.displayName || 'Student',
-              email: user.email || '',
-              photoURL: cleanOldFirebaseUrl(user.photoURL),
-              xp: 0,
-              seasonXp: 0,
-              rank: 'Freshman Coder',
-              streakDays: 0,
-              lastLoginDate: '',
-              isAdmin: false,
-              joinedAt: new Date().toISOString(),
-              hasEditedDisplayName: false,
-              goCoins: 0,
-              totalGoCoinsEarned: 0,
-              verificationStatus: 'none',
-              studentIdCardUrl: null,
-              bannerPreset: 'gradient-blue',
-              bannerUrl: null,
-              bannerCustomGradient: null,
-              bio: '',
-              department: '',
-              academicLevel: '',
-              accentColor: '#1e3a8a',
-              githubProfile: null,
-              githubUsernameLower: null,
-            };
+    let unsubProfile = () => {};
 
-            return {
-              ...base,
-              displayName: data.displayName || base.displayName,
-              hasEditedDisplayName: data.hasEditedDisplayName ?? base.hasEditedDisplayName,
-              displayNameEditedAt: data.displayNameEditedAt || base.displayNameEditedAt,
-              photoURL: cleanOldFirebaseUrl(data.photoURL) ?? base.photoURL,
-              isAdmin: data.isAdmin ?? base.isAdmin,
-              xp: data.xp ?? base.xp,
-              seasonXp: data.seasonXp ?? base.seasonXp,
-              rank: getRank(data.xp ?? base.xp ?? 0),
-              streakDays: getEffectiveStreak(
-                data.streakDays ?? base.streakDays,
-                data.lastLoginDate || base.lastLoginDate
-              ),
-              lastLoginDate: data.lastLoginDate || base.lastLoginDate,
-              goCoins: data.goCoins ?? base.goCoins ?? 0,
-              totalGoCoinsEarned: data.totalGoCoinsEarned ?? base.totalGoCoinsEarned ?? 0,
-              verificationStatus: data.verificationStatus ?? base.verificationStatus ?? 'none',
-              studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) ?? base.studentIdCardUrl ?? null,
-              verificationRejectionReason: data.verificationRejectionReason ?? base.verificationRejectionReason,
-              bankDetails: data.bankDetails ?? base.bankDetails,
-              bannerPreset: data.bannerPreset ?? base.bannerPreset ?? 'gradient-blue',
-              bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? base.bannerUrl ?? null,
-              bannerCustomGradient: data.bannerCustomGradient ?? base.bannerCustomGradient ?? null,
-              bio: data.bio ?? base.bio ?? '',
-              department: data.department ?? base.department ?? '',
-              academicLevel: data.academicLevel ?? base.academicLevel ?? '',
-              accentColor: data.accentColor ?? base.accentColor ?? '#1e3a8a',
-              githubProfile: 'githubProfile' in data ? data.githubProfile : base.githubProfile ?? null,
-              githubUsernameLower:
-                'githubUsernameLower' in data
-                  ? data.githubUsernameLower
-                  : base.githubUsernameLower ?? null,
-              onboardingCompletedAt: resolveEffectiveOnboardingCompletedAt(
-                user.uid,
-                data,
-                base.onboardingCompletedAt
-              ),
-              interests: Array.isArray(data.interests) ? data.interests : base.interests ?? [],
-              completedQuests: Array.isArray(data.completedQuests)
-                ? data.completedQuests
-                : base.completedQuests ?? [],
-            };
-          });
+    try {
+      unsubProfile = onSnapshot(
+        userDocRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setProfile((prevProfile) => {
+              const base = prevProfile || {
+                uid: user.uid,
+                displayName: user.displayName || 'Student',
+                email: user.email || '',
+                photoURL: cleanOldFirebaseUrl(user.photoURL),
+                xp: 0,
+                seasonXp: 0,
+                rank: 'Freshman Coder',
+                streakDays: 0,
+                lastLoginDate: '',
+                isAdmin: false,
+                joinedAt: new Date().toISOString(),
+                hasEditedDisplayName: false,
+                goCoins: 0,
+                totalGoCoinsEarned: 0,
+                verificationStatus: 'none',
+                studentIdCardUrl: null,
+                bannerPreset: 'gradient-blue',
+                bannerUrl: null,
+                bannerCustomGradient: null,
+                bio: '',
+                department: '',
+                academicLevel: '',
+                accentColor: '#1e3a8a',
+                githubProfile: null,
+                githubUsernameLower: null,
+              };
+
+              const xp = Number(data.xp) || 0;
+              const seasonXp = Number(data.seasonXp) || 0;
+
+              return {
+                ...base,
+                displayName: data.displayName || base.displayName,
+                hasEditedDisplayName: data.hasEditedDisplayName ?? base.hasEditedDisplayName,
+                displayNameEditedAt: data.displayNameEditedAt || base.displayNameEditedAt,
+                photoURL: cleanOldFirebaseUrl(data.photoURL) ?? base.photoURL,
+                isAdmin: data.isAdmin ?? base.isAdmin,
+                xp,
+                seasonXp,
+                rank: getRank(xp),
+                streakDays: getEffectiveStreak(
+                  data.streakDays ?? base.streakDays,
+                  data.lastLoginDate || base.lastLoginDate
+                ),
+                lastLoginDate: data.lastLoginDate || base.lastLoginDate,
+                goCoins: data.goCoins ?? base.goCoins ?? 0,
+                totalGoCoinsEarned: data.totalGoCoinsEarned ?? base.totalGoCoinsEarned ?? 0,
+                verificationStatus: data.verificationStatus ?? base.verificationStatus ?? 'none',
+                studentIdCardUrl: cleanOldFirebaseUrl(data.studentIdCardUrl) ?? base.studentIdCardUrl ?? null,
+                verificationRejectionReason: data.verificationRejectionReason ?? base.verificationRejectionReason,
+                bankDetails: data.bankDetails ?? base.bankDetails,
+                bannerPreset: data.bannerPreset ?? base.bannerPreset ?? 'gradient-blue',
+                bannerUrl: cleanOldFirebaseUrl(data.bannerUrl) ?? base.bannerUrl ?? null,
+                bannerCustomGradient: data.bannerCustomGradient ?? base.bannerCustomGradient ?? null,
+                bio: data.bio ?? base.bio ?? '',
+                department: data.department ?? base.department ?? '',
+                academicLevel: data.academicLevel ?? base.academicLevel ?? '',
+                accentColor: data.accentColor ?? base.accentColor ?? '#1e3a8a',
+                githubProfile: 'githubProfile' in data ? data.githubProfile : base.githubProfile ?? null,
+                githubUsernameLower:
+                  'githubUsernameLower' in data
+                    ? data.githubUsernameLower
+                    : base.githubUsernameLower ?? null,
+                onboardingCompletedAt: resolveEffectiveOnboardingCompletedAt(
+                  user.uid,
+                  data,
+                  base.onboardingCompletedAt
+                ),
+                interests: Array.isArray(data.interests) ? data.interests : base.interests ?? [],
+                completedQuests: Array.isArray(data.completedQuests)
+                  ? data.completedQuests
+                  : base.completedQuests ?? [],
+              };
+            });
+          }
+        },
+        (err) => {
+          console.warn('Realtime profile listener error, activating resilient polling:', err);
+          startFallbackPolling();
+          refreshProfile(true);
         }
-      },
-      (err) => {
-        console.warn('Realtime profile listener error:', err);
-      }
-    );
+      );
+    } catch (subErr) {
+      console.warn('Could not attach profile listener, starting polling:', subErr);
+      startFallbackPolling();
+    }
 
-    return unsubProfile;
+    // Refresh when user returns to the tab
+    const handleFocus = () => {
+      refreshProfile(true);
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshProfile(true);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      unsubProfile();
+      if (pollInterval) clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user]);
 
   // Globally ensure #loading-screen is dismissed once auth state resolves on any route
@@ -669,9 +812,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...prev,
             githubProfile: updatedProfile,
             githubUsernameLower: updatedProfile.username.toLowerCase(),
+            ...(xpAwarded > 0
+              ? {
+                  xp: (prev.xp || 0) + xpAwarded,
+                  seasonXp: (prev.seasonXp || 0) + xpAwarded,
+                  rank: getRank((prev.xp || 0) + xpAwarded),
+                }
+              : {}),
           }
         : prev
     );
+    if (xpAwarded > 0) {
+      refreshProfile(true).catch(() => {});
+    }
 
     return { profile: updatedProfile, xpAwarded };
   };
@@ -697,9 +850,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...prev,
             githubProfile: updatedProfile,
             githubUsernameLower: updatedProfile.username.toLowerCase(),
+            ...(xpAwarded > 0
+              ? {
+                  xp: (prev.xp || 0) + xpAwarded,
+                  seasonXp: (prev.seasonXp || 0) + xpAwarded,
+                  rank: getRank((prev.xp || 0) + xpAwarded),
+                }
+              : {}),
           }
         : prev
     );
+    if (xpAwarded > 0) {
+      refreshProfile(true).catch(() => {});
+    }
 
     return { profile: updatedProfile, xpAwarded };
   };
@@ -772,7 +935,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateLocalProfile = (updates: Partial<UserProfile>) => {
-    setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+    setProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      if (typeof updates.xp === 'number') {
+        next.rank = getRank(updates.xp);
+      }
+      return next;
+    });
   };
 
   return (
@@ -791,6 +961,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         disconnectGitHub,
         togglePinnedRepo,
         updateLocalProfile,
+        refreshProfile,
         redirectError,
         clearRedirectError,
       }}

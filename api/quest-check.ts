@@ -680,6 +680,8 @@ export default async function handler(req: any, res: any) {
         : XP_VALUES.QUEST_2_SHELL_BASICS;
 
     let xpAwarded = 0;
+    let newTotalXp = Number(userData?.xp) || 0;
+    let newTotalSeasonXp = Number(userData?.seasonXp) || 0;
     let clientShouldAwardXp = false;
 
     if (allPassed) {
@@ -689,7 +691,7 @@ export default async function handler(req: any, res: any) {
           const today = getTodayString();
           const ledgerId = `quest_${questId}_${uid}`;
 
-          xpAwarded = await adminDb.runTransaction(async (tx) => {
+          const grantResult = await adminDb.runTransaction(async (tx) => {
             const readState = await readXpGrantState(
               tx,
               adminDb,
@@ -714,6 +716,9 @@ export default async function handler(req: any, res: any) {
               }
             );
           });
+          xpAwarded = grantResult.awarded;
+          newTotalXp = grantResult.newTotalXp;
+          newTotalSeasonXp = grantResult.newTotalSeasonXp;
         } catch (txErr) {
           console.warn('[quest-check] Admin DB transaction failed, delegating XP grant to client:', txErr);
           clientShouldAwardXp = true;
@@ -729,6 +734,8 @@ export default async function handler(req: any, res: any) {
       allPassed,
       alreadyCompleted,
       xpAwarded,
+      newTotalXp,
+      newTotalSeasonXp,
       clientShouldAwardXp,
       rewardAmount,
       repoUrl: grade.repoUrl,

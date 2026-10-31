@@ -72,7 +72,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
   projects = [],
   userVotes = new Set(),
 }) => {
-  const { user, profile, connectGitHubWithOAuth, updateLocalProfile } = useAuth();
+  const { user, profile, connectGitHubWithOAuth, updateLocalProfile, refreshProfile } = useAuth();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<CampaignHubTab>(initialTab);
@@ -182,15 +182,26 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
 
       if (res.allPassed) {
         const updatedQuests = Array.from(new Set([...completedQuests, questId]));
+        const effectiveXp =
+          typeof res.newTotalXp === 'number'
+            ? res.newTotalXp
+            : (profile?.xp || 0) + (res.xpAwarded || 0);
+        const effectiveSeasonXp =
+          typeof res.newTotalSeasonXp === 'number'
+            ? res.newTotalSeasonXp
+            : (profile?.seasonXp || 0) + (res.xpAwarded || 0);
+
         updateLocalProfile({
           completedQuests: updatedQuests,
-          ...(res.xpAwarded > 0
+          ...(res.xpAwarded > 0 || typeof res.newTotalXp === 'number'
             ? {
-                xp: (profile?.xp || 0) + res.xpAwarded,
-                seasonXp: (profile?.seasonXp || 0) + res.xpAwarded,
+                xp: effectiveXp,
+                seasonXp: effectiveSeasonXp,
               }
             : {}),
         });
+
+        refreshProfile(true).catch(() => {});
 
         if (res.xpAwarded > 0) {
           toast(`🎉 Quest passed! +${res.xpAwarded} XP awarded!`, 'success');

@@ -6,6 +6,8 @@ export interface GrantXpReadState {
   userExists: boolean;
   dailyTotal: number;
   grantAmount: number;
+  currentXp?: number;
+  currentSeasonXp?: number;
 }
 
 export function getTodayString(): string {
@@ -33,6 +35,8 @@ export async function readXpGrantState(
 
   const userData = userSnap.exists ? userSnap.data() || {} : {};
   const existingLedgerIds: string[] = Array.isArray(userData.xpLedgerIds) ? userData.xpLedgerIds : [];
+  const currentXp = Number(userData.xp) || 0;
+  const currentSeasonXp = Number(userData.seasonXp) || 0;
 
   if (ledgerSnap.exists || existingLedgerIds.includes(ledgerId)) {
     return {
@@ -40,11 +44,13 @@ export async function readXpGrantState(
       userExists: userSnap.exists,
       dailyTotal: dailySnap.exists ? (dailySnap.data()?.total || 0) : 0,
       grantAmount: 0,
+      currentXp,
+      currentSeasonXp,
     };
   }
 
   if (!userSnap.exists) {
-    return { alreadyGranted: false, userExists: false, dailyTotal: 0, grantAmount: 0 };
+    return { alreadyGranted: false, userExists: false, dailyTotal: 0, grantAmount: 0, currentXp: 0, currentSeasonXp: 0 };
   }
 
   const dailyTotal = dailySnap.exists ? (dailySnap.data()?.total || 0) : 0;
@@ -60,6 +66,8 @@ export async function readXpGrantState(
     userExists: true,
     dailyTotal,
     grantAmount,
+    currentXp,
+    currentSeasonXp,
   };
 }
 
@@ -75,6 +83,8 @@ export class XpTransactionAccumulator {
       xp: number;
       dailyTotal: number;
       today: string;
+      initialXp: number;
+      initialSeasonXp: number;
       ledgerIds?: string[];
       extraUpdates?: Record<string, any>;
     }
@@ -115,6 +125,8 @@ export class XpTransactionAccumulator {
       xp: 0,
       dailyTotal: readState.dailyTotal,
       today,
+      initialXp: readState.currentXp ?? 0,
+      initialSeasonXp: readState.currentSeasonXp ?? 0,
       ledgerIds: [],
     };
     userEntry.xp += readState.grantAmount;
@@ -126,6 +138,18 @@ export class XpTransactionAccumulator {
     return readState.grantAmount;
   }
 
+  getUserTotalXp(userId: string): { newTotalXp: number; newTotalSeasonXp: number; awarded: number } {
+    const userEntry = this.userDeltas.get(userId);
+    if (!userEntry) {
+      return { newTotalXp: 0, newTotalSeasonXp: 0, awarded: 0 };
+    }
+    return {
+      awarded: userEntry.xp,
+      newTotalXp: userEntry.initialXp + userEntry.xp,
+      newTotalSeasonXp: userEntry.initialSeasonXp + userEntry.xp,
+    };
+  }
+
   /**
    * Sets additional fields to update on the user document in the same single update.
    */
@@ -134,6 +158,8 @@ export class XpTransactionAccumulator {
       xp: 0,
       dailyTotal: 0,
       today: '',
+      initialXp: 0,
+      initialSeasonXp: 0,
       ledgerIds: [],
     };
     userEntry.extraUpdates = {
@@ -189,6 +215,12 @@ export class XpTransactionAccumulator {
   }
 }
 
+export interface XpGrantResult {
+  awarded: number;
+  newTotalXp: number;
+  newTotalSeasonXp: number;
+}
+
 export function applyXpGrantInTransaction(
   tx: FirebaseFirestore.Transaction,
   db: FirebaseFirestore.Firestore,
@@ -199,12 +231,17 @@ export function applyXpGrantInTransaction(
   today: string,
   meta?: Record<string, any>,
   extraUserFields?: Record<string, any>
-): number {
+): XpGrantResult {
   const acc = new XpTransactionAccumulator();
   const awarded = acc.addGrant(db, ledgerId, userId, readState, reason, today, meta);
   if (extraUserFields) {
     acc.setUserExtraFields(userId, extraUserFields);
   }
   acc.apply(tx, db);
-  return awarded;
+  const totals = acc.getUserTotalXp(userId);
+  return {
+    awarded,
+    newTotalXp: totals.newTotalXp || (readState.currentXp ?? 0) + awarded,
+    newTotalSeasonXp: totals.newTotalSeasonXp || (readState.currentSeasonXp ?? 0) + awarded,
+  };
 }

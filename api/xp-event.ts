@@ -163,7 +163,17 @@ export default async function handler(req: any, res: any) {
           totalAwarded = awardedSubmit + awardedFirst;
         });
 
-        return res.status(200).json({ success: true, awarded: totalAwarded });
+        const authorSnap = await db.collection('users').doc(callerUid).get();
+        const freshAuthorData = authorSnap.data() || {};
+        const newTotalXp = Number(freshAuthorData.xp) || 0;
+        const newTotalSeasonXp = Number(freshAuthorData.seasonXp) || 0;
+
+        return res.status(200).json({
+          success: true,
+          awarded: totalAwarded,
+          newTotalXp,
+          newTotalSeasonXp,
+        });
       }
 
       // ─────────────────────────────────────────────────────────────
@@ -217,7 +227,17 @@ export default async function handler(req: any, res: any) {
           acc.apply(tx, db);
         });
 
-        return res.status(200).json({ success: true, awarded });
+        const authorSnap = await db.collection('users').doc(authorUid).get();
+        const freshAuthorData = authorSnap.data() || {};
+        const newTotalXp = Number(freshAuthorData.xp) || 0;
+        const newTotalSeasonXp = Number(freshAuthorData.seasonXp) || 0;
+
+        return res.status(200).json({
+          success: true,
+          awarded,
+          newTotalXp,
+          newTotalSeasonXp,
+        });
       }
 
       // ─────────────────────────────────────────────────────────────
@@ -577,7 +597,17 @@ export default async function handler(req: any, res: any) {
           acc.apply(tx, db);
         });
 
-        return res.status(200).json({ success: true, awarded });
+        const authorSnap = await db.collection('users').doc(authorUid).get();
+        const freshAuthorData = authorSnap.data() || {};
+        const newTotalXp = Number(freshAuthorData.xp) || 0;
+        const newTotalSeasonXp = Number(freshAuthorData.seasonXp) || 0;
+
+        return res.status(200).json({
+          success: true,
+          awarded,
+          newTotalXp,
+          newTotalSeasonXp,
+        });
       }
 
       // ─────────────────────────────────────────────────────────────
@@ -866,7 +896,18 @@ export default async function handler(req: any, res: any) {
           acc.apply(tx, db);
         });
 
-        return res.status(200).json({ success: true, awarded, profile: freshProfile });
+        const updatedUserSnap = await userRef.get();
+        const updatedUserData = updatedUserSnap.data() || {};
+        const newTotalXp = Number(updatedUserData.xp) || 0;
+        const newTotalSeasonXp = Number(updatedUserData.seasonXp) || 0;
+
+        return res.status(200).json({
+          success: true,
+          awarded,
+          profile: freshProfile,
+          newTotalXp,
+          newTotalSeasonXp,
+        });
       }
 
       // ─────────────────────────────────────────────────────────────
@@ -936,10 +977,17 @@ export default async function handler(req: any, res: any) {
           acc.apply(tx, db);
         });
 
+        const updatedUserSnap = await userRef.get();
+        const updatedUserData = updatedUserSnap.data() || {};
+        const newTotalXp = Number(updatedUserData.xp) || 0;
+        const newTotalSeasonXp = Number(updatedUserData.seasonXp) || 0;
+
         return res.status(200).json({
           success: true,
           awarded,
           onboardingCompletedAt: new Date().toISOString(),
+          newTotalXp,
+          newTotalSeasonXp,
         });
       }
 
@@ -1088,6 +1136,70 @@ export default async function handler(req: any, res: any) {
           }
         }
 
+        // 5. Check Completed Quests
+        const completedQuests: string[] = Array.isArray(userData.completedQuests)
+          ? userData.completedQuests
+          : [];
+        const pendingQuests: string[] = [];
+        for (const qId of completedQuests) {
+          const qLedgerId = `quest_${qId}_${callerUid}`;
+          const qSnap = await db.collection('xpLedger').doc(qLedgerId).get();
+          if (!qSnap.exists && !existingIds.has(qLedgerId)) {
+            pendingQuests.push(qId);
+          }
+        }
+
+        // Calculate expected cumulative milestone XP based on verified accomplishments
+        let expectedMilestoneXp = 0;
+        if (hasCompletedOnboarding) expectedMilestoneXp += XP_VALUES.ONBOARDING_COMPLETE;
+        if (hasGitHub) expectedMilestoneXp += XP_VALUES.GITHUB_CONNECT;
+        if (userProjectsSnap.size > 0) {
+          expectedMilestoneXp += XP_VALUES.FIRST_PROJECT;
+          for (const projDoc of userProjectsSnap.docs) {
+            expectedMilestoneXp += XP_VALUES.SUBMIT_PROJECT;
+            if (projDoc.data()?.approvalStatus === 'approved') {
+              expectedMilestoneXp += XP_VALUES.PROJECT_APPROVED;
+            }
+          }
+        }
+        for (const writingDoc of userWritingsSnap.docs) {
+          expectedMilestoneXp += XP_VALUES.SUBMIT_PROJECT;
+          if (writingDoc.data()?.approvalStatus === 'approved') {
+            expectedMilestoneXp += XP_VALUES.PROJECT_APPROVED;
+          }
+        }
+        for (const qId of completedQuests) {
+          expectedMilestoneXp +=
+            qId === 'quest_1_baby_steps'
+              ? XP_VALUES.QUEST_1_BABY_STEPS
+              : XP_VALUES.QUEST_2_SHELL_BASICS;
+        }
+
+        const currentXp = Number(userData.xp) || 0;
+        const currentSeasonXp = Number(userData.seasonXp) || 0;
+
+        const uncreditedSum =
+          (needsOnboardingXp ? XP_VALUES.ONBOARDING_COMPLETE : 0) +
+          (needsGitHubXp ? XP_VALUES.GITHUB_CONNECT : 0) +
+          (needsFirstProjectXp ? XP_VALUES.FIRST_PROJECT : 0) +
+          pendingProjectSubmits.length * XP_VALUES.SUBMIT_PROJECT +
+          pendingProjectApprovals.length * XP_VALUES.PROJECT_APPROVED +
+          pendingWritingSubmits.length * XP_VALUES.SUBMIT_PROJECT +
+          pendingWritingApprovals.length * XP_VALUES.PROJECT_APPROVED +
+          pendingQuests.reduce(
+            (sum, qId) =>
+              sum +
+              (qId === 'quest_1_baby_steps'
+                ? XP_VALUES.QUEST_1_BABY_STEPS
+                : XP_VALUES.QUEST_2_SHELL_BASICS),
+            0
+          );
+
+        let deficitGap = 0;
+        if (currentXp + uncreditedSum < expectedMilestoneXp) {
+          deficitGap = expectedMilestoneXp - (currentXp + uncreditedSum);
+        }
+
         // If nothing needs reconciling, return immediately
         if (
           !needsOnboardingXp &&
@@ -1096,9 +1208,17 @@ export default async function handler(req: any, res: any) {
           pendingProjectSubmits.length === 0 &&
           pendingProjectApprovals.length === 0 &&
           pendingWritingSubmits.length === 0 &&
-          pendingWritingApprovals.length === 0
+          pendingWritingApprovals.length === 0 &&
+          pendingQuests.length === 0 &&
+          deficitGap <= 0
         ) {
-          return res.status(200).json({ success: true, awarded: 0, reconciled: false });
+          return res.status(200).json({
+            success: true,
+            awarded: 0,
+            reconciled: false,
+            newTotalXp: currentXp,
+            newTotalSeasonXp: currentSeasonXp,
+          });
         }
 
         // Run batch write to grant all missing XP safely
@@ -1207,6 +1327,27 @@ export default async function handler(req: any, res: any) {
           });
         }
 
+        for (const qId of pendingQuests) {
+          const amount =
+            qId === 'quest_1_baby_steps'
+              ? XP_VALUES.QUEST_1_BABY_STEPS
+              : XP_VALUES.QUEST_2_SHELL_BASICS;
+          totalAwarded += amount;
+          newLedgerIds.push(`quest_${qId}_${callerUid}`);
+          const ledgerRef = db.collection('xpLedger').doc(`quest_${qId}_${callerUid}`);
+          batch.set(ledgerRef, {
+            userId: callerUid,
+            amount,
+            reason: `QUEST_COMPLETED:${qId}`,
+            meta: { questId: qId, reconciled: true },
+            createdAt: FieldValue.serverTimestamp(),
+          });
+        }
+
+        if (deficitGap > 0) {
+          totalAwarded += deficitGap;
+        }
+
         if (totalAwarded > 0) {
           userUpdates.xp = FieldValue.increment(totalAwarded);
           userUpdates.seasonXp = FieldValue.increment(totalAwarded);
@@ -1221,10 +1362,15 @@ export default async function handler(req: any, res: any) {
 
         await batch.commit();
 
+        const finalXp = currentXp + totalAwarded;
+        const finalSeasonXp = currentSeasonXp + totalAwarded;
+
         return res.status(200).json({
           success: true,
           awarded: totalAwarded,
           reconciled: true,
+          newTotalXp: finalXp,
+          newTotalSeasonXp: finalSeasonXp,
         });
       }
 
