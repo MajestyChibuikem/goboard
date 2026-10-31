@@ -442,6 +442,20 @@ const LandingPage: React.FC = () => {
             <img src="/logo-black.webp" alt="GoBoard" className="w-7 h-7 rounded-md object-contain bg-white dark:bg-neutral-800 p-0.5" />
             <span className="text-sm font-semibold text-neutral-900 dark:text-white">GoBoard</span>
           </div>
+          <div className="flex items-center gap-6 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+            <button
+              onClick={() => navigate('/browse')}
+              className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Explore Projects
+            </button>
+            <button
+              onClick={() => navigate('/docs')}
+              className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Documentation
+            </button>
+          </div>
           <p className="text-sm text-neutral-400 dark:text-neutral-500">
             &copy; {new Date().getFullYear()} GoBoard. Built for GoUni students.
           </p>

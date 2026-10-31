@@ -293,6 +293,17 @@ export interface GitHubRecentCommit {
   url: string;
 }
 
+export interface GitHubCommitItem {
+  sha: string;
+  shortSha: string;
+  message: string;
+  authorName: string;
+  authorUsername?: string;
+  authorAvatarUrl?: string;
+  date: string;
+  htmlUrl: string;
+}
+
 export interface GitHubLanguageStat {
   name: string;
   count: number;

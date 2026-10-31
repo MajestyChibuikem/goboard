@@ -6,6 +6,7 @@ import {
   ProjectGitHubMeta,
   ProjectContributor,
   GitHubPullRequestItem,
+  GitHubCommitItem,
 } from '../types';
 
 const GITHUB_API_BASE = 'https://api.github.com';
@@ -710,3 +711,86 @@ export async function fetchRepoPullRequests(
     return [];
   }
 }
+
+// In-memory cache for repository commits to prevent spamming GitHub API
+const repoCommitsCache = new Map<string, { timestamp: number; commits: GitHubCommitItem[] }>();
+const COMMITS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
+/**
+ * Fetches recent commits for a public GitHub repository.
+ * Useful for displaying live git activity alongside or as project build journey updates.
+ */
+export async function fetchRepoRecentCommits(
+  repoUrl: string,
+  limit: number = 15,
+  accessToken?: string
+): Promise<GitHubCommitItem[]> {
+  const parsed = parseGitHubRepoUrl(repoUrl);
+  if (!parsed) return [];
+
+  const { owner, repo } = parsed;
+  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${limit}`;
+  const cached = repoCommitsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < COMMITS_CACHE_TTL_MS) {
+    return cached.commits;
+  }
+
+  const headers = buildHeaders(accessToken);
+
+  try {
+    const res = await fetch(
+      `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+        repo
+      )}/commits?per_page=${Math.min(limit, 30)}`,
+      { headers }
+    );
+
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 409) {
+        // Empty repo without commits returns 409
+        return [];
+      }
+      return [];
+    }
+
+    const data: any[] = await res.json();
+    if (!Array.isArray(data)) return [];
+
+    const commits: GitHubCommitItem[] = data.map((c) => {
+      const sha = String(c.sha || '');
+      const rawMessage = String(c.commit?.message || 'Update');
+      const authorName =
+        c.author?.login ||
+        c.commit?.author?.name ||
+        c.commit?.committer?.name ||
+        'Developer';
+      const authorUsername = c.author?.login || undefined;
+      const authorAvatarUrl = c.author?.avatar_url || undefined;
+      const date =
+        c.commit?.author?.date ||
+        c.commit?.committer?.date ||
+        new Date().toISOString();
+      const htmlUrl =
+        c.html_url || `https://github.com/${owner}/${repo}/commit/${sha}`;
+
+      return {
+        sha,
+        shortSha: sha.slice(0, 7) || 'commit',
+        message: rawMessage,
+        authorName,
+        authorUsername,
+        authorAvatarUrl,
+        date,
+        htmlUrl,
+      };
+    });
+
+    repoCommitsCache.set(cacheKey, { timestamp: Date.now(), commits });
+    return commits;
+  } catch (err) {
+    console.warn('fetchRepoRecentCommits failed:', err);
+    return [];
+  }
+}
+
+export type { GitHubCommitItem };

@@ -500,6 +500,16 @@ const HomePage: React.FC = () => {
               <span className="hidden sm:inline">Lit Club</span>
             </button>
 
+            {/* Docs quick jump */}
+            <button
+              type="button"
+              onClick={() => navigate('/docs')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer shadow-2xs"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Docs</span>
+            </button>
+
             {/* Sort pills */}
             <div className="flex items-center gap-0.5 bg-neutral-100 dark:bg-neutral-900 p-0.5 rounded-xl border border-neutral-200/60 dark:border-neutral-800">
               <button

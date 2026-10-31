@@ -25,7 +25,7 @@ import {
   subscribeToCampaignConfig,
   DEFAULT_CAMPAIGN_CONFIG,
 } from './services/firestoreService';
-import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen, Coins, Sparkles } from 'lucide-react';
+import { Search, Plus, GraduationCap, Menu, X, Tag, Home, Zap, Layers, LogOut, User, Shield, Bitcoin, ShieldCheck, Cloud, Glasses, DollarSign, BookOpen, Coins, Sparkles, Compass } from 'lucide-react';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   [Category.WEB]: <Layers className="w-4 h-4" />,
@@ -67,7 +67,7 @@ const App: React.FC = () => {
   const [campaignHubInitialTab, setCampaignHubInitialTab] = useState<CampaignHubTab>('upload');
 
   // Determine current page from URL for sidebar highlighting
-  const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : location.pathname.startsWith('/lit-club') || location.pathname.startsWith('/writing/') ? 'lit-club' : 'home';
+  const currentPage = location.pathname === '/profile' ? 'profile' : location.pathname === '/admin' ? 'admin' : location.pathname.startsWith('/lit-club') || location.pathname.startsWith('/writing/') ? 'lit-club' : location.pathname.startsWith('/docs') ? 'docs' : 'home';
 
   // Close open menus on navigation (ScrollRestoration handles scroll position preservation)
   useEffect(() => {
@@ -338,7 +338,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Desktop Search */}
-            <div className="hidden md:block relative w-80">
+            <div className="hidden md:block relative w-72 xl:w-80">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 dark:text-neutral-500 w-4 h-4" />
               <input
                 type="text"
@@ -348,6 +348,49 @@ const App: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-gouni-primary/20 focus:border-gouni-primary/40 text-sm transition-all bg-neutral-50/50 dark:bg-neutral-900/60 focus:bg-white dark:focus:bg-neutral-850 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100"
               />
             </div>
+
+            {/* Desktop Quick Nav */}
+            <nav className="hidden lg:flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setShowFavorites(false);
+                  setShowOpenToContributions(false);
+                  navigate('/browse');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                  currentPage === 'home' && selectedCategory === 'All' && !showFavorites && !showOpenToContributions
+                    ? 'text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-850 font-bold'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                }`}
+              >
+                Projects
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/lit-club')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                  currentPage === 'lit-club'
+                    ? 'text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-850 font-bold'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                }`}
+              >
+                Lit Club
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/docs')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  currentPage === 'docs'
+                    ? 'text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-850 font-bold'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Docs
+              </button>
+            </nav>
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
@@ -465,6 +508,12 @@ const App: React.FC = () => {
                          >
                            <User className="w-4 h-4" /> My Profile & Wallet
                          </button>
+                         <button
+                           onClick={() => { setShowUserMenu(false); navigate('/docs'); }}
+                           className="flex items-center gap-2 w-full px-3 py-2 text-[13px] text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+                         >
+                           <BookOpen className="w-4 h-4" /> Docs & Guides
+                         </button>
                          {profile?.isAdmin && (
                            <button
                              onClick={() => { setShowUserMenu(false); navigate('/admin'); }}
@@ -564,6 +613,16 @@ const App: React.FC = () => {
                   }`}
                 >
                   <BookOpen className="w-4 h-4" /> Lit Club
+                </button>
+                <button
+                  onClick={() => { navigate('/docs'); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 font-medium rounded-xl text-sm transition-colors ${
+                    currentPage === 'docs'
+                      ? 'text-neutral-900 dark:text-white bg-neutral-100 dark:bg-neutral-800 font-semibold'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/60 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Compass className="w-4 h-4" /> Docs & Guides
                 </button>
                 {campaignConfig.isActive && (
                   <button

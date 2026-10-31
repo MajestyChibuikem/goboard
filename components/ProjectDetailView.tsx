@@ -567,7 +567,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
 
           {/* Build Journey Timeline */}
-          <ProjectTimeline updates={project.updates} status={project.status} />
+          <ProjectTimeline updates={project.updates} status={project.status} repoUrl={project.repoUrl} />
 
           {/* Add Update Form */}
           <div className="mb-10">
