@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 import { Project } from '../types';
 import { getProjectVoters, ProjectVoterInfo } from '../services/firestoreService';
 import { fetchRepoStargazers, GitHubStargazerItem } from '../services/githubService';
@@ -29,6 +30,7 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
   project,
   onSelectUser,
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'supporters' | 'github'>('supporters');
   const [voters, setVoters] = useState<ProjectVoterInfo[]>([]);
   const [loadingVoters, setLoadingVoters] = useState(true);
@@ -39,17 +41,22 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
     if (!isOpen) return;
 
     let isMounted = true;
-    setLoadingVoters(true);
 
-    getProjectVoters(project.id)
-      .then((data) => {
-        if (isMounted) {
-          setVoters(data);
-        }
-      })
-      .finally(() => {
-        if (isMounted) setLoadingVoters(false);
-      });
+    if (user) {
+      setLoadingVoters(true);
+      getProjectVoters(project.id)
+        .then((data) => {
+          if (isMounted) {
+            setVoters(data);
+          }
+        })
+        .finally(() => {
+          if (isMounted) setLoadingVoters(false);
+        });
+    } else {
+      setVoters([]);
+      setLoadingVoters(false);
+    }
 
     if (project.repoUrl) {
       setLoadingStargazers(true);
@@ -67,7 +74,7 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, project.id, project.repoUrl]);
+  }, [isOpen, project.id, project.repoUrl, user]);
 
   if (!isOpen) return null;
 
@@ -133,7 +140,7 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
                   }`}
                 >
                   <Heart className="w-3.5 h-3.5 text-orange-500" />
-                  <span>GoBoard Upvotes ({voters.length})</span>
+                  <span>GoBoard Upvotes {user ? `(${voters.length})` : ''}</span>
                 </button>
 
                 <button
@@ -155,7 +162,17 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
           {/* Content Body */}
           <div className="flex-1 overflow-y-auto p-6 space-y-2">
             {activeTab === 'supporters' ? (
-              loadingVoters ? (
+              !user ? (
+                <div className="py-12 text-center text-neutral-400 space-y-2">
+                  <Shield className="w-8 h-8 text-neutral-300 dark:text-neutral-700 mx-auto" />
+                  <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+                    Sign in to view student supporters
+                  </div>
+                  <p className="text-xs text-neutral-500 max-w-xs mx-auto">
+                    Logged in students can view who upvoted this project.
+                  </p>
+                </div>
+              ) : loadingVoters ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-2 text-neutral-400">
                   <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
                   <span className="text-xs">Loading supporters...</span>
@@ -175,7 +192,12 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
                   {voters.map((voter) => (
                     <div
                       key={voter.userId}
-                      onClick={() => onSelectUser && onSelectUser(voter.userId)}
+                      onClick={() => {
+                        if (onSelectUser) {
+                          onClose();
+                          onSelectUser(voter.userId);
+                        }
+                      }}
                       className={`p-3 rounded-2xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-850/50 flex items-center justify-between gap-3 transition-all ${
                         onSelectUser ? 'hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer' : ''
                       }`}
@@ -288,7 +310,9 @@ export const ProjectStargazersModal: React.FC<ProjectStargazersModalProps> = ({
             <span className="flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               {activeTab === 'supporters'
-                ? `${voters.length} student supporter${voters.length !== 1 ? 's' : ''}`
+                ? !user
+                  ? 'Sign in required'
+                  : `${voters.length} student supporter${voters.length !== 1 ? 's' : ''}`
                 : `${stargazers.length} GitHub stargazer${stargazers.length !== 1 ? 's' : ''}`}
             </span>
             <button

@@ -222,7 +222,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
     setFormError(null);
     setRepoValidationInfo(null);
     if (!repoUrl.trim() || !figmaUrl.trim()) {
-      setFormError('Please enter both your GitHub repository URL and your Figma URL first.');
+      setFormError('Please enter both your GitHub repository URL and your Figma or Google Drive link first.');
       return;
     }
 
@@ -1136,7 +1136,10 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                               rel="noopener noreferrer"
                               className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-xs font-bold flex items-center gap-1"
                             >
-                              <ExternalLink className="w-3.5 h-3.5" /> Figma
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              {sub.figmaUrl?.includes('drive.google.com') || sub.figmaUrl?.includes('docs.google.com')
+                                ? 'Google Drive'
+                                : 'Figma'}
                             </a>
                             <a
                               href={sub.repoUrl}

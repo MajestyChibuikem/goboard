@@ -118,6 +118,19 @@ async function gradeQuest1BabySteps(username: string): Promise<{
   if (!readme.exists) {
     readme = await fetchRepoFileDecoded(username, actualRepoName, 'readme.md');
   }
+  if (!readme.exists) {
+    // Fallback to GitHub's native repo README endpoint to support any casing or markdown extension
+    const ghReadme = await fetchGitHubJson(
+      `/repos/${encodeURIComponent(username)}/${encodeURIComponent(actualRepoName)}/readme`
+    );
+    if (ghReadme.status === 200 && ghReadme.data?.content && typeof ghReadme.data.content === 'string') {
+      const decoded = Buffer.from(ghReadme.data.content.replace(/\s/g, ''), 'base64')
+        .toString('utf-8')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+      readme = { exists: true, content: decoded, status: 200 };
+    }
+  }
 
   if (!readme.exists) {
     results.push({
@@ -449,9 +462,22 @@ export default async function handler(req: any, res: any) {
           fallbackToClient: true,
         });
       }
+      if (action === 'check_quest' || action === 'validate_campaign_repo') {
+        return res.status(401).json({
+          success: false,
+          error: err?.message || 'Unauthorized: Invalid or missing token.',
+        });
+      }
       if (!req.headers?.authorization && !req.headers?.Authorization) {
         return res.status(401).json({ error: err?.message || 'Unauthorized: Invalid or missing token' });
       }
+    }
+
+    if ((action === 'check_quest' || action === 'validate_campaign_repo') && !uid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Authentication required.',
+      });
     }
 
     let userData: Record<string, any> | null = null;
@@ -637,7 +663,7 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({
           success: false,
           error:
-            'Your GitHub repository must include a README.md containing your redesign pitch (at least 80 words) and your Figma link.',
+            'Your GitHub repository must include a README.md containing your redesign pitch (at least 80 words) and your Figma or Google Drive link.',
         });
       }
 

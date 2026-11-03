@@ -19,6 +19,7 @@ import {
   runTransaction,
   setDoc,
   limit,
+  documentId,
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { db, auth } from './firebase';
@@ -58,6 +59,34 @@ const campaignSubmissionsCol = collection(db, 'campaignSubmissions');
 const campaignConfigDoc = doc(db, 'settings', 'campaignConfig');
 
 // ─── Helpers ───
+
+/**
+ * Recursively strips undefined fields from nested objects and arrays so Firestore
+ * never throws "Unsupported field value: undefined". Preserves Dates, Timestamps, and FieldValues.
+ */
+export function sanitizeFirestoreData<T>(val: T): T {
+  if (val === null || val === undefined) {
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeFirestoreData(item)) as unknown as T;
+  }
+  if (typeof val === 'object') {
+    const proto = Object.getPrototypeOf(val);
+    if (proto === Object.prototype || proto === null) {
+      const res: Record<string, any> = {};
+      for (const [k, v] of Object.entries(val)) {
+        if (v !== undefined) {
+          res[k] = sanitizeFirestoreData(v);
+        }
+      }
+      return res as T;
+    }
+  }
+  return val;
+}
 
 function tsToISO(ts: any): string {
   if (!ts) return new Date().toISOString();
@@ -298,10 +327,8 @@ export async function createProject(
 
   const slug = availability.slug || generateSlug(data.title) || `project-${Date.now().toString().slice(-4)}`;
 
-  // Strip any undefined top-level fields so Firestore addDoc never rejects optional fields
-  const cleanData = Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined)
-  );
+  // Deep sanitize data to recursively strip undefined properties
+  const cleanData = sanitizeFirestoreData(data);
 
   const docRef = await addDoc(projectsCol, {
     ...cleanData,
@@ -507,30 +534,50 @@ export async function getProjectVoters(projectId: string): Promise<ProjectVoterI
       }
     });
 
-    const resolved = await Promise.all(
-      voterList.slice(0, 50).map(async ({ userId, votedAt }) => {
-        try {
-          const profile = (await getUserProfile(userId)) as any;
-          return {
-            userId,
-            displayName: profile?.displayName || 'Student Builder',
-            photoURL: profile?.photoURL || null,
-            department: profile?.department || undefined,
-            rank: profile?.rank || 'Freshman Coder',
-            votedAt,
-          };
-        } catch {
-          return {
-            userId,
-            displayName: 'Student Builder',
-            photoURL: null,
-            votedAt,
-          };
-        }
-      })
-    );
+    // Sort newest voters first
+    voterList.sort((a, b) => {
+      const timeA = a.votedAt ? new Date(a.votedAt).getTime() : 0;
+      const timeB = b.votedAt ? new Date(b.votedAt).getTime() : 0;
+      return timeB - timeA;
+    });
 
-    return resolved;
+    const topVoters = voterList.slice(0, 50);
+    const userIds = Array.from(new Set(topVoters.map((v) => v.userId)));
+    const profileMap = new Map<string, any>();
+
+    // Chunk into batches of 30 for Firestore `in` query to minimize round-trips
+    const CHUNK_SIZE = 30;
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      if (chunk.length === 0) continue;
+      try {
+        const userQuery = query(usersCol, where(documentId(), 'in', chunk));
+        const userDocs = await getDocs(userQuery);
+        userDocs.forEach((docSnap) => {
+          if (docSnap.exists()) {
+            const uData = docSnap.data();
+            if (uData.photoURL) {
+              uData.photoURL = cleanOldFirebaseUrl(uData.photoURL);
+            }
+            profileMap.set(docSnap.id, uData);
+          }
+        });
+      } catch (err) {
+        console.warn('Batch fetch user profiles failed:', err);
+      }
+    }
+
+    return topVoters.map(({ userId, votedAt }) => {
+      const profile = profileMap.get(userId);
+      return {
+        userId,
+        displayName: profile?.displayName || 'Student Builder',
+        photoURL: profile?.photoURL || null,
+        department: profile?.department || undefined,
+        rank: profile?.rank || 'Freshman Coder',
+        votedAt,
+      };
+    });
   } catch (err) {
     console.warn('getProjectVoters failed:', err);
     return [];
@@ -994,9 +1041,7 @@ export async function createNotification(notification: Omit<Notification, 'id' |
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(); // 2 days from now
 
-  const cleanNotification = Object.fromEntries(
-    Object.entries(notification).filter(([, value]) => value !== undefined)
-  );
+  const cleanNotification = sanitizeFirestoreData(notification);
 
   const userNotifRef = collection(db, 'users', notification.userId, 'notifications');
   await addDoc(userNotifRef, {
@@ -1306,9 +1351,7 @@ export async function createWriting(
   data: { title: string; body: string; genre: WritingGenre; displayName: string; authorPhotoURL?: string | null },
   authorUid: string
 ) {
-  const cleanData = Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined)
-  );
+  const cleanData = sanitizeFirestoreData(data);
 
   const docRef = await addDoc(writingsCol, {
     ...cleanData,

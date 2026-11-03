@@ -1576,7 +1576,10 @@ export const AdminQueue: React.FC<AdminQueueProps> = ({
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-xs font-bold inline-flex items-center gap-1.5"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> Inspect Figma
+                        <ExternalLink className="w-3.5 h-3.5" />{' '}
+                        {sub.figmaUrl?.includes('drive.google.com') || sub.figmaUrl?.includes('docs.google.com')
+                          ? 'Inspect Google Drive'
+                          : 'Inspect Figma'}
                       </a>
                       <a
                         href={sub.repoUrl}
