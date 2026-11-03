@@ -260,7 +260,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
       return;
     }
     if (!figmaUrl.trim()) {
-      setFormError('Please enter your Figma prototype or design file URL.');
+      setFormError('Please enter your Figma prototype or Google Drive design link.');
       return;
     }
     if (!pitchSummary.trim() || pitchSummary.trim().length < 30) {
@@ -957,7 +957,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                        Figma Design / Interactive Prototype URL
+                        Figma Prototype or Google Drive Design Link
                       </label>
                       <input
                         type="url"
@@ -966,7 +966,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                           setFigmaUrl(e.target.value);
                           setRepoValidationInfo(null);
                         }}
-                        placeholder="https://www.figma.com/file/..."
+                        placeholder="https://www.figma.com/file/... or https://drive.google.com/..."
                         className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm"
                       />
                     </div>
@@ -1013,7 +1013,7 @@ export const CampaignHubModal: React.FC<CampaignHubModalProps> = ({
                         No image upload needed on GoBoard
                       </div>
                       <p className="leading-relaxed">
-                        Include your UI mockups, before/after comparisons, and design rationale directly in your public GitHub repository&apos;s <code className="font-mono font-bold">README.md</code> or inside your Figma file. Everything stays lightweight on the platform!
+                        Include your UI mockups, before/after comparisons, and design rationale directly in your public GitHub repository&apos;s <code className="font-mono font-bold">README.md</code>, Figma, or Google Drive folder. Everything stays lightweight on the platform!
                       </p>
                     </div>
                   </div>

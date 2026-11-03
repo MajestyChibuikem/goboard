@@ -180,7 +180,7 @@ rules_version = '2';
 //   - repoUrl: string
 //   - figmaUrl: string
 //   - pitchSummary: string
-//   - screenshots: list of strings (1 to 5 URLs)
+//   - screenshots: list of strings (0 to 5 URLs)
 //   - likes: number
 //   - votedUserIds: list of strings
 //   - status: string ('pending' | 'approved' | 'rejected' | 'winner')
@@ -492,9 +492,8 @@ service cloud.firestore {
         request.resource.data.likes == 0 &&
         request.resource.data.get('votedUserIds', []) == [] &&
         request.resource.data.teamSize in ['solo', 'duo'] &&
-        request.resource.data.screenshots is list &&
-        request.resource.data.screenshots.size() >= 1 &&
-        request.resource.data.screenshots.size() <= 5 &&
+        request.resource.data.get('screenshots', []) is list &&
+        request.resource.data.get('screenshots', []).size() <= 5 &&
         request.resource.data.repoUrl is string &&
         request.resource.data.repoUrl.size() > 0 &&
         request.resource.data.figmaUrl is string &&
@@ -513,7 +512,9 @@ service cloud.firestore {
           resource.data.status in ['approved', 'winner'] &&
           affectedKeys().hasOnly(['likes', 'votedUserIds']) &&
           request.resource.data.votedUserIds is list &&
-          math.abs(request.resource.data.likes - resource.data.likes) == 1
+          math.abs(request.resource.data.likes - resource.data.likes) == 1 &&
+          resource.data.authorUid != request.auth.uid &&
+          resource.data.get('partnerUid', null) != request.auth.uid
         )
       );
 

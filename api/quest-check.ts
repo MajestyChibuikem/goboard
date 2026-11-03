@@ -73,7 +73,11 @@ async function gradeQuest1BabySteps(username: string): Promise<{
 
   if (!repoExistsAndValid) {
     let reason = `Repository "${username}/${repoName}" was not found. Make sure it is named "GoQuests" and is set to Public.`;
-    if (repoRes.status === 200 && repoRes.data?.fork) {
+    if (repoRes.status === 403) {
+      reason = 'GitHub API rate limit reached. Please wait a minute and try again.';
+    } else if (repoRes.status >= 500) {
+      reason = 'GitHub is temporarily unavailable. Please retry shortly.';
+    } else if (repoRes.status === 200 && repoRes.data?.fork) {
       reason = `Repository "${username}/${repoName}" is a fork. You must create your own original repository.`;
     } else if (repoRes.status === 200 && repoRes.data?.private) {
       reason = `Repository "${username}/${repoName}" is private. Please change its visibility to Public.`;
@@ -173,7 +177,16 @@ async function gradeQuest2ShellBasics(username: string): Promise<{
   );
 
   if (repoRes.status !== 200 || !repoRes.data || repoRes.data.private || repoRes.data.fork) {
-    const failReason = `Public repository "${username}/GoQuests" not found. Complete Quest 01 first.`;
+    let failReason = `Public repository "${username}/GoQuests" not found. Complete Quest 01 first.`;
+    if (repoRes.status === 403) {
+      failReason = 'GitHub API rate limit reached. Please wait a minute and try again.';
+    } else if (repoRes.status >= 500) {
+      failReason = 'GitHub is temporarily unavailable. Please retry shortly.';
+    } else if (repoRes.status === 200 && repoRes.data?.fork) {
+      failReason = `Repository "${username}/GoQuests" is a fork. You must create your own original repository.`;
+    } else if (repoRes.status === 200 && repoRes.data?.private) {
+      failReason = `Repository "${username}/GoQuests" is private. Please change its visibility to Public.`;
+    }
     return {
       repoUrl: `https://github.com/${username}/${repoName}`,
       results: [
@@ -577,16 +590,33 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      if (!/^https:\/\/(www\.)?figma\.com\/.+/i.test(figmaUrl)) {
+      const isValidPrototypeUrl =
+        /^https:\/\/(www\.)?figma\.com\/.+/i.test(figmaUrl) ||
+        /^https:\/\/(drive|docs)\.google\.com\/.+/i.test(figmaUrl);
+
+      if (!isValidPrototypeUrl) {
         return res.status(400).json({
           success: false,
-          error: 'Please enter a valid Figma design or prototype URL (https://www.figma.com/...).',
+          error: 'Please enter a valid Figma link (https://www.figma.com/...) or accessible Google Drive link (https://drive.google.com/...).',
         });
       }
 
       const repoCheck = await fetchGitHubJson(
         `/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repo)}`
       );
+
+      if (repoCheck.status === 403) {
+        return res.status(429).json({
+          success: false,
+          error: 'GitHub API rate limit reached. Please wait a minute and try again.',
+        });
+      }
+      if (repoCheck.status >= 500) {
+        return res.status(502).json({
+          success: false,
+          error: 'GitHub service is temporarily unreachable. Please retry shortly.',
+        });
+      }
 
       if (repoCheck.status !== 200 || !repoCheck.data || repoCheck.data.private || repoCheck.data.fork) {
         return res.status(400).json({

@@ -794,3 +794,64 @@ export async function fetchRepoRecentCommits(
 }
 
 export type { GitHubCommitItem };
+
+export interface GitHubStargazerItem {
+  username: string;
+  avatarUrl: string;
+  profileUrl: string;
+  starredAt?: string;
+}
+
+const repoStargazersCache = new Map<string, { timestamp: number; stargazers: GitHubStargazerItem[] }>();
+const STARGAZERS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Fetches stargazers for a public GitHub repository.
+ */
+export async function fetchRepoStargazers(
+  repoUrl: string,
+  limit: number = 30,
+  accessToken?: string
+): Promise<GitHubStargazerItem[]> {
+  const parsed = parseGitHubRepoUrl(repoUrl);
+  if (!parsed) return [];
+
+  const { owner, repo } = parsed;
+  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${limit}`;
+  const cached = repoStargazersCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < STARGAZERS_CACHE_TTL_MS) {
+    return cached.stargazers;
+  }
+
+  const headers = buildHeaders(accessToken);
+  headers['Accept'] = 'application/vnd.github.v3.star+json';
+
+  try {
+    const res = await fetch(
+      `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+        repo
+      )}/stargazers?per_page=${Math.min(limit, 50)}`,
+      { headers }
+    );
+
+    if (!res.ok) return [];
+    const data: any[] = await res.json();
+    if (!Array.isArray(data)) return [];
+
+    const stargazers: GitHubStargazerItem[] = data.map((item) => {
+      const u = item.user || item;
+      return {
+        username: String(u.login || ''),
+        avatarUrl: String(u.avatar_url || ''),
+        profileUrl: String(u.html_url || `https://github.com/${u.login}`),
+        starredAt: item.starred_at ? String(item.starred_at) : undefined,
+      };
+    });
+
+    repoStargazersCache.set(cacheKey, { timestamp: Date.now(), stargazers });
+    return stargazers;
+  } catch (err) {
+    console.warn('fetchRepoStargazers failed:', err);
+    return [];
+  }
+}

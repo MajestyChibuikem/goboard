@@ -3,7 +3,7 @@ import { Project, Comment, ProjectUpdate, ProjectStatus, GitHubPullRequestItem }
 import { generateProjectInsight } from '../services/geminiService';
 import { fetchRepoPullRequests } from '../services/githubService';
 import { getProjectBadges, formatDate } from '../services/utils';
-import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X, GitPullRequest, GitMerge, GitFork, Star, RefreshCw, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Github, Sparkles, Monitor, ChevronUp, AlertCircle, Trash2, X, GitPullRequest, GitMerge, GitFork, Star, RefreshCw, ExternalLink, CheckCircle2, Users } from 'lucide-react';
 import { Button } from './Button';
 import { CommentSection } from './CommentSection';
 import { ProjectTimeline } from './ProjectTimeline';
@@ -28,6 +28,7 @@ import {
 } from '../services/firestoreService';
 import { UserAvatar } from './UserAvatar';
 import { ContributeModal } from './ContributeModal';
+import { ProjectStargazersModal } from './ProjectStargazersModal';
 import { useResolvedUser } from '../contexts/UserCacheContext';
 import { GeminiInsight } from '../types';
 import { STATUS_CONFIG, CONTRIBUTION_AREAS } from '../constants';
@@ -82,6 +83,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [syncingGitHub, setSyncingGitHub] = useState(false);
   const [pullRequests, setPullRequests] = useState<GitHubPullRequestItem[]>([]);
   const [loadingPrs, setLoadingPrs] = useState(false);
+  const [showStargazersModal, setShowStargazersModal] = useState(false);
   const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const badges = getProjectBadges(project);
@@ -676,6 +678,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               <ChevronUp className={`w-4 h-4 ${voted ? 'text-orange-500' : ''}`} />
               {voted ? `Upvoted (${project.likes})` : `Upvote (${project.likes})`}
             </Button>
+
+            <button
+              type="button"
+              onClick={() => setShowStargazersModal(true)}
+              className="w-full text-center text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer py-0.5"
+            >
+              <Users className="w-3.5 h-3.5 text-orange-500" />
+              <span>
+                {project.likes > 0
+                  ? `View ${project.likes} supporter${project.likes !== 1 ? 's' : ''}`
+                  : 'View supporters & stargazers'}
+              </span>
+            </button>
 
             {project.demoUrl ? (
               <a href={project.demoUrl} target="_blank" rel="noreferrer" className="block">
@@ -1421,6 +1436,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           currentUserDisplayName={profile?.displayName || user?.displayName || undefined}
         />
       )}
+
+      <ProjectStargazersModal
+        isOpen={showStargazersModal}
+        onClose={() => setShowStargazersModal(false)}
+        project={project}
+        onSelectUser={onProfileClick}
+      />
     </div>
   );
 };

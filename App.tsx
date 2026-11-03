@@ -633,7 +633,7 @@ const App: React.FC = () => {
                       <Sparkles className="w-4 h-4 text-amber-500" />
                       Builder Quests & Bounty
                     </span>
-                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300">+350 XP</span>
+                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300">+75 XP</span>
                   </button>
                 )}
                 <div className="pt-4 pb-2 px-3.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Categories</div>

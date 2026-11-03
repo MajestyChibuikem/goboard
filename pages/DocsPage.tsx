@@ -464,13 +464,13 @@ export const DocsPage: React.FC = () => {
                   </tr>
                   <tr>
                     <td className="py-3 px-4 font-semibold">Genesis Quest 1: Baby Steps in Git</td>
-                    <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-bold">+150 XP</td>
+                    <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-bold">+25 XP</td>
                     <td className="py-3 px-4">One-time</td>
                     <td className="py-3 px-4">Automated technical grader</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-4 font-semibold">Genesis Quest 2: 0x00 Shell Basics</td>
-                    <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-bold">+200 XP</td>
+                    <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-bold">+50 XP</td>
                     <td className="py-3 px-4">One-time</td>
                     <td className="py-3 px-4">Automated technical grader</td>
                   </tr>
@@ -536,56 +536,53 @@ export const DocsPage: React.FC = () => {
               <div className="p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-850/60">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                    Quest 1: Baby Steps in Git
+                    Quest 1: Baby Steps
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                    +150 XP
+                    +25 XP
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2">
-                  Forking, Branching & Opening Your First PR
+                  Create Your "GoQuests" Repository & Initialize README
                 </h3>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">
-                  Learn how professional software teams collaborate by forking the official GoBoard student repository, creating an isolated feature branch, and adding your student profile markdown card.
+                  Every builder starts with a single repository. Before tackling terminal scripts or campus challenges, you create your public GitHub home for your quest solutions.
                 </p>
 
                 <div className="space-y-2 text-xs text-neutral-700 dark:text-neutral-300 mb-4">
                   <div className="font-semibold text-neutral-900 dark:text-white">Requirements to pass the Grader:</div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Create a fork of the official repository on GitHub.</span>
+                    <span>Create a public, original (non-forked) repository named exactly <code>GoQuests</code> on your linked GitHub account.</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Branch named with the pattern: <code>feature/&lt;your-github-username&gt;</code></span>
+                    <span>Create a root <code>README.md</code> file (at least 15 characters long).</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Add file at: <code>contributors/&lt;your-github-username&gt;.md</code></span>
+                    <span>Include the exact phrase <code>"Baby Steps"</code> (case-insensitive) and a note explaining your goals.</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Submit an open Pull Request back to the upstream repository.</span>
+                    <span>Push to GitHub, then click "Check Progress" in the Builder Quests HUD.</span>
                   </div>
                 </div>
 
                 <CodeSnippet
                   title="Terminal Commands for Quest 1"
-                  code={`# 1. Clone your personal fork
-git clone https://github.com/<your-username>/goboard-students.git
-cd goboard-students
+                  code={`# 1. Clone your personal GoQuests repository
+git clone https://github.com/<your-username>/GoQuests.git
+cd GoQuests
 
-# 2. Create your isolated feature branch
-git checkout -b feature/<your-username>
+# 2. Initialize your README.md file
+echo "# GoQuests - Baby Steps" > README.md
+echo "Learning Linux terminal & Git on GoBoard." >> README.md
 
-# 3. Create your contributor markdown file
-mkdir -p contributors
-echo "# Student Profile: <Your Name>" > contributors/<your-username>.md
-
-# 4. Commit and push
-git add .
-git commit -m "feat: add contributor profile for <your-username>"
-git push origin feature/<your-username>`}
+# 3. Commit and push to main
+git add README.md
+git commit -m "docs: initialize GoQuests with Baby Steps"
+git push origin main`}
                 />
               </div>
 
@@ -596,14 +593,14 @@ git push origin feature/<your-username>`}
                     Quest 2: 0x00 Shell Basics
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
-                    +200 XP
+                    +50 XP
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2">
                   Linux Terminal & Shell Mastery
                 </h3>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">
-                  Master the UNIX command line. Learn file manipulation, standard streams (stdin, stdout, stderr), pipe redirections, and permission chmod bits.
+                  Master the UNIX command line. Write 3 concise two-line Bash scripts in the <code className="font-mono">0x00-shell_basics/</code> directory of your <code className="font-mono">GoQuests</code> repository. Line 1 must be <code className="font-mono">#!/bin/bash</code>, followed by your command on Line 2.
                 </p>
 
                 <div className="space-y-2 text-xs text-neutral-700 dark:text-neutral-300">

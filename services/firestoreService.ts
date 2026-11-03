@@ -478,6 +478,65 @@ export function subscribeToUserVotes(userId: string, callback: (votes: Set<strin
   });
 }
 
+export interface ProjectVoterInfo {
+  userId: string;
+  displayName: string;
+  photoURL?: string | null;
+  department?: string;
+  rank?: string;
+  votedAt?: string;
+}
+
+export async function getProjectVoters(projectId: string): Promise<ProjectVoterInfo[]> {
+  try {
+    const q = query(votesCol, where('projectId', '==', projectId));
+    const snap = await getDocs(q);
+    if (snap.empty) return [];
+
+    const voterList: { userId: string; votedAt?: string }[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      if (data.userId) {
+        let votedAt: string | undefined;
+        if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+          votedAt = data.createdAt.toDate().toISOString();
+        } else if (typeof data.createdAt === 'string') {
+          votedAt = data.createdAt;
+        }
+        voterList.push({ userId: data.userId, votedAt });
+      }
+    });
+
+    const resolved = await Promise.all(
+      voterList.slice(0, 50).map(async ({ userId, votedAt }) => {
+        try {
+          const profile = (await getUserProfile(userId)) as any;
+          return {
+            userId,
+            displayName: profile?.displayName || 'Student Builder',
+            photoURL: profile?.photoURL || null,
+            department: profile?.department || undefined,
+            rank: profile?.rank || 'Freshman Coder',
+            votedAt,
+          };
+        } catch {
+          return {
+            userId,
+            displayName: 'Student Builder',
+            photoURL: null,
+            votedAt,
+          };
+        }
+      })
+    );
+
+    return resolved;
+  } catch (err) {
+    console.warn('getProjectVoters failed:', err);
+    return [];
+  }
+}
+
 // ─── Comments ───
 
 export async function addComment(projectId: string, comment: Comment) {
@@ -935,9 +994,13 @@ export async function createNotification(notification: Omit<Notification, 'id' |
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(); // 2 days from now
 
+  const cleanNotification = Object.fromEntries(
+    Object.entries(notification).filter(([, value]) => value !== undefined)
+  );
+
   const userNotifRef = collection(db, 'users', notification.userId, 'notifications');
   await addDoc(userNotifRef, {
-    ...notification,
+    ...cleanNotification,
     createdAt: now,
     expiresAt,
   });
@@ -1243,8 +1306,13 @@ export async function createWriting(
   data: { title: string; body: string; genre: WritingGenre; displayName: string; authorPhotoURL?: string | null },
   authorUid: string
 ) {
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+
   const docRef = await addDoc(writingsCol, {
-    ...data,
+    ...cleanData,
+    authorPhotoURL: data.authorPhotoURL || null,
     likes: 0,
     datePosted: serverTimestamp(),
     comments: [],
@@ -2655,6 +2723,9 @@ export async function toggleCampaignSubmissionVote(
     const snap = await tx.get(subRef);
     if (!snap.exists()) throw new Error('Submission not found');
     const data = snap.data();
+    if (data.authorUid === userId || (data.partnerUid && data.partnerUid === userId)) {
+      throw new Error('You cannot vote for your own campaign submission.');
+    }
     const votedUserIds: string[] = Array.isArray(data.votedUserIds) ? data.votedUserIds : [];
     const alreadyVoted = votedUserIds.includes(userId);
     const currentLikes = Number(data.likes) || 0;
