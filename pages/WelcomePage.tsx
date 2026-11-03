@@ -137,7 +137,10 @@ export const WelcomePage: React.FC = () => {
       navigate('/', { replace: true });
       return;
     }
-    if (!authLoading && profile?.onboardingCompletedAt) {
+    const searchParams = new URLSearchParams(window.location.search);
+    const allowTest = searchParams.get('force') === 'true' || searchParams.get('reset') === 'true';
+
+    if (!authLoading && profile?.onboardingCompletedAt && !allowTest) {
       try {
         sessionStorage.removeItem(WELCOME_DRAFT_KEY);
       } catch {
@@ -513,16 +516,7 @@ export const WelcomePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={handleFinishOnboarding}
-                  disabled={submitting}
-                  className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 font-medium underline underline-offset-4 cursor-pointer"
-                >
-                  Skip remaining steps & claim +25 XP
-                </button>
-
+              <div className="pt-4 flex items-center justify-end">
                 <Button
                   variant="primary"
                   className="w-full sm:w-auto px-6 py-2.5 rounded-xl cursor-pointer"
@@ -616,7 +610,20 @@ export const WelcomePage: React.FC = () => {
                   <Button variant="ghost" onClick={() => setStep(3)}>
                     Skip
                   </Button>
-                  <Button variant="primary" onClick={() => setStep(3)}>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      if (user && selectedInterests.length > 0) {
+                        saveOnboardingDraftFields(user.uid, {
+                          interests: selectedInterests,
+                        }).catch(console.warn);
+                        updateLocalProfile({
+                          interests: selectedInterests,
+                        });
+                      }
+                      setStep(3);
+                    }}
+                  >
                     Continue <ArrowRight className="w-4 h-4 ml-1.5" />
                   </Button>
                 </div>

@@ -100,6 +100,14 @@ export function markWelcomeDoneLocally(uid: string) {
   }
 }
 
+export function clearWelcomeDoneLocally(uid: string) {
+  try {
+    localStorage.removeItem(`goboard_welcome_done_${uid}`);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function isWelcomeDoneLocally(uid: string): boolean {
   try {
     return localStorage.getItem(`goboard_welcome_done_${uid}`) === 'true';
@@ -124,22 +132,8 @@ function resolveEffectiveOnboardingCompletedAt(
     return explicit;
   }
 
-  // Treat user as already onboarded/skipped if they dismissed it locally, filled out department & level, or are an existing active user
-  const alreadyActiveOrSkipped =
-    isWelcomeDoneLocally(uid) ||
-    Boolean(data?.department && data?.academicLevel) ||
-    Boolean(
-      data?.isAdmin ||
-      (Number(data?.xp) || 0) >= 25 ||
-      data?.githubProfile?.username ||
-      data?.hasEditedDisplayName
-    );
-
-  if (alreadyActiveOrSkipped) {
-    markWelcomeDoneLocally(uid);
-    return 'completed';
-  }
-
+  // If Firestore explicitly does NOT record onboarding completion, clear any stale local flag
+  clearWelcomeDoneLocally(uid);
   return null;
 }
 
@@ -475,7 +469,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             accentColor: '#1e3a8a',
             githubProfile: null,
             githubUsernameLower: null,
-            onboardingCompletedAt: isWelcomeDoneLocally(firebaseUser.uid) ? 'completed' : null,
+            onboardingCompletedAt: null,
           });
         }
 
