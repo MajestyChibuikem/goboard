@@ -329,9 +329,11 @@ const App: React.FC = () => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             >
-              <div className="w-8 h-8 bg-gouni-dark dark:bg-neutral-850 border border-transparent dark:border-neutral-700/60 rounded-lg flex items-center justify-center">
-                <GraduationCap className="w-4.5 h-4.5 text-white" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="GoBoard"
+                className="w-8 h-8 rounded-lg object-contain shrink-0"
+              />
               <span className="hidden sm:block text-[15px] font-bold tracking-tight text-neutral-900 dark:text-white">
                 GoBoard
               </span>
@@ -572,7 +574,10 @@ const App: React.FC = () => {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-6">
-                <span className="font-bold text-lg text-neutral-900 dark:text-white">Menu</span>
+                <div className="flex items-center gap-2">
+                  <img src="/logo.png" alt="GoBoard" className="w-7 h-7 rounded-lg object-contain" />
+                  <span className="font-bold text-base text-neutral-900 dark:text-white">GoBoard</span>
+                </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg cursor-pointer text-neutral-500 dark:text-neutral-400">
                   <X className="w-5 h-5"/>
                 </button>

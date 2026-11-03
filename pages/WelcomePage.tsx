@@ -357,9 +357,11 @@ export const WelcomePage: React.FC = () => {
       {/* Top Header */}
       <header className="max-w-2xl mx-auto w-full flex items-center justify-between pb-6 border-b border-neutral-200/80 dark:border-neutral-800">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gouni-primary text-white font-black flex items-center justify-center shadow-sm">
-            G
-          </div>
+          <img
+            src="/logo.png"
+            alt="GoBoard"
+            className="w-9 h-9 rounded-xl object-contain shadow-xs"
+          />
           <div>
             <div className="text-sm font-bold tracking-tight">GoBoard Setup</div>
             <div className="text-[11px] text-neutral-500 dark:text-neutral-400">Step {step} of {totalSteps}</div>

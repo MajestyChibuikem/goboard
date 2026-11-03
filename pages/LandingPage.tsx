@@ -115,7 +115,7 @@ const LandingPage: React.FC = () => {
         <nav className="fixed top-0 inset-x-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <img src="/logo-black.webp" alt="GoBoard" className="w-8 h-8 rounded-lg bg-white object-contain p-0.5" />
+              <img src="/logo.png" alt="GoBoard" className="w-8 h-8 rounded-lg object-contain" />
               <span className="text-[15px] font-bold tracking-tight">GoBoard</span>
             </div>
             <button
@@ -409,7 +409,7 @@ const LandingPage: React.FC = () => {
           >
             <div className="flex items-center gap-2 mb-6">
               <div className="w-2 h-2 rounded-full bg-green-400" />
-              <img src="/logo-black.webp" alt="" className="w-4 h-4 invert opacity-50" />
+              <img src="/logo.png" alt="GoBoard" className="w-4 h-4 object-contain opacity-70" />
             </div>
             <p className="text-2xl sm:text-3xl leading-snug mb-10">
               <span className="text-neutral-500 italic">Experience GoBoard right now. </span>
@@ -439,7 +439,7 @@ const LandingPage: React.FC = () => {
       <footer className="bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 px-6 py-8 transition-colors">
         <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img src="/logo-black.webp" alt="GoBoard" className="w-7 h-7 rounded-md object-contain bg-white dark:bg-neutral-800 p-0.5" />
+            <img src="/logo.png" alt="GoBoard" className="w-7 h-7 rounded-md object-contain" />
             <span className="text-sm font-semibold text-neutral-900 dark:text-white">GoBoard</span>
           </div>
           <div className="flex items-center gap-6 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">

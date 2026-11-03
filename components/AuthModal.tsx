@@ -68,6 +68,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         {/* Header */}
         <div className="p-6 pb-2 flex items-start justify-between">
           <div>
+            <img
+              src="/logo.png"
+              alt="GoBoard"
+              className="w-10 h-10 rounded-xl object-contain mb-3"
+            />
             <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
               Welcome to GoBoard
             </h2>
