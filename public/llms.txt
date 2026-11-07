@@ -15,6 +15,6 @@
 - [/profile](https://goboard-psi.vercel.app/profile): View user XP, GoCoins, streak counters, badges, and project submissions.
 
 ## Technology Stack
-- Frontend: React 18, TypeScript, Tailwind CSS v4, Framer Motion, Lucide Icons, Vite
-- Backend & Services: Firebase Authentication, Cloud Firestore, Firebase Storage
+- Frontend: React 19, TypeScript, Tailwind CSS v4, Framer Motion, Lucide Icons, Vite
+- Backend & Services: Firebase Authentication, Cloud Firestore, Firebase Storage, Google Gemini API
 - Deployment: Vercel SPA
