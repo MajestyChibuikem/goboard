@@ -2,13 +2,45 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "headers": [
+    {
+      "source": "/(llms\\.txt|llms-full\\.txt|.*\\.md)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/robots\\.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/__/auth/(.*)",
       "destination": "https://gotechboard-7af85.firebaseapp.com/__/auth/$1"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|.*\\.(?:txt|md|xml|json|ico|png|jpg|webp|svg|css|js)$).*)",
       "destination": "/index.html"
     }
   ]

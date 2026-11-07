@@ -1,0 +1,413 @@
+# GoBoard — Full Knowledge Base and Developer Documentation
+
+> Complete platform documentation, technical architecture, curriculum, gamification rules, and API reference for GoBoard — the verified student engineering showcase and developer network for Godfrey Okoye University (GoUni), Enugu, Nigeria.
+
+URL: https://goboard-psi.vercel.app
+Repository: https://github.com/MajestyChibuikem/goboard
+Primary Stack: React 19, TypeScript, Tailwind CSS v4, Cloud Firestore, Firebase Auth, Google Gemini API, Vercel Serverless
+
+---
+
+# Table of Contents
+
+1. [Welcome and Overview](#chapter-1-welcome-and-overview)
+2. [Account Setup and Student Verification](#chapter-2-account-setup-and-student-verification)
+3. [Submitting and Managing Projects](#chapter-3-submitting-and-managing-projects)
+4. [XP, Ranks and the XP Ledger](#chapter-4-xp-ranks-and-the-xp-ledger)
+5. [Leaderboard and Healthy Competition](#chapter-5-leaderboard-and-healthy-competition)
+6. [Git and GitHub Primer](#chapter-6-git-and-github-primer)
+7. [Terminal Basics](#chapter-7-terminal-basics)
+8. [Genesis Quests and Grader](#chapter-8-genesis-quests-and-grader)
+9. [Open-Source and PR Guide](#chapter-9-open-source-and-pr-guide)
+10. [Commits as Live Updates and Build Journey](#chapter-10-commits-as-live-updates-and-build-journey)
+11. [Campaigns](#chapter-11-campaigns)
+12. [GoCoins and Student Wallet](#chapter-12-gocoins-and-student-wallet)
+13. [Lit Club](#chapter-13-lit-club)
+14. [For Lecturers and Faculty](#chapter-14-for-lecturers-and-faculty)
+15. [Admin Guide](#chapter-15-admin-guide)
+16. [Privacy, Security and Data](#chapter-16-privacy-security-and-data)
+17. [Technical Overview and Architecture](#chapter-17-technical-overview-and-architecture)
+18. [FAQ and Troubleshooting](#chapter-18-faq-and-troubleshooting)
+19. [Glossary and Changelog](#chapter-19-glossary-and-changelog)
+
+---
+
+## Chapter 1: Welcome and Overview
+
+GoBoard is the official student engineering showcase, learning curriculum, and developer network for Godfrey Okoye University. Instead of letting coursework and personal software sit unseen on laptops after grading, GoBoard gives students a permanent, verifiable public portfolio backed by real GitHub repositories.
+
+### Core Pillars
+1. **Public Proof of Work**: Every project links directly to a public GitHub repository, live demo, commit timeline, and contributor list.
+2. **Campus Open Source**: Project authors can mark repositories as *Open to Contributions* and invite classmates to ship frontend, backend, UI/UX, or bug-fix pull requests.
+3. **Quests & Campaigns**: Pass automated Git and Linux terminal quests, earn verified XP, and compete in real university software campaigns.
+
+### Why GoBoard works: healthy competition
+> Students do their best work when they can see what their classmates are building. On GoBoard, projects, XP and ranks are public, so healthy competition and peer motivation push everyone past the minimum. You see someone ship a feature, you want to ship one too. Competition on GoBoard rewards effort that can be verified: real commits, real repositories, real merged pull requests.
+
+### Who is GoBoard for?
+- **Students**: Build a living engineering portfolio from 100 Level to graduation, learn Git and Linux through practical quests, collaborate with peers, and share a verified profile with employers.
+- **Lecturers**: Inspect real commit histories and individual contribution breakdowns for course assignments and final-year projects without manually downloading zip archives.
+- **Faculty & University**: Maintain a public record of student innovation across Godfrey Okoye University and direct student talent toward real campus tools through sponsored campaigns.
+
+---
+
+## Chapter 2: Account Setup and Student Verification
+
+### Step-by-Step Setup
+1. **Sign in**: Click Sign In and authenticate with your university email, Google account, or GitHub account.
+2. **Complete Onboarding (+25 XP)**: Enter your display name, select your department and academic level (e.g. 200 Level), and pick up to 5 technical interests on the welcome screen.
+3. **Connect GitHub (+15 XP)**: Open My Profile and link your GitHub account via OAuth (or username fallback). Connecting GitHub via OAuth raises your GitHub API rate limit from 60 to 5,000 requests per hour.
+4. **Configure Payday & Wallet**: Switch to the Payday & Wallet tab in your profile (`/profile?tab=wallet`) to upload your Godfrey Okoye University Student ID card and save your bank details.
+
+### Student ID Verification & Bank Details
+To protect academic integrity and prevent multi-account farming ("smurfing"), cash payouts at the end of a season require a verified Godfrey Okoye University Student ID card. You do not need ID verification to browse, submit projects, post in the Lit Club, or complete Genesis Quests.
+
+Your payout bank details (Bank Name, 10-digit Account Number, and Account Name) are entered exclusively inside Profile → Payday & Wallet. Never post bank details in project descriptions or comments.
+
+### Verification Statuses
+- **Not Uploaded (`none`)**: Default state for new accounts. Payouts are locked until an ID card is uploaded.
+- **Pending Admin Review (`pending`)**: Student ID photo uploaded and awaiting review in the admin queue.
+- **Verified (`verified`)**: Approved by an admin. Displays a Verified badge and qualifies wallet for Payday transfers.
+- **Rejected (`rejected`)**: Uploaded image was blurry, expired, or invalid. Read the rejection note and upload a clearer photo.
+
+*Privacy Note: Uploaded Student ID images are visible only to the account owner and platform administrators.*
+
+---
+
+## Chapter 3: Submitting and Managing Projects
+
+### Submission Walkthrough
+1. **Click Submit Project**: Use the Submit Project button in the top navigation.
+2. **Import from GitHub**: If GitHub is connected, select any public repository from the dropdown or paste a repo URL. GoBoard automatically extracts the title, README summary, detected languages, topics, and homepage URL.
+3. **Complete Required Details**:
+   - Title (must be unique across GoBoard)
+   - Academic Level (100 Level – 500 Level / Postgraduate)
+   - Category (Web, Mobile, AI, IoT, Game, Data, Blockchain, Cybersecurity, DevOps, AR/VR, FinTech, EdTech)
+   - Description
+   - Comma-separated Tech Stack
+   - Public GitHub Repository URL
+   - Optional: Live Demo URL and Cover Image (up to 5 MB)
+4. **Configure Open-Source Collaboration**: Toggle "Open to Contributions", select needed areas (`Frontend`, `Backend`, `Mobile`, `UI / UX`, `AI / ML`, `Bug Fixes`, `Testing`, `Docs`), and add a contributor note.
+5. **Submit & Earn XP**:
+   - First project submission: +150 XP (+50 XP submission + +100 XP first-project bonus).
+   - Subsequent project submissions: +50 XP.
+6. **Admin Review & Build Journey**: Projects enter the admin review queue (reviewed within 12–24 hours). Approval awards +50 XP. Authors can update project details, sync GitHub metadata, update status (`Idea` -> `Building` -> `Beta` -> `Launched`), and post milestone updates.
+
+### Rejection Criteria
+- Broken, private, or empty repositories.
+- Plagiarized or uncredited forks without original commits.
+- Placeholder or spam titles/descriptions.
+- Inappropriate content or committed API keys/passwords.
+
+### Gemini AI Project Insight
+Every project page includes an on-demand AI Project Insight powered by Google Gemini (`/api/insight`). Clicking "Generate AI Insight" evaluates the project and returns:
+1. **Technical Review**: Architecture and stack choices for the problem domain.
+2. **Potential Impact**: How the project benefits students, faculty, or real users.
+3. **Growth Suggestion**: Actionable next technical step or improvement.
+*Note: AI insights are advisory feedback to help improve the project; they do not alter student XP or lecturer marks.*
+
+---
+
+## Chapter 4: XP, Ranks and the XP Ledger
+
+### Verified XP Table
+| Action / Milestone | Reward | Frequency | Verification Rule |
+| :--- | :--- | :--- | :--- |
+| Complete User Onboarding | +25 XP | One-time | Ledger key `onboarding_{uid}` |
+| Connect GitHub Account | +15 XP | One-time | Ledger key `github_connect_{uid}` |
+| First Project Bonus | +100 XP | One-time | Combined with +50 XP submission (+150 XP total) |
+| Submit Project or Writing | +50 XP | Per submission | Valid repository or Lit Club piece |
+| Project or Writing Approved | +50 XP | Per approval | Admin queue approval |
+| Active GitHub Coding Day | +15 XP | Daily | Public push event within last 7 days |
+| 3-Day Login Streak Bonus | +10 XP | Every 3 days | When `streakDays % 3 === 0` |
+| Genesis Quest 1: Baby Steps | +25 XP | One-time | Automated GitHub test grader |
+| Genesis Quest 2: 0x00. Shell Basics | +50 XP | One-time | Automated GitHub test grader |
+| Campaign Submission Approved | +50 XP | Per campaign | Admin approval of campaign entry |
+| Receive an Upvote | +3 XP | Per voter | Item has 3+ likes; voter account ≥ 7 days old |
+| 10-Vote / 50-Vote Milestones | +25 / +75 XP | One-time per item | Reached 10 or 50 verified upvotes |
+| Leave / Receive a Comment | +3 / +5 XP | Daily cap (25 XP) | On items with 3+ likes |
+
+### Builder Rank Thresholds
+- **Freshman Coder** (🎓): 0 – 99 XP
+- **Rising Dev** (🚀): 100 – 299 XP
+- **Code Ninja** (🥷): 300 – 599 XP
+- **Campus Builder** (🏗️): 600 – 999 XP
+- **Campus Legend** (🌟): 1,000 – 1,999 XP
+- **Hall of Fame** (🏆): 2,000+ XP
+
+### Idempotent & Tamper-Resistant XP Ledger
+Every XP event is recorded with a deterministic idempotency key (such as `quest_quest_1_baby_steps_{uid}` or `approve_{projectId}`) in the `xpLedger` collection and mirrored in the user profile's `xpLedgerIds` array. Firestore security rules enforce `allow update, delete: if false;` on `xpLedger`:
+- No action can ever grant duplicate XP.
+- Network hiccups trigger automatic self-healing reconciliation on next profile load.
+- Non-approval XP is capped at 200 XP/day.
+- Vote XP requires voter accounts at least 7 days old to eliminate bot farming.
+
+---
+
+## Chapter 5: Leaderboard and Healthy Competition
+
+### Live Leaderboard Views
+1. **Top XP Leaderboard**: Ranks students by total verified `xp` (synchronized with `seasonXp`) earned across projects, quests, Lit Club writings, streaks, and community upvotes.
+2. **GitHub Builders (30-Day Activity)**: Ranks students with linked GitHub accounts by active coding days in the last 30 days. Ties are broken first by 30-day commit count, then by total repository stars.
+
+### Public Profile Contents
+Clicking any student on the leaderboard or project card displays:
+- Rank badge and total XP.
+- Academic level and department.
+- Verified Student ID badge (if verified).
+- GitHub 30-day commit count, active coding days, and total stars.
+- Pinned repositories and top language breakdown.
+- Published projects and open-source contributions.
+
+---
+
+## Chapter 6: Git and GitHub Primer
+
+### Key Terms
+- **Repository (Repo)**: A project folder tracked by Git, containing all files and change history.
+- **Commit**: A snapshot of changes with a unique SHA hash, timestamp, and message.
+- **Branch**: An independent line of development (e.g. `feat/dark-mode`).
+- **Remote (`origin`)**: The online copy of your repository hosted on GitHub.
+- **Clone**: Downloading a repository from GitHub onto your computer.
+- **Fork**: Copying someone else's repository on GitHub to your account to contribute.
+- **Push**: Uploading local commits to GitHub.
+- **Pull**: Downloading the latest commits from GitHub to your computer.
+- **Pull Request (PR)**: Requesting the project owner to merge your branch.
+- **Merge**: Combining changes from one branch into another.
+
+### Everyday Commands
+```bash
+# First-time identity setup
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
+
+# Daily loop
+git init                         # start tracking a folder
+git status                       # see what changed
+git add .                        # stage changes
+git commit -m "feat: add login"  # save a snapshot
+git remote add origin <repo-url>
+git push -u origin main          # upload to GitHub
+git pull                         # download latest
+```
+
+### `.gitignore` and Commit Style
+Always create `.gitignore` before committing:
+```text
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+```
+Use clear commit prefixes: `feat:` (new feature), `fix:` (bug fix), `docs:` (documentation), `refactor:` (code restructuring).
+
+---
+
+## Chapter 7: Terminal Basics
+
+### 10 Essential Commands
+- `pwd`: Print working directory path.
+- `ls`: List files and folders (`ls -la` shows hidden files and permissions).
+- `cd`: Change directory (`cd ..` moves up one folder).
+- `mkdir`: Create a directory (`mkdir -p /tmp/gouni_lab`).
+- `touch`: Create an empty file (`touch /tmp/gouni_lab/ready.txt`).
+- `cat`: Print file contents to the terminal screen.
+- `cp`: Copy a file or directory (`cp file.txt backup.txt`).
+- `mv`: Move or rename a file or folder (`mv old.txt new.txt`).
+- `rm`: Permanently delete a file (`rm temp.txt`).
+- `chmod +x`: Grant execution permissions (`chmod +x script`).
+
+### Writing an Executable Bash Script
+Line 1 must be `#!/bin/bash` (shebang), followed by the command on Line 2:
+```bash
+printf "#!/bin/bash\nls -la\n" > 1-listit
+chmod +x 1-listit
+./1-listit
+```
+
+---
+
+## Chapter 8: Genesis Quests and Grader
+
+Genesis Quests are hands-on coding challenges graded automatically by inspecting your public GitHub repository (`GoQuests`) via `/api/quest-check`.
+
+### Quest 01: Baby Steps (+25 XP)
+- **Objective**: Initialize your GitHub journey with your first public repository.
+- **Requirements**:
+  1. Create a public, non-forked repository named exactly `GoQuests`.
+  2. Create a root `README.md` file (at least 15 characters).
+  3. Include the phrase "Baby Steps" (case-insensitive) explaining your goals.
+- **Testing**: Push to GitHub and click "Run Checker" in the Quests HUD.
+
+### Quest 02: 0x00. Shell Basics (+50 XP)
+- **Prerequisite**: Complete Quest 01.
+- **Objective**: Master UNIX shell navigation and file creation commands.
+- **Requirements**:
+  Create directory `0x00-shell_basics/` inside `GoQuests` containing:
+  1. `0x00-shell_basics/README.md`: At least 10 characters describing the scripts.
+  2. `0x00-shell_basics/0-current_working_directory`: 2-line Bash script printing the absolute current working directory (`pwd`).
+  3. `0x00-shell_basics/1-listit`: 2-line Bash script listing all files in long format including hidden files (`ls -la`).
+  4. `0x00-shell_basics/2-gouni_lab`: 2-line Bash script creating `/tmp/gouni_lab` and file `/tmp/gouni_lab/ready.txt` on a chained line (`mkdir -p /tmp/gouni_lab && touch /tmp/gouni_lab/ready.txt`).
+  5. All scripts must begin with `#!/bin/bash` on Line 1 and have execute permissions (`chmod +x`).
+
+### Troubleshooting Failed Checks
+- Repo is private or forked: Must be public and non-forked.
+- Repo name typo: Must be `GoQuests` exactly.
+- Missing shebang: Must be `#!/bin/bash` on Line 1.
+- Windows CRLF / extra extensions: Do not add `.sh` or `.txt` to script filenames.
+- Unpushed commits: Run `git push origin main` before checking.
+
+---
+
+## Chapter 9: Open-Source and PR Guide
+
+### How to Contribute to Campus Projects
+1. **Find Open Projects**: Filter the feed with the "Open to PRs" pill.
+2. **Fork & Clone**: Fork the project on GitHub, then clone it locally.
+3. **Branch Out**: Create a topic branch: `git checkout -b feat/navbar-darkmode`.
+4. **Implement & Test**: Write clean code and test before staging.
+5. **Open Pull Request**: Push to your fork and submit a PR to the author's repository.
+6. **Recognition**: Once merged, GoBoard links your profile under the project's Contributor list and credits +50 XP.
+
+---
+
+## Chapter 10: Commits as Live Updates and Build Journey
+
+GoBoard automatically indexes recent git commits from your connected public repository and renders them on your project's Build Journey timeline.
+
+### Timeline Filters
+- **All Activity**: Interleaves curated author milestones and raw git commits chronologically.
+- **Milestones**: Highlights release notes, architecture decisions, and screenshots posted by the author.
+- **Git Commits**: Live feed of up to 20 recent commits with short SHAs, author avatars, messages, and direct links to GitHub.
+
+---
+
+## Chapter 11: Campaigns
+
+Campaigns are time-boxed campus challenges focusing student engineering and UI/UX talent on real university needs.
+
+### Season 01: GoUni Prayer Book Redesign Campaign
+- **Unlocks at**: 100 XP (Rising Dev rank).
+- **Target App**: The official Godfrey Okoye University Prayer Book mobile application.
+- **Team Formats**: Solo Designer or Duo Team (pairing with 1 student via GitHub handle or display name).
+- **Submission Requirements**:
+  1. Public GitHub repository.
+  2. Root `README.md` with a written UX pitch of at least 80 words.
+  3. Public Figma prototype link or accessible Google Drive link.
+  4. All screenshots/assets stay on GitHub/Figma/Drive to maintain platform speed.
+- **Judging Rubric (100 Points Total)**:
+  - UX Problem Solving & Navigation: 35 points
+  - Visual Craft, Typography & Accessibility: 25 points
+  - Figma Prototype & README Pitch Clarity: 20 points
+  - Verified Student Community Votes: 20 points
+- **Reward**: +50 XP on approval, winner badges, and cash bounties on Payday.
+
+---
+
+## Chapter 12: GoCoins and Student Wallet
+
+GoCoins (GC) are GoBoard's seasonal reward balance stored on student profiles (`goCoins` and `totalGoCoinsEarned`) and managed in Profile → Payday & Wallet (`/profile?tab=wallet`).
+
+### Payday Process
+1. Earn GoCoins through campaigns, approved projects, and faculty bounties.
+2. Upload GoUni Student ID card in the Wallet tab to verify student identity.
+3. Enter bank details: Nigerian Bank Name, 10-digit NUBAN Account Number, and Account Name.
+4. At season end, verified balances are converted to direct Nigerian Naira (NGN) bank transfers.
+
+---
+
+## Chapter 13: Lit Club
+
+The Literature Club (`/lit-club`) is GoBoard's creative and technical writing community open to students from all faculties.
+
+### Genres
+- **Short Stories (`short-story`)**: Fiction, campus narratives, speculative prose.
+- **Poems (`poem`)**: Poetry, spoken-word verses.
+- **Essays (`essay`)**: Technical post-mortems, software philosophy, academic reflections.
+
+### Rewards
+- Submitting a piece: +50 XP.
+- Approved by admin: +50 XP.
+- Receiving upvotes: +3 XP per vote (once 3+ likes are reached).
+
+---
+
+## Chapter 14: For Lecturers and Faculty
+
+### Recommendations for Course Assessment
+1. **Require GoBoard Project URLs**: Lecturers can ask students to submit their GoBoard project URL (`goboard-psi.vercel.app/project/<slug>`) on final-year and coursework cover pages.
+2. **Verify Individual Effort in Group Projects**: Inspect the Build Journey timeline under "Git Commits" to check commit timestamps, frequency, and author attribution across team members.
+3. **Sponsor Campaigns**: Faculty can propose real university utility briefs for students to build through competitive campaigns.
+
+---
+
+## Chapter 15: Admin Guide
+
+Admins (`isAdmin: true`) have access to `/admin` with dedicated management tabs:
+1. **Prayer Book Campaign (`design-campaign`)**: Review submitted repositories, 80-word README pitches, and Figma links. Approve (+50 XP), reject with feedback, or mark winners.
+2. **Student ID Verification (`id-verification`)**: Inspect ID photos in the lightbox inspector, match matriculation details, and verify or reject.
+3. **Payday & Economy (`payday`)**: Manage season conversion rates, export CSV payout sheets, and record bank transfers.
+4. **Project Queue (`projects`)**: Approve or reject pending student software submissions.
+5. **Literature Queue (`literature`)**: Review creative writing for the Lit Club.
+6. **XP History & Audit (`xp-history`)**: Inspect live audit events and trigger one-click user XP reconciliation.
+
+---
+
+## Chapter 16: Privacy, Security and Data
+
+### Data Visibility Matrix
+- **Public**: Display name, department, academic level, bio, total XP, rank, public GitHub username, project portfolios, Lit Club submissions.
+- **Private (Owner & Admins Only)**: Student ID card image (`studentIdCardUrl`), bank account details, notification logs.
+
+### Security Rules
+- Client edits to `isAdmin`, `goCoins`, `joinedAt`, and `verificationStatus: 'verified'` are blocked by Firestore security rules (`firestore.rules`).
+- XP ledger updates/deletions are strictly forbidden (`allow update, delete: if false;`).
+
+---
+
+## Chapter 17: Technical Overview and Architecture
+
+### Stack Summary
+- **Frontend**: React 19, TypeScript, Vite 6, Tailwind CSS v4, Framer Motion, Lucide Icons.
+- **Auth**: Firebase Authentication (Google OAuth, GitHub OAuth, Email/Password).
+- **Database**: Cloud Firestore with atomic transactions and declarative security rules.
+- **Serverless API**: Vercel Serverless Functions (`/api/xp-event`, `/api/quest-check`, `/api/insight`, `/api/docs`).
+- **AI**: Google Gemini API (`@google/genai`).
+
+### Local Development Setup
+```bash
+git clone https://github.com/MajestyChibuikem/goboard.git
+cd goboard
+npm install
+npm run dev
+npm run build
+```
+
+---
+
+## Chapter 18: FAQ and Troubleshooting
+
+- **Why hasn't my XP updated immediately?** XP is written to an idempotent ledger. Refreshing your profile automatically reconciles missing XP.
+- **Why do I see a GitHub rate limit warning?** Unauthenticated requests share a 60/hr IP quota. Connecting GitHub via OAuth raises your limit to 5,000/hr.
+- **Can I submit a private repository?** No. GoBoard requires public repositories for verifiable proof of work and automated grading.
+- **Why was my ID rejected?** IDs are rejected if blurry, expired, or not an official GoUni card. Check the rejection reason in your Wallet tab.
+- **How do I change bank details?** Update them anytime in Profile → Payday & Wallet (`/profile?tab=wallet`).
+
+---
+
+## Chapter 19: Glossary and Changelog
+
+### Glossary
+- **XP**: Experience Points measuring verified development effort.
+- **Rank**: Builder tier derived deterministically from total XP.
+- **XP Ledger**: Idempotent audit collection preventing duplicate points.
+- **Genesis Quest**: Practical Git/Linux challenge graded automatically on GitHub.
+- **Build Journey**: Project timeline interleaving milestone updates and Git commits.
+- **GoCoins (GC)**: Seasonal currency converted to Naira bank transfers on Payday.
+
+### Recent Releases
+- **v2.4 (November 2026)**: Added 19-chapter documentation, LLM/Agent knowledge endpoints (`llms.txt`, `llms-full.txt`, `/api/docs`), and pre-launch security hardening.
+- **v2.2 (October 2026)**: Launched Genesis Quests 01 & 02, automated GitHub Quest Checker, and Prayer Book Redesign Campaign.
+- **v2.0 (October 2026)**: Added GitHub repository import, live commit Build Journeys, and Lit Club.

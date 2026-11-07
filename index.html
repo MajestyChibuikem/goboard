@@ -10,6 +10,42 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Machine-Readable Documentation for LLMs, AI Agents & Crawlers -->
+    <link rel="alternate" type="text/markdown" href="/llms.txt" title="GoBoard LLM Documentation Index" />
+    <link rel="alternate" type="text/markdown" href="/llms-full.txt" title="Full GoBoard Knowledge Base (Markdown)" />
+    <link rel="alternate" type="application/json" href="/api/docs" title="GoBoard Machine-Readable API" />
+
+    <!-- Structured JSON-LD Metadata for AI Agents & Search Engines -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "GoBoard",
+        "url": "https://goboard-psi.vercel.app",
+        "description": "Verified student software showcase, learning curriculum, and developer network for Godfrey Okoye University.",
+        "applicationCategory": "DeveloperApplication, EducationalApplication",
+        "operatingSystem": "All",
+        "creator": {
+          "@type": "EducationalOrganization",
+          "name": "Godfrey Okoye University - Faculty of Computing",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Enugu",
+            "addressCountry": "Nigeria"
+          }
+        },
+        "documentation": "https://goboard-psi.vercel.app/docs",
+        "potentialAction": {
+          "@type": "ReadAction",
+          "target": [
+            "https://goboard-psi.vercel.app/llms.txt",
+            "https://goboard-psi.vercel.app/llms-full.txt",
+            "https://goboard-psi.vercel.app/api/docs"
+          ]
+        }
+      }
+    </script>
     <script>
       (function() {
         try {

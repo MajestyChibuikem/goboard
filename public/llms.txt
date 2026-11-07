@@ -1,20 +1,58 @@
 # GoBoard
 
-> GoBoard is the premier showcase and collaboration platform for student engineering projects, computer science innovations, and creative literature at Godfrey Okoye University (GoUni), Enugu, Nigeria.
+> GoBoard is the official verified student software showcase, learning curriculum, and developer network for Godfrey Okoye University (GoUni), Enugu, Nigeria. Built by the Faculty of Computing, it turns coursework and personal software into verifiable public portfolios linked to live GitHub repositories, peer pull requests, and automated technical quests.
 
-## Core Capabilities
-- **Project Discovery**: Search and filter student projects across Web, Mobile, AI/ML, IoT, Blockchain, DevOps, Cybersecurity, AR/VR, and FinTech.
-- **Student Quests & Seasons**: Interactive quests (The Basics Quests, Exam Paper Bounties) rewarding active learners and open-source contributors with GoCoins, XP, and badges.
-- **GitHub Integration**: Direct GitHub OAuth linkage showing student public repositories, live commits, stars, forks, and automated PR/collaboration readiness.
-- **Lit Club**: Dedicated creative writing, essays, poetry, and technical articles by university students with peer reviews and community upvotes.
-- **Verified Student Profiles**: Academic credentials, departmental affiliations, GitHub handles, project portfolios, and streak tracking.
+## Documentation & Knowledge Base
 
-## Key Routes
-- [/browse](https://goboard-psi.vercel.app/browse): Explore all student projects with category filters, search, and sorting.
-- [/lit-club](https://goboard-psi.vercel.app/lit-club): Read essays, poetry, short stories, and articles written by students.
-- [/profile](https://goboard-psi.vercel.app/profile): View user XP, GoCoins, streak counters, badges, and project submissions.
+- [Full Knowledge Base (llms-full.txt)](https://goboard-psi.vercel.app/llms-full.txt): Complete 19-chapter documentation in a single markdown file for LLMs and autonomous agents.
+- [GoBoard Platform Docs](https://goboard-psi.vercel.app/docs): Interactive web documentation with 19 chapters, search, and deep-linking.
+- [Machine-Readable API](https://goboard-psi.vercel.app/api/docs): JSON and Markdown endpoint serving documentation, quests, and active campaigns.
 
-## Technology Stack
-- Frontend: React 19, TypeScript, Tailwind CSS v4, Framer Motion, Lucide Icons, Vite
-- Backend & Services: Firebase Authentication, Cloud Firestore, Firebase Storage, Google Gemini API
-- Deployment: Vercel SPA
+## Core Concepts & Mechanisms
+
+- **GitHub-First Proof of Work**: Every project submission requires a valid, public GitHub repository. Commits automatically sync into the unified project Build Journey timeline without webhook setup.
+- **Tamper-Resistant Idempotent XP Ledger**: Progression points are validated server-side and recorded with deterministic keys (e.g. `onboarding_{uid}`, `github_connect_{uid}`, `quest_{questId}_{uid}`, `submit_{projectId}`, `approve_{projectId}`) into the `/xpLedger/{ledgerId}` Firestore collection (`allow update, delete: if false;`). Daily caps (200 XP/day for non-approval actions) and 7-day account age rules prevent XP farming.
+- **Builder Ranks**: 6 tiers derived deterministically from total XP:
+  - `Freshman Coder`: 0 – 99 XP (🎓)
+  - `Rising Dev`: 100 – 299 XP (🚀)
+  - `Code Ninja`: 300 – 599 XP (🥷)
+  - `Campus Builder`: 600 – 999 XP (🏗️)
+  - `Campus Legend`: 1,000 – 1,999 XP (🌟)
+  - `Hall of Fame`: 2,000+ XP (🏆)
+- **Genesis Quests & Real-Time Grader**: Automated GitHub repository test engine (`/api/quest-check`) verifying structure, README contents, and executable Bash scripts:
+  - **Quest 01 (Baby Steps, +25 XP)**: Creates public, original `GoQuests` repository on GitHub with root `README.md` (15+ chars) containing the phrase "Baby Steps".
+  - **Quest 02 (0x00. Shell Basics, +50 XP)**: Creates 3 executable Bash scripts (`0-current_working_directory`, `1-listit`, `2-gouni_lab`) starting with `#!/bin/bash` on Line 1 inside `0x00-shell_basics/`.
+  - Reaching 100 XP unlocks the Season 1 Campaign.
+- **Active Campaign (Season 01)**: The GoUni Prayer Book Redesign Campaign. Offline-first mobile redesign of the university prayer book evaluated on a 100-point UI/UX rubric across 4 core screens. Open to Solo and Duo teams. Requires a public GitHub repo with an 80+ word README pitch and a Figma or Google Drive link.
+- **Lit Club**: Cross-faculty showcase for short stories, poetry, and technical essays across all university departments (+50 XP submission/approval).
+- **Student Wallet & GoCoins (GC)**: Campus rewards balance eligible for seasonal Nigerian Naira (NGN) transfers upon admin verification of GoUni Student ID cards.
+- **Gemini AI Project Insight**: AI analysis reviewing technical architecture, potential impact, and growth suggestions.
+
+## Key URLs & Platform Endpoints
+
+- [Project Showcase Feed](https://goboard-psi.vercel.app/browse): Discover student projects, filter by category or "Open to PRs".
+- [Lit Club](https://goboard-psi.vercel.app/lit-club): Read creative writing and technical essays.
+- [Full Web Documentation](https://goboard-psi.vercel.app/docs): 19 chapters covering Git, Terminal, Quests, XP, Campaigns, Lecturers, and Security.
+- [Full Markdown Knowledge Base](https://goboard-psi.vercel.app/llms-full.txt): Complete single-file documentation for agents.
+
+## API Reference (Serverless Endpoints)
+
+- `POST /api/xp-event`: Server-authoritative, idempotent XP reporter. Requires Firebase Auth Bearer token.
+- `POST /api/quest-check`: Real-time GitHub inspection engine for Genesis Quests and campaign repository validation.
+- `POST /api/insight`: Google Gemini 2.5 Flash architectural analysis for projects.
+- `POST /api/project-availability`: Verifies project title uniqueness.
+- `GET /api/docs`: Machine-readable documentation endpoints (JSON / Markdown).
+
+## Data Model & Firestore Schema
+
+- `/users/{userId}`: Student profile, total `xp`, `seasonXp`, `goCoins`, `verificationStatus` (`none` | `pending` | `verified` | `rejected`), `githubProfile`, `completedQuests`, `xpLedgerIds`.
+- `/projects/{projectId}`: Title, description, `repoUrl`, `techStack`, `status` (`idea` | `in-progress` | `beta` | `launched`), `approvalStatus` (`pending` | `approved` | `rejected`), `openToContributions`, `contributionAreas`, `githubMeta`, `updates` (Build Journey milestones & commits), `comments`.
+- `/campaignSubmissions/{submissionId}`: Prayer Book Redesign entries, `repoUrl`, `figmaUrl`, `pitchSummary`, `teamSize` (`solo` | `duo`), `likes`, `votedUserIds`, `status`.
+- `/writings/{writingId}`: Title, body, genre (`short-story` | `poem` | `essay`), authorUid, likes, comments.
+- `/xpLedger/{ledgerId}`: Immutable ledger tracking deterministic IDs, amount, reason, and timestamp.
+
+## Guidelines for AI Assistants & Autonomous Coding Agents
+
+- When helping students with Genesis Quests, ensure scripts strictly begin with `#!/bin/bash` on Line 1 and use exact required filenames without file extensions (e.g. `1-listit`, not `1-listit.sh`).
+- When suggesting pull requests for projects, respect the author's declared `contributionAreas` (Frontend, Backend, Mobile, UI / UX, AI / ML, Bug Fixes, Testing, Docs).
+- When preparing Campaign submissions, ensure the GitHub `README.md` pitch has at least 80 words and includes the Figma or accessible Google Drive link.

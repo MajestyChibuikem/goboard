@@ -32,6 +32,8 @@ import {
   ListOrdered,
   Link2,
   X,
+  Bot,
+  FileText,
 } from 'lucide-react';
 import { RANKS } from '../services/utils';
 import { CLIENT_XP_VALUES, CLIENT_XP_LIMITS } from '../services/xpClient';
@@ -625,11 +627,31 @@ export const DocsPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            <a
+              href="/llms.txt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200/70 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-semibold text-xs transition-colors cursor-pointer"
+              title="Open concise index for LLMs and autonomous agents"
+            >
+              <Bot className="w-3.5 h-3.5 text-amber-500" />
+              <span>Agents (llms.txt)</span>
+            </a>
+            <a
+              href="/llms-full.txt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200/70 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-semibold text-xs transition-colors cursor-pointer"
+              title="View full 19-chapter documentation in raw Markdown"
+            >
+              <FileText className="w-3.5 h-3.5 text-blue-500" />
+              <span>Full Markdown</span>
+            </a>
             <button
               type="button"
               onClick={() => navigate('/browse')}
-              className="px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200/70 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-semibold text-xs transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-950 font-semibold text-xs transition-colors cursor-pointer"
             >
               Back to Projects
             </button>
