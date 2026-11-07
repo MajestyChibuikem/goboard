@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { RANK_EMOJIS, formatDate, formatTimeAgo } from '../services/utils';
+import { RANKS, RANK_EMOJIS, formatDate, formatTimeAgo } from '../services/utils';
 import {
   getUserProjects,
   getUserContributedProjects,
@@ -64,14 +64,11 @@ interface UserProfileProps {
   onProjectClick: (project: Project) => void;
 }
 
-const RANK_PROGRESS = [
-  { rank: 'Freshman Coder', min: 0, max: 99 },
-  { rank: 'Rising Dev', min: 100, max: 299 },
-  { rank: 'Code Ninja', min: 300, max: 599 },
-  { rank: 'Campus Builder', min: 600, max: 999 },
-  { rank: 'Campus Legend', min: 1000, max: 1999 },
-  { rank: 'Hall of Fame', min: 2000, max: Infinity },
-];
+const RANK_PROGRESS = RANKS.map((r) => ({
+  rank: r.rank,
+  min: r.min,
+  max: r.max ?? Infinity,
+}));
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onBack, onProjectClick }) => {
   const {

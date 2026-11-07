@@ -65,23 +65,27 @@ export const getProjectBadges = (project: Project): Badge[] => {
   return badges;
 };
 
-const RANK_THRESHOLDS = [
-  { min: 2000, rank: 'Hall of Fame' },
-  { min: 1000, rank: 'Campus Legend' },
-  { min: 600, rank: 'Campus Builder' },
-  { min: 300, rank: 'Code Ninja' },
-  { min: 100, rank: 'Rising Dev' },
-  { min: 0, rank: 'Freshman Coder' },
+export interface RankDefinition {
+  rank: string;
+  min: number;
+  max: number | null;
+  emoji: string;
+}
+
+export const RANKS: RankDefinition[] = [
+  { rank: 'Freshman Coder', min: 0, max: 99, emoji: '🎓' },
+  { rank: 'Rising Dev', min: 100, max: 299, emoji: '🚀' },
+  { rank: 'Code Ninja', min: 300, max: 599, emoji: '🥷' },
+  { rank: 'Campus Builder', min: 600, max: 999, emoji: '🏗️' },
+  { rank: 'Campus Legend', min: 1000, max: 1999, emoji: '🌟' },
+  { rank: 'Hall of Fame', min: 2000, max: null, emoji: '🏆' },
 ];
 
-export const RANK_EMOJIS: Record<string, string> = {
-  'Freshman Coder': '🎓',
-  'Rising Dev': '🚀',
-  'Code Ninja': '🥷',
-  'Campus Builder': '🏗️',
-  'Campus Legend': '🌟',
-  'Hall of Fame': '🏆',
-};
+const RANK_THRESHOLDS = [...RANKS].reverse();
+
+export const RANK_EMOJIS: Record<string, string> = Object.fromEntries(
+  RANKS.map((r) => [r.rank, r.emoji])
+);
 
 export const getRank = (xp: number): string => {
   return RANK_THRESHOLDS.find(t => xp >= t.min)?.rank || 'Freshman Coder';

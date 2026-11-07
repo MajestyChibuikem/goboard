@@ -58,7 +58,7 @@ export interface XpEventResponse {
   fallbackToClient?: boolean;
 }
 
-const CLIENT_XP_VALUES = {
+export const CLIENT_XP_VALUES = {
   SUBMIT_PROJECT: 50,
   FIRST_PROJECT: 100,
   PROJECT_APPROVED: 50,
@@ -74,6 +74,13 @@ const CLIENT_XP_VALUES = {
   QUEST_1_BABY_STEPS: 25,
   QUEST_2_SHELL_BASICS: 50,
   CAMPAIGN_SUBMISSION_APPROVED: 50,
+} as const;
+
+export const CLIENT_XP_LIMITS = {
+  MIN_ACCOUNT_AGE_DAYS: 7,
+  MIN_VOTES_FOR_XP: 3,
+  COMMENT_XP_DAILY_CAP: 25,
+  DAILY_XP_CAP: 200,
 } as const;
 
 function getTodayIsoDate(): string {
